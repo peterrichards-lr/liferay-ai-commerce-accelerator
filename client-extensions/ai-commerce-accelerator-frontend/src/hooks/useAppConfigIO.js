@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import notifyUser from '../utils/notifications';
-import { buildFilename, exportJsonFile } from '../utils/fileHelper';
+import { exportJsonFile } from '../utils/fileHelper';
+import { sessionExportFilename } from '../utils/sessionFilename';
 import {
   RESOLVED_BY_NAME,
   UNRESOLVED,
@@ -47,7 +48,13 @@ export default function useAppConfigIO({
       exportedAt: new Date().toISOString(),
     };
 
-    const filename = buildFilename('ai-commerce-accelerator-config');
+    // Named for the run it configures, like the log export: a configuration
+    // is exported to reproduce a particular run, and `aica` matches every
+    // other export rather than spelling the product out once.
+    const filename = sessionExportFilename(
+      'aica-config',
+      generationConfig?.sessionName
+    );
     exportJsonFile(exportData, filename);
 
     notifyUser('Configuration exported successfully');

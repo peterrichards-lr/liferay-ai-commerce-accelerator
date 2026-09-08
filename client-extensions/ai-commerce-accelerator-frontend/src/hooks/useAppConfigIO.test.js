@@ -7,7 +7,6 @@ import { exportJsonFile } from '../utils/fileHelper';
 vi.mock('../utils/notifications', () => ({ default: vi.fn() }));
 
 vi.mock('../utils/fileHelper', () => ({
-  buildFilename: vi.fn(() => 'config.json'),
   exportJsonFile: vi.fn(),
 }));
 
@@ -92,6 +91,35 @@ describe('exportConfiguration', () => {
       channelId: 201,
       channelName: 'Default Channel',
     });
+  });
+
+  // A configuration is exported to reproduce a particular run, so it is named
+  // after that run — same as the log export — and carries a time rather than a
+  // date, because two exports on one day used to collide (#768).
+  it('names the file after the run it configures', () => {
+    const { result } = renderIO({
+      generationConfig: { productCount: 5, sessionName: 'Solara Moto' },
+    });
+
+    result.current.exportConfiguration();
+
+    const [, filename] = exportJsonFile.mock.calls[0];
+
+    expect(filename).toMatch(
+      /^aica-config-Solara-Moto-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.json$/
+    );
+  });
+
+  it('still carries a time when the run has no name', () => {
+    const { result } = renderIO();
+
+    result.current.exportConfiguration();
+
+    const [, filename] = exportJsonFile.mock.calls[0];
+
+    expect(filename).toMatch(
+      /^aica-config-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.json$/
+    );
   });
 
   it('omits the names when the lists are not loaded', () => {

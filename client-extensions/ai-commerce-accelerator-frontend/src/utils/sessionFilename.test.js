@@ -77,6 +77,29 @@ describe('sessionExportFilename', () => {
     ).toBe(`aica-logs-generate-${STAMP}.json`);
   });
 
+  // The dataset exports interpolated the name straight into the prefix, so a
+  // session named with a slash produced a broken path rather than a filename.
+  it('cannot produce a path separator from a session name', () => {
+    const name = sessionExportFilename('aica-dataset', 'Q1/2026 demo', {
+      date: AT,
+    });
+
+    expect(name).not.toContain('/');
+    expect(name).toBe(`aica-dataset-Q1-2026-demo-${STAMP}.json`);
+  });
+
+  it('handles a session id standing in for a missing name', () => {
+    expect(
+      sessionExportFilename(
+        'aica-dataset',
+        'AICA-SESSION-1788892504141-0-6a1a28c3',
+        {
+          date: AT,
+        }
+      )
+    ).toBe(`aica-dataset-AICA-SESSION-1788892504141-0-6a1a28c3-${STAMP}.json`);
+  });
+
   it('carries the flow type through the prefix', () => {
     expect(
       sessionExportFilename('aica-logs-delete', 'Solara Moto', { date: AT })

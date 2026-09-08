@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import notifyUser from '../utils/notifications';
-import { buildFilename, exportJsonFile } from '../utils/fileHelper';
+import { exportJsonFile } from '../utils/fileHelper';
+import { sessionExportFilename } from '../utils/sessionFilename';
 import { EXPORT_COMMERCE_DATA } from '../utils/microservicePaths';
 
 export default function useDatasetIO({ api, addLog, isGenerating }) {
@@ -23,8 +24,11 @@ export default function useDatasetIO({ api, addLog, isGenerating }) {
           `${EXPORT_COMMERCE_DATA}?sessionId=${session.id}`
         );
 
-        const filename = buildFilename(
-          `aica-dataset-${session.name || session.id}`
+        // The name went into the prefix unsanitised, so a session named with a
+        // slash produced a broken path, and only a date followed it.
+        const filename = sessionExportFilename(
+          'aica-dataset',
+          session.name || session.id
         );
         exportJsonFile(res, filename);
 
