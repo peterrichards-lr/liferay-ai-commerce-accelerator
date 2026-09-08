@@ -122,7 +122,14 @@ async function generateProductData(
     options
   );
   return data.map((p) => {
-    const specs = p.productSpecifications || p.specifications || [];
+    // A run with specifications switched off skips ensure-specifications, so
+    // nothing registers a definition for what the model returned here. Liferay
+    // resolves a product's specifications by key at creation time and would
+    // have nothing to resolve against, so they are dropped rather than sent
+    // dangling. See #647.
+    const specs = options.generateSpecifications
+      ? p.productSpecifications || p.specifications || []
+      : [];
     const normalizedSpecs = specs.map((spec) => {
       // Liferay looks specifications up by the normalized key but stores it
       // verbatim, so emit a key that is already normalized.

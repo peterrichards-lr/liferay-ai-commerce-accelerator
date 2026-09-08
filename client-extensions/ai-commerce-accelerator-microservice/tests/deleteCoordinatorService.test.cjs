@@ -45,6 +45,16 @@ describe('DeleteCoordinatorService', () => {
         deleteAccountsBatch: vi.fn().mockResolvedValue({ success: true }),
         deleteAccountGroupsBatch: vi.fn().mockResolvedValue({ success: true }),
         deleteProductsBatch: vi.fn().mockResolvedValue({ success: true }),
+        deleteOptionsBatch: vi
+          .fn()
+          .mockResolvedValue({ success: true, count: 2 }),
+        deleteOptionCategoriesBatch: vi
+          .fn()
+          .mockResolvedValue({ success: true, count: 1 }),
+        deletePromotionsBatch: vi
+          .fn()
+          .mockResolvedValue({ success: true, count: 2 }),
+        patchPriceList: vi.fn().mockResolvedValue({}),
       },
       progress: {
         sessionStarted: vi.fn(),
@@ -217,6 +227,222 @@ describe('DeleteCoordinatorService', () => {
         expect(ids).toEqual(expect.arrayContaining([5001, 5002]));
         expect(ids).not.toEqual(expect.arrayContaining([44504]));
       }
+    });
+  });
+
+  describe('an empty manifest entry is not proof of absence (#657)', () => {
+    const seedSession = async (sessionId, step, { manifest, isTotal }) => {
+      await persistence.createSession({
+        sessionId,
+        flowType: 'delete',
+        status: 'STARTED',
+        currentSteps: [step],
+        context: {
+          config: {},
+          options: {},
+          catalogId: 77,
+          steps: [{ name: step }],
+          isTotal,
+          manifest,
+        },
+      });
+    };
+
+    const statusFor = async (sessionId, step) => {
+      const batches = await persistence.getBatchesForSession(sessionId);
+      const stepBatches = batches.filter((b) => b.step_key === step);
+      return stepBatches.map((b) => b.status);
+    };
+
+    it('deletes options discovery finds when the manifest recorded none', async () => {
+      mockCtx.liferay.getOptions.mockResolvedValue({
+        items: [
+          { id: 1, externalReferenceCode: 'AICA-OPT-COLOUR' },
+          { id: 2, externalReferenceCode: 'COLOUR-BY-HAND' },
+        ],
+        totalCount: 2,
+      });
+
+      await seedSession('sess-opt-discovery', 'delete-options', {
+        manifest: { options: [] },
+        isTotal: true,
+      });
+
+      await coordinator._runGenericDeletionStep(
+        'deleteOptions',
+        'sess-opt-discovery'
+      );
+
+      expect(mockCtx.liferay.deleteOptionsBatch).toHaveBeenCalled();
+      const [, args] = mockCtx.liferay.deleteOptionsBatch.mock.calls[0];
+      expect(args.items.map((i) => i.id)).toEqual([1, 2]);
+      expect(
+        await statusFor('sess-opt-discovery', 'delete-options')
+      ).not.toContain('BYPASSED');
+    });
+
+    it('still bypasses when Liferay genuinely holds nothing', async () => {
+      await seedSession('sess-opt-empty', 'delete-options', {
+        manifest: { options: [] },
+        isTotal: true,
+      });
+
+      await coordinator._runGenericDeletionStep(
+        'deleteOptions',
+        'sess-opt-empty'
+      );
+
+      expect(mockCtx.liferay.deleteOptionsBatch).not.toHaveBeenCalled();
+      expect(await statusFor('sess-opt-empty', 'delete-options')).toContain(
+        'BYPASSED'
+      );
+    });
+
+    it('leaves the catalog base promotion out of the discovered targets', async () => {
+      mockCtx.liferay.getPromotions.mockResolvedValue({
+        items: [
+          { id: 10, externalReferenceCode: 'PROMO-CROSS-SELL' },
+          { id: 11, externalReferenceCode: 'PROMO-BUNDLE' },
+          {
+            id: 12,
+            externalReferenceCode: 'CATALOG-BASE',
+            catalogBasePriceList: true,
+          },
+        ],
+        totalCount: 3,
+      });
+
+      await seedSession('sess-promo-discovery', 'delete-promotions', {
+        manifest: { promotions: [] },
+        isTotal: true,
+      });
+
+      await coordinator._runGenericDeletionStep(
+        'deletePromotions',
+        'sess-promo-discovery'
+      );
+
+      const [, args] = mockCtx.liferay.deletePromotionsBatch.mock.calls[0];
+      expect(args.items.map((i) => i.id)).toEqual([10, 11]);
+    });
+
+    it('restricts discovery to AICA data when the run is scoped', async () => {
+      mockCtx.liferay.getOptions.mockResolvedValue({
+        items: [
+          { id: 1, externalReferenceCode: 'AICA-OPT-COLOUR' },
+          { id: 2, externalReferenceCode: 'COLOUR-BY-HAND' },
+        ],
+        totalCount: 2,
+      });
+
+      await seedSession('sess-opt-scoped', 'delete-options', {
+        manifest: { options: [] },
+        isTotal: false,
+      });
+
+      await coordinator._runGenericDeletionStep(
+        'deleteOptions',
+        'sess-opt-scoped'
+      );
+
+      const [, args] = mockCtx.liferay.deleteOptionsBatch.mock.calls[0];
+      expect(args.items.map((i) => i.id)).toEqual([1]);
+    });
+
+    it('fails the step rather than bypassing when discovery cannot run', async () => {
+      mockCtx.liferay.getOptionCategories.mockRejectedValue(
+        new Error('503 Service Unavailable')
+      );
+
+      await seedSession('sess-cat-error', 'delete-option-categories', {
+        manifest: { optionCategories: [] },
+        isTotal: true,
+      });
+
+      await coordinator._runGenericDeletionStep(
+        'deleteOptionCategories',
+        'sess-cat-error'
+      );
+
+      const statuses = await statusFor(
+        'sess-cat-error',
+        'delete-option-categories'
+      );
+      expect(statuses).toContain('FAILED');
+      expect(statuses).not.toContain('BYPASSED');
+      expect(mockCtx.logger.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('a step that deletes nothing does not report success (#657)', () => {
+    const seedSession = async (sessionId, step, manifest) => {
+      await persistence.createSession({
+        sessionId,
+        flowType: 'delete',
+        status: 'STARTED',
+        currentSteps: [step],
+        context: {
+          config: {},
+          options: {},
+          steps: [{ name: step }],
+          isTotal: true,
+          manifest,
+        },
+      });
+    };
+
+    it('marks the step FAILED when the handler removed none of its targets', async () => {
+      mockCtx.liferay.deletePromotionsBatch.mockResolvedValue({
+        success: true,
+        count: 0,
+      });
+
+      await seedSession('sess-promo-zero', 'delete-promotions', {
+        promotions: [{ id: 10, externalReferenceCode: 'AICA-PROMO-1' }],
+      });
+
+      await coordinator._runGenericDeletionStep(
+        'deletePromotions',
+        'sess-promo-zero'
+      );
+
+      const batches = await persistence.getBatchesForSession('sess-promo-zero');
+      const statuses = batches
+        .filter((b) => b.step_key === 'delete-promotions')
+        .map((b) => b.status);
+
+      expect(statuses).toContain('FAILED');
+      expect(statuses).not.toContain('COMPLETED');
+      expect(mockCtx.logger.error).toHaveBeenCalled();
+    });
+
+    it('records what the handler actually removed, not what was targeted', async () => {
+      mockCtx.liferay.deleteOptionsBatch.mockResolvedValue({
+        success: true,
+        count: 1,
+      });
+
+      await seedSession('sess-opt-partial', 'delete-options', {
+        options: [
+          { id: 1, externalReferenceCode: 'AICA-OPT-A' },
+          { id: 2, externalReferenceCode: 'AICA-OPT-B' },
+        ],
+      });
+
+      await coordinator._runGenericDeletionStep(
+        'deleteOptions',
+        'sess-opt-partial'
+      );
+
+      const batches =
+        await persistence.getBatchesForSession('sess-opt-partial');
+      const workBatch = batches.find(
+        (b) => b.step_key === 'delete-options' && b.status === 'COMPLETED'
+      );
+
+      expect(workBatch).toBeDefined();
+      expect(workBatch.processed_count).toBe(1);
+      expect(workBatch.total_count).toBe(2);
     });
   });
 });
