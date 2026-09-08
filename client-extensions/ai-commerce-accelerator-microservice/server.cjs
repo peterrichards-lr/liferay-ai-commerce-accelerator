@@ -501,6 +501,45 @@ const gracefulShutdown = async (signal) => {
     });
   });
 
+  /**
+   * Retention for a startup cycle.
+   *
+   * The log-management configuration is fetched from Liferay and may not be
+   * cached this early in startup, so the cached getter can answer nothing.
+   * That is not a reason to skip the cycle - the previous run still needs
+   * keeping - so fall back to the same default `getLogManagementConfig`
+   * documents. An explicit `enabled: false` is honoured; an unknown one is not
+   * treated as a refusal.
+   */
+  function cycleLogsForThisRun() {
+    try {
+      const logConfig = configService.getLogManagementConfigCached();
+
+      if (logConfig && logConfig.enabled === false) {
+        return;
+      }
+
+      logger.cycleLogs();
+      logger.pruneLogs(logConfig?.retentionCount ?? 10);
+    } catch (error) {
+      // A log that cannot be cycled must not stop the service from starting.
+      logger.error('Could not cycle logs at startup', {
+        error: error.message,
+        operation: 'log-cycle-startup',
+      });
+    }
+  }
+
+  // Before the first line of this run is written, so the archive holds the
+  // previous run cleanly and the new file starts with this one's boot.
+  //
+  // The deploy sequence used to `rm ./logs/app.log`, which is a reasonable
+  // answer to an unbounded file but discards the previous run at exactly the
+  // moment it is most likely still needed - immediately before applying a fix
+  // for whatever that run revealed. cycleLogs and pruneLogs already do this
+  // properly; they were only ever wired to the scheduled timer (#772).
+  cycleLogsForThisRun();
+
   server.listen(PORT, '0.0.0.0', () => {
     logger.success('Server started successfully', {
       operation: 'server-start',
