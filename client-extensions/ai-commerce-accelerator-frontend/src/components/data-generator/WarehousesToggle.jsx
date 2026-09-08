@@ -15,6 +15,10 @@ function WarehousesToggle({ productCount, values, onChange, disabled }) {
         label="Create Warehouses"
         muted={isMuted}
       />
+      <small className="help-text mt-1 mb-3 pl-4 d-block">
+        When disabled, the warehouses already in the instance are used for
+        inventory and linked to this run&apos;s channels instead.
+      </small>
 
       {values.createWarehouses && (
         <ClayForm.Group className="mb-4">
@@ -37,21 +41,6 @@ function WarehousesToggle({ productCount, values, onChange, disabled }) {
           />
         </ClayForm.Group>
       )}
-
-      <div className="d-flex flex-column mb-3">
-        <CheckboxField
-          id="dataGeneration_reuseExistingWarehouses"
-          checked={values.reuseExistingWarehouses}
-          onChange={(v) => onChange('reuseExistingWarehouses', v)}
-          disabled={disabled || !values.createWarehouses}
-          label="Reuse existing warehouses if found"
-          muted={isMuted}
-        />
-        <small className="help-text mt-1 mb-2 pl-4">
-          When enabled, new warehouses are created only if none exist. Otherwise
-          existing ones are reused.
-        </small>
-      </div>
     </CheckboxGroup>
   );
 }
