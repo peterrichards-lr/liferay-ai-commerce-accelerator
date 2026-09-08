@@ -14,7 +14,7 @@ function ClearCommerceDataButton({
     const ok = await confirm({
       title: 'Delete All Commerce Data',
       message:
-        'This will delete ALL commerce data, including orders, accounts, and products across ALL channels and catalogs. This action cannot be undone.',
+        'This will delete ALL commerce data across ALL channels and catalogs: orders, accounts, products, price lists, promotions, specifications, options and option categories. It is not limited to data this app created - anything of those types found in the instance is removed, including entries added by hand. Channels, catalogs, and the base price list and base promotion that Liferay creates with each catalog are kept. This action cannot be undone.',
       confirmText: 'Delete',
       cancelText: 'Cancel',
       destructive: true,
@@ -48,7 +48,7 @@ function ClearChannelCommerceDataButton({
     const ok = await confirm({
       title: 'Delete Selected Commerce Data',
       message:
-        'This will delete orders for the selected channel and products for the selected catalog. This action cannot be undone.',
+        'This will delete the data this app created for the selected channel and catalog: orders, accounts, products, price lists, promotions, specifications and options. Data this app did not create is left in place. This action cannot be undone.',
       confirmText: 'Delete',
       cancelText: 'Cancel',
       destructive: true,
