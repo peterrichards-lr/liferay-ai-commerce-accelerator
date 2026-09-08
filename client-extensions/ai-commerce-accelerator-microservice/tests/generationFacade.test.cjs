@@ -248,9 +248,9 @@ describe('GenerationFacade null-optional repair', () => {
   const fs = require('fs');
   const path = require('path');
   const {
-    dropNullTypeViolations,
     describeOffendingValues,
   } = require('../services/generationFacade.cjs');
+  const { dropNullTypeViolations } = require('../utils/schemaProjection.cjs');
 
   const compile = (name) => {
     const ajv = new Ajv({ allErrors: true, strict: false });

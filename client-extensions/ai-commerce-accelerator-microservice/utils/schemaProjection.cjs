@@ -132,8 +132,8 @@ const PROFILES = {
     nullStyle: 'union',
     // Strict mode rejects a schema whose `properties` are not all listed in
     // `required`; the documented way to keep a field optional is a union with
-    // null, which the model then returns as null and
-    // GenerationFacade.validateAndNormalize drops before revalidating.
+    // null, which the model then returns as null and `dropNullTypeViolations`
+    // below removes before the response is judged.
     requireEveryProperty: true,
   },
 };
@@ -710,11 +710,88 @@ function looksLikeSchemaRejection(error) {
   ].some((marker) => message.includes(marker));
 }
 
+const POINTER_UNESCAPE = [
+  [/~1/g, '/'],
+  [/~0/g, '~'],
+];
+
+function pointerTokens(pointer) {
+  if (!pointer || pointer === '/') return [];
+  return pointer
+    .split('/')
+    .slice(1)
+    .map((token) =>
+      POINTER_UNESCAPE.reduce(
+        (acc, [pattern, replacement]) => acc.replace(pattern, replacement),
+        token
+      )
+    );
+}
+
+function resolvePointerParent(root, pointer) {
+  const tokens = pointerTokens(pointer);
+  if (tokens.length === 0) return null;
+
+  let node = root;
+  for (const token of tokens.slice(0, -1)) {
+    if (node == null || typeof node !== 'object') return null;
+    node = Array.isArray(node) ? node[Number(token)] : node[token];
+  }
+  if (node == null || typeof node !== 'object') return null;
+
+  return { parent: node, key: tokens[tokens.length - 1] };
+}
+
+function valueAtPointer(root, pointer) {
+  const resolved = resolvePointerParent(root, pointer);
+  if (!resolved) return undefined;
+  const { parent, key } = resolved;
+  return Array.isArray(parent) ? parent[Number(key)] : parent[key];
+}
+
+/**
+ * Removes properties that are null where the schema does not allow null,
+ * identified from ajv's own type errors. Returns the pointers dropped.
+ *
+ * The second inverse the wire format needs, beside `optionPairsToMap` and for
+ * the same reason: `requireEveryProperty` keeps an optional property optional
+ * under OpenAI's strict mode by unioning it with null, so `allowNull` above is
+ * what puts the nulls into the response and the code that takes them out again
+ * belongs with it. Both callers that judge a raw response need it, and while it
+ * lived in GenerationFacade only one of them could reach it. See #760.
+ *
+ * Models also emit null for an optional field unprompted, so this is not
+ * confined to the strict-mode providers. Driven by ajv's own errors rather than
+ * by walking the schema, so a value the schema genuinely permits to be null -
+ * promoPrice is the only one - is never touched, because ajv does not flag it.
+ */
+function dropNullTypeViolations(payload, errors) {
+  const dropped = [];
+
+  for (const error of errors || []) {
+    if (error.keyword !== 'type') continue;
+    if (valueAtPointer(payload, error.instancePath) !== null) continue;
+
+    const resolved = resolvePointerParent(payload, error.instancePath);
+    if (!resolved) continue;
+
+    const { parent, key } = resolved;
+    if (Array.isArray(parent)) continue;
+
+    delete parent[key];
+    dropped.push(error.instancePath);
+  }
+
+  return dropped;
+}
+
 module.exports = {
   LOCALE_KEYED_PROPERTIES,
   PAIR_KEYED_PROPERTIES,
+  dropNullTypeViolations,
   expandOpenMapsForPrompt,
   looksLikeSchemaRejection,
   optionPairsToMap,
   projectGenerationSchema,
+  valueAtPointer,
 };
