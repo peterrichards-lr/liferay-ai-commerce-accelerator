@@ -5,6 +5,7 @@ import ConsolePanel, {
   formatEntriesForClipboard,
   levelColor,
 } from './ConsolePanel';
+import { stubScrollMetrics } from '../../testUtils/scrollMetrics';
 
 const entries = [
   { id: 1, level: 'INFO', message: 'Started run', timestamp: '12:00:00' },
@@ -121,5 +122,74 @@ describe('ConsolePanel', () => {
   it('does not render a clear button when no handler is supplied', () => {
     render(<ConsolePanel entries={entries} title="Test Console" />);
     expect(screen.queryByTitle('Clear console')).not.toBeInTheDocument();
+  });
+});
+
+describe('ConsolePanel auto-scroll', () => {
+  const newest = {
+    id: 4,
+    level: 'INFO',
+    message: 'Newest',
+    timestamp: '12:03:00',
+  };
+
+  let scroll;
+
+  beforeEach(() => {
+    scroll = stubScrollMetrics();
+  });
+
+  afterEach(() => scroll.restore());
+
+  it('follows the bottom when entries are appended', () => {
+    const { rerender } = render(
+      <ConsolePanel entries={entries} title="Seeder Console" />
+    );
+
+    rerender(
+      <ConsolePanel entries={[...entries, newest]} title="Seeder Console" />
+    );
+
+    expect(screen.getByText('Newest')).toBeInTheDocument();
+    expect(scroll.lastPosition()).toBe(scroll.scrollHeight);
+  });
+
+  it('follows the top when entries are prepended', () => {
+    const { rerender } = render(
+      <ConsolePanel entries={entries} newestFirst title="Live Console" />
+    );
+
+    rerender(
+      <ConsolePanel
+        entries={[newest, ...entries]}
+        newestFirst
+        title="Live Console"
+      />
+    );
+
+    expect(screen.getByText('Newest')).toBeInTheDocument();
+    expect(scroll.lastPosition()).toBe(0);
+  });
+
+  it('holds position in either ordering once auto-scroll is turned off', () => {
+    for (const ordering of [{}, { newestFirst: true }]) {
+      const { rerender, unmount } = render(
+        <ConsolePanel entries={entries} title="Test Console" {...ordering} />
+      );
+
+      fireEvent.click(screen.getByRole('checkbox'));
+      const scrollsBeforeNewEntry = scroll.positions.length;
+
+      rerender(
+        <ConsolePanel
+          entries={[...entries, newest]}
+          title="Test Console"
+          {...ordering}
+        />
+      );
+
+      expect(scroll.positions.length).toBe(scrollsBeforeNewEntry);
+      unmount();
+    }
   });
 });

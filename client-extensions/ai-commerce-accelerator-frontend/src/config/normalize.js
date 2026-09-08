@@ -26,7 +26,6 @@ export const normalizeGenerationConfig = (config) => {
     'inventoryMin',
     'inventoryMax',
     'inventoryAssignmentRatio',
-    'backorderAssignmentRatio',
     'imageWidth',
     'imageHeight',
     'imageRatio',
