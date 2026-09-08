@@ -701,6 +701,16 @@ describe('schemaProjection', () => {
       ).toBe(false);
     });
 
+    it('requires a status, so a locally thrown error cannot trigger a retry', () => {
+      // GenerationFacade throws "<entity> generation failed schema validation"
+      // with no status. Retrying the provider call for that would be wasted.
+      expect(
+        looksLikeSchemaRejection(
+          new Error('product generation failed schema validation')
+        )
+      ).toBe(false);
+    });
+
     it('does not treat an unrelated bad request as a schema problem', () => {
       expect(
         looksLikeSchemaRejection({

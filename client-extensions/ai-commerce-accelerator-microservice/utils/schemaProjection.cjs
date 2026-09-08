@@ -544,9 +544,16 @@ function expandLocaleMapsForPrompt(source, languages) {
  * still reach the call. This lets it degrade to the prose path instead of
  * ending the run.
  */
+const SCHEMA_REJECTION_STATUSES = new Set([400, 404, 422]);
+
 function looksLikeSchemaRejection(error) {
   const status = error?.status ?? error?.statusCode ?? error?.response?.status;
-  if (status && status !== 400 && status !== 404 && status !== 422) {
+
+  // A status is required, so only the provider's own reply can trigger the
+  // fallback. Without it, a locally thrown error whose wording happens to
+  // mention the schema - "generation failed schema validation" - would cost a
+  // pointless second call.
+  if (!SCHEMA_REJECTION_STATUSES.has(status)) {
     return false;
   }
 
