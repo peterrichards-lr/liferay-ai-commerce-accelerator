@@ -1,6 +1,12 @@
 import { useCallback } from 'react';
 import notifyUser from '../utils/notifications';
 import { buildFilename, exportJsonFile } from '../utils/fileHelper';
+import {
+  RESOLVED_BY_NAME,
+  UNRESOLVED,
+  describeResolution,
+  resolveImportedReference,
+} from '../config/importedReferences';
 
 export default function useAppConfigIO({
   config,
@@ -12,10 +18,19 @@ export default function useAppConfigIO({
   setOpenAiKeyAvailable,
   setAiMediaKeyAvailable,
   availableCategories,
+  catalogs = [],
+  channels = [],
   mountedRef,
   selectChannel,
 }) {
   const exportConfiguration = useCallback(() => {
+    const selectedCatalog = catalogs.find(
+      (catalog) => String(catalog.id) === String(config.catalogId)
+    );
+    const selectedChannel = channels.find(
+      (channel) => String(channel.id) === String(config.channelId)
+    );
+
     const exportData = {
       liferayUrl: config.liferayUrl,
       microserviceUrl: config.microserviceUrl,
@@ -25,7 +40,9 @@ export default function useAppConfigIO({
       localeCode: config.localeCode,
       selectedLanguages: config.selectedLanguages,
       catalogId: config.catalogId,
+      catalogName: selectedCatalog?.name,
       channelId: config.channelId,
+      channelName: selectedChannel?.name,
       generationConfig: generationConfig,
       exportedAt: new Date().toISOString(),
     };
@@ -34,7 +51,7 @@ export default function useAppConfigIO({
     exportJsonFile(exportData, filename);
 
     notifyUser('Configuration exported successfully');
-  }, [config, generationConfig]);
+  }, [config, generationConfig, catalogs, channels]);
 
   const importConfiguration = useCallback(
     (event) => {
@@ -102,14 +119,73 @@ export default function useAppConfigIO({
             }
           });
 
-          if (newConfig.channelId != null) {
-            await selectChannel(newConfig.channelId, {
-              selectedLanguages: newConfig.selectedLanguages,
-              currencyCode: newConfig.currencyCode,
+          const applyImportedReference = ({
+            label,
+            idField,
+            nameField,
+            items,
+          }) => {
+            const id = importedData[idField];
+            const name = importedData[nameField];
+
+            const { item, outcome } = resolveImportedReference({
+              items,
+              id,
+              name,
             });
-          }
+
+            const notice = describeResolution({
+              label,
+              outcome,
+              item,
+              id,
+              name,
+            });
+            if (notice) notifyUser(notice.message, notice.type);
+
+            if (outcome === RESOLVED_BY_NAME) newConfig[idField] = item.id;
+            if (outcome === UNRESOLVED) newConfig[idField] = null;
+
+            return outcome;
+          };
+
+          applyImportedReference({
+            label: 'Catalog',
+            idField: 'catalogId',
+            nameField: 'catalogName',
+            items: catalogs,
+          });
+
+          const channelOutcome = applyImportedReference({
+            label: 'Channel',
+            idField: 'channelId',
+            nameField: 'channelName',
+            items: channels,
+          });
 
           setConfig(newConfig);
+
+          // selectChannel has to run after setConfig, not before it: it derives
+          // siteGroupId, the languages and the currency from the channel, and
+          // newConfig still carries the values the previous channel left behind.
+          // The imported languages and currency are handed over explicitly so
+          // that neither call depends on the other overwriting it.
+          try {
+            if (newConfig.channelId != null) {
+              await selectChannel(newConfig.channelId, {
+                selectedLanguages: newConfig.selectedLanguages,
+                currencyCode: newConfig.currencyCode,
+              });
+            } else if (channelOutcome === UNRESOLVED) {
+              await selectChannel(null);
+            }
+          } catch (channelError) {
+            notifyUser(
+              'The imported configuration was applied, but the channel could not be loaded.',
+              'warning',
+              channelError
+            );
+          }
 
           if (importedData.generationConfig) {
             setGenerationConfig((prevConfig) => {
@@ -205,6 +281,8 @@ export default function useAppConfigIO({
       connectionEstablished,
       setGenerationConfig,
       availableCategories,
+      catalogs,
+      channels,
       mountedRef,
       selectChannel,
       setConnectionEstablished,
