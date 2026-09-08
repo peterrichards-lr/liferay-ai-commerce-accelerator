@@ -25,10 +25,6 @@
             "description": "The localized description of the warehouse.",
             "type": "object"
           },
-          "externalReferenceCode": {
-            "description": "Unique external reference for the warehouse.",
-            "type": "string"
-          },
           "latitude": {
             "description": "The latitude of the warehouse's location.",
             "maximum": 90,
@@ -70,8 +66,7 @@
           "zip",
           "latitude",
           "longitude",
-          "active",
-          "externalReferenceCode"
+          "active"
         ],
         "title": "Warehouse",
         "type": "object"

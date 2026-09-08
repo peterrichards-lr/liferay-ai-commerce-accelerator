@@ -577,7 +577,6 @@ describe('schemaProjection', () => {
             // Optional in the source, so the projection made it a null union
             // and required it. A model complying with that returns null.
             description: null,
-            externalReferenceCode: 'AICA-WH-1',
             latitude: 37.33,
             longitude: -121.89,
             name: { en_US: 'Main', es_ES: 'Principal' },
@@ -589,6 +588,17 @@ describe('schemaProjection', () => {
       };
 
       expect(validAgainst(schema, payload)).toMatchObject({ valid: true });
+
+      // The warehouse step assigns the reference code from the location, so
+      // the schema does not declare it and the closed projection rejects one
+      // from the model. This is what makes warehouse identity ours (#730).
+      expect(
+        validAgainst(schema, {
+          warehouses: [
+            { ...payload.warehouses[0], externalReferenceCode: 'AICA-WH-1' },
+          ],
+        })
+      ).toMatchObject({ valid: false });
 
       // The null is dropped and the payload revalidated, so the run continues.
       const result = facade().validateAndNormalize('warehouse', payload, {
@@ -618,7 +628,6 @@ describe('schemaProjection', () => {
             city: 'San Jose',
             country: 'US',
             description: null,
-            externalReferenceCode: 'AICA-WH-1',
             latitude: 37.33,
             longitude: -121.89,
             name: { city: 'San Jose', zip: '95112' },

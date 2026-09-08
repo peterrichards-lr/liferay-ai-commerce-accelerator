@@ -3,6 +3,7 @@ const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
 const fs = require('fs');
 const path = require('path');
+const { assignWarehouseERCs } = require('../utils/warehouseErc.cjs');
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
@@ -176,9 +177,24 @@ describe('Data Generation Reliability', () => {
       expect(isValid).toBe(true);
 
       warehouses.forEach((w) => {
-        expect(w.externalReferenceCode).toMatch(/^AICA-WH-/);
+        // No reference code here on purpose: the schema no longer declares
+        // one and the warehouse step assigns it from the location after
+        // validation, so identity is ours rather than the model's (#730).
+        expect(w.externalReferenceCode).toBeUndefined();
         expect(w.active).toBe(true);
       });
+
+      const assigned = assignWarehouseERCs(warehouses);
+
+      assigned.forEach((w) => {
+        expect(w.externalReferenceCode).toMatch(/^AICA-WH-/);
+      });
+
+      // Same places, same codes - which is what lets a second run land on the
+      // warehouses the first one made instead of duplicating them.
+      expect(
+        assignWarehouseERCs(warehouses).map((w) => w.externalReferenceCode)
+      ).toEqual(assigned.map((w) => w.externalReferenceCode));
     });
   });
 

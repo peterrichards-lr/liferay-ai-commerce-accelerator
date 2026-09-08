@@ -589,12 +589,12 @@ class MockDataGenerator {
 
     const catalogId = _config.catalogId || 'GLOBAL';
     for (let i = 0; i < count; i++) {
+      // No externalReferenceCode: the schema no longer declares one, because
+      // the warehouse step assigns it from the location after validation. The
+      // guard test requires every property emitted here to be declared, and
+      // since #690 the projected provider schema closes objects, so a field
+      // this schema omits cannot arrive from the model either (#730).
       const warehouse = {
-        externalReferenceCode: buildStableERC(ERC_PREFIX.WAREHOUSE, [
-          `Mock Warehouse ${i + 1}`,
-          catalogId,
-          'LA',
-        ]),
         name: {
           en_US: `Mock Warehouse ${i + 1}`,
         },
