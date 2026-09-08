@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const Anthropic = require('@anthropic-ai/sdk');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
+const { requestOptions } = require('../../utils/aiRequestOptions.cjs');
 const {
   expandOpenMapsForPrompt,
   looksLikeSchemaRejection,
@@ -191,7 +192,24 @@ class AnthropicProvider extends BaseAIProvider {
       };
     }
 
-    const response = await client.messages.create(request);
+    const response = await client.messages.create(
+      request,
+      requestOptions(options)
+    );
+
+    // Without this there is no record of how large a request actually was, so
+    // a short response cannot be told apart from a squeezed one and a run has
+    // no cost trail (#759). max_tokens bounds thinking and answer together, so
+    // the thinking count is the one that explains a thin result.
+    this.ctx?.logger?.info?.('[AnthropicProvider] Token usage', {
+      model,
+      task,
+      maxTokens: request.max_tokens,
+      inputTokens: response.usage?.input_tokens,
+      outputTokens: response.usage?.output_tokens,
+      thinkingTokens: response.usage?.thinking_tokens,
+      stopReason: response.stop_reason,
+    });
 
     if (response.stop_reason === 'max_tokens') {
       throw new Error(

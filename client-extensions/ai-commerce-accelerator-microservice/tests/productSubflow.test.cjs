@@ -329,6 +329,77 @@ describe('Generated product data honours generateSpecifications', () => {
       .productDataList[0];
   };
 
+  // A run that quietly builds a third of the requested catalogue is #759's
+  // real defect, and it survives any amount of retrying. The count was always
+  // recorded honestly; nothing carried it where an operator could see it.
+  const runWithDelivery = async (delivered, productCount) => {
+    const logger = {
+      info: vi.fn(),
+      debug: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+    const persistence = {
+      getSession: vi.fn().mockResolvedValue({
+        session_id: 'sess-1',
+        correlationId: 'corr-1',
+        context: { config: { catalogId: '3' }, options: { productCount } },
+      }),
+      updateSessionContext: vi.fn().mockResolvedValue({}),
+      createBatch: vi.fn().mockResolvedValue({}),
+    };
+
+    const generator = new ProductGenerator({
+      liferay: {},
+      persistence,
+      logger,
+      progress: { batchStarted: vi.fn(), batchCompleted: vi.fn() },
+      generation: {
+        generateData: vi.fn().mockResolvedValue(
+          Array.from({ length: delivered }, (_unused, i) => ({
+            name: { en_US: `Product ${i}` },
+            externalReferenceCode: `AICA-PRD-${i}`,
+          }))
+        ),
+      },
+    });
+    generator.completeSyncStep = vi.fn().mockResolvedValue({});
+
+    await generator.steps[S.GENERATE_PRODUCT_DATA]('sess-1');
+
+    return { generator, logger };
+  };
+
+  it('names the shortfall on the step when the AI delivers fewer', async () => {
+    const { generator, logger } = await runWithDelivery(16, 50);
+
+    expect(generator.completeSyncStep).toHaveBeenCalledWith(
+      'sess-1',
+      S.GENERATE_PRODUCT_DATA,
+      'SYNCHRONOUS',
+      16,
+      50,
+      expect.stringContaining('returned 16 of 50 requested products')
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('fell short'),
+      expect.anything()
+    );
+  });
+
+  it('says nothing extra when the AI delivered what was asked', async () => {
+    const { generator, logger } = await runWithDelivery(50, 50);
+
+    expect(generator.completeSyncStep).toHaveBeenCalledWith(
+      'sess-1',
+      S.GENERATE_PRODUCT_DATA,
+      'SYNCHRONOUS',
+      50,
+      50
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
   it('keeps the generated specifications when the toggle is on', async () => {
     const product = await runDataGeneration({
       productCount: 1,

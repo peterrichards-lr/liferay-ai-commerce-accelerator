@@ -91,13 +91,38 @@ async function runProductDataGenerationStep(sessionId) {
         logger: this.logger,
       }),
     });
-    await this.completeSyncStep(
-      sessionId,
-      S.GENERATE_PRODUCT_DATA,
-      'SYNCHRONOUS',
-      allData.length,
-      options.productCount
-    );
+    // A run that quietly builds a third of the requested catalogue is the
+    // defect behind #759, and it survives any amount of retrying. The count
+    // was already recorded honestly here; what was missing was anything an
+    // operator could see, so the shortfall is named on the step itself.
+    const shortfall = (options.productCount || 0) - allData.length;
+
+    if (shortfall > 0) {
+      const reason = `The AI returned ${allData.length} of ${options.productCount} requested products; the rest of the run covers only what it delivered`;
+
+      this.logger.error(`Product data generation fell short: ${reason}`, {
+        sessionId,
+        delivered: allData.length,
+        requested: options.productCount,
+      });
+
+      await this.completeSyncStep(
+        sessionId,
+        S.GENERATE_PRODUCT_DATA,
+        'SYNCHRONOUS',
+        allData.length,
+        options.productCount,
+        reason
+      );
+    } else {
+      await this.completeSyncStep(
+        sessionId,
+        S.GENERATE_PRODUCT_DATA,
+        'SYNCHRONOUS',
+        allData.length,
+        options.productCount
+      );
+    }
   } catch (error) {
     const errorReferenceCode =
       resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);

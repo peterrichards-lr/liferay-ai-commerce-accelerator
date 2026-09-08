@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const OpenAI = require('openai');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
+const { requestOptions } = require('../../utils/aiRequestOptions.cjs');
 const {
   expandOpenMapsForPrompt,
   looksLikeSchemaRejection,
@@ -246,12 +247,24 @@ class OpenAIProvider extends BaseAIProvider {
       )}`;
     }
 
-    const response = await client.chat.completions.create({
+    const response = await client.chat.completions.create(
+      {
+        model,
+        messages,
+        response_format: responseFormat,
+        temperature: options.temperature || 0.7,
+        max_tokens: options.maxTokens || 16384,
+      },
+      requestOptions(options)
+    );
+
+    this.ctx?.logger?.info?.('[OpenAIProvider] Token usage', {
       model,
-      messages,
-      response_format: responseFormat,
-      temperature: options.temperature || 0.7,
-      max_tokens: options.maxTokens || 16384,
+      task,
+      maxTokens: options.maxTokens || 16384,
+      inputTokens: response.usage?.prompt_tokens,
+      outputTokens: response.usage?.completion_tokens,
+      finishReason: response.choices?.[0]?.finish_reason,
     });
 
     const choice = response.choices?.[0];

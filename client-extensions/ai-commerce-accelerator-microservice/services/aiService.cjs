@@ -15,7 +15,21 @@ const { expandOpenMapsForPrompt } = require('../utils/schemaProjection.cjs');
 
 // Extra generation rounds allowed to close a shortfall. Two is enough for the
 // nine-instead-of-ten case without turning a stubborn model into a cost sink.
+// A top-up asks for at most one chunk, so closing a large gap needs roughly
+// one attempt per missing chunk. Two was sized for "asked for ten, got nine"
+// and could not close a gap of thirty-four however many items each round
+// returned: two attempts add at most two chunks, by construction (#759).
+//
+// Budgeted from the chunk count instead, so the ceiling scales with the run,
+// and capped so a model that keeps returning one item cannot bill for a
+// hundred rounds. A round that adds nothing still breaks out immediately,
+// which is what stops this being expensive in the case that matters.
 const TOPUP_ATTEMPTS = 2;
+const TOPUP_ATTEMPTS_MAX = 10;
+
+function topUpBudget(chunkCount) {
+  return Math.min(TOPUP_ATTEMPTS_MAX, Math.max(TOPUP_ATTEMPTS, chunkCount));
+}
 const { resolveMediaProvider } = require('../utils/providerCapabilities.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
@@ -501,9 +515,11 @@ class AIService {
 
         const seenProducts = new Set(allProducts.map(productKey));
 
+        const topUpAttempts = topUpBudget(chunks.length);
+
         for (
           let attempt = 1;
-          allProducts.length < count && attempt <= TOPUP_ATTEMPTS;
+          allProducts.length < count && attempt <= topUpAttempts;
           attempt++
         ) {
           const shortfall = count - allProducts.length;
@@ -512,7 +528,7 @@ class AIService {
           const ask = Math.min(shortfall, effectiveChunkSize);
 
           logger?.info?.(
-            `[AIService] Topping up ${ask} of ${shortfall} missing product${shortfall === 1 ? '' : 's'} (attempt ${attempt}/${TOPUP_ATTEMPTS})`,
+            `[AIService] Topping up ${ask} of ${shortfall} missing product${shortfall === 1 ? '' : 's'} (attempt ${attempt}/${topUpAttempts})`,
             { requested: count, have: allProducts.length, correlationId }
           );
 
@@ -1351,4 +1367,4 @@ class AIService {
   }
 }
 
-module.exports = { AIService };
+module.exports = { AIService, topUpBudget };
