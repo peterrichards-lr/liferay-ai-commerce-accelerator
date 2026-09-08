@@ -11,7 +11,28 @@ const {
 const { createERC } = require('../utils/misc.cjs');
 const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { apiKeyIssue } = require('../utils/apiKeys.cjs');
-const { expandOpenMapsForPrompt } = require('../utils/schemaProjection.cjs');
+const {
+  dropNullTypeViolations,
+  expandOpenMapsForPrompt,
+} = require('../utils/schemaProjection.cjs');
+
+/**
+ * The schemas whose response nothing downstream validates.
+ *
+ * Every generation entity is handed to GenerationFacade, which converts the
+ * wire format back (`_standardize`), fills in the identifiers and defaults it
+ * owns, and only then runs the generation schema over the result - feeding
+ * ajv's errors back for a retry and failing the step if the second attempt is
+ * no better. Running the same schema here as well judged the response against a
+ * shape it had deliberately not been asked for: `skuVariants[].options` arrives
+ * as name/value pairs, and the ids, ERCs and prices GenerationFacade assigns do
+ * not exist yet. Correct runs logged hundreds of violations, which is how a
+ * genuine one would have gone unread. See #760.
+ *
+ * `pdf` is the exception. MediaGenerator renders that response into a document
+ * itself, so this is the only gate it passes.
+ */
+const RESPONSE_GATED_SCHEMAS = new Set(['pdf']);
 
 // Extra generation rounds allowed to close a shortfall. Two is enough for the
 // nine-instead-of-ten case without turning a stubborn model into a cost sink.
@@ -68,16 +89,25 @@ class AIService {
       }
       const files = await fs.promises.readdir(schemasDir);
       for (const file of files) {
-        if (file.endsWith('.json')) {
-          const schemaName = path.basename(file, '.json');
-          const schemaPath = path.join(schemasDir, file);
-          const content = await fs.promises.readFile(schemaPath, 'utf8');
-          const schema = JSON.parse(content);
-          this.localSchemas[schemaName] = this.ajv.compile(schema);
+        const schemaName = path.basename(file, '.json');
+
+        // The rest are compiled by GenerationFacade, which is where they are
+        // applied; compiling them here as well only invited them to be used
+        // here as well.
+        if (
+          !file.endsWith('.json') ||
+          !RESPONSE_GATED_SCHEMAS.has(schemaName)
+        ) {
+          continue;
         }
+
+        const schemaPath = path.join(schemasDir, file);
+        const content = await fs.promises.readFile(schemaPath, 'utf8');
+        const schema = JSON.parse(content);
+        this.localSchemas[schemaName] = this.ajv.compile(schema);
       }
       this.ctx.logger?.info(
-        '[AIService] SUCCESS: Pre-compiled all validation schemas'
+        '[AIService] SUCCESS: Pre-compiled the gated response schemas'
       );
     } catch (err) {
       this.ctx.logger?.error(
@@ -86,30 +116,49 @@ class AIService {
     }
   }
 
+  /**
+   * @throws {Error} when a gated response cannot be made to satisfy its schema.
+   */
   _validateResponse(data, schemaName) {
-    if (!schemaName) return data;
+    if (!RESPONSE_GATED_SCHEMAS.has(schemaName)) return data;
 
     const validator = this.localSchemas[schemaName];
-    if (validator) {
-      const mainPropertyName = schemaName + 's';
-      const toValidate = Array.isArray(data)
-        ? { [mainPropertyName]: data }
-        : data;
-      const isValid = validator(toValidate);
-      if (!isValid) {
-        this.ctx.logger.error(
-          `AI generated data for ${schemaName} violates internal schema`,
-          {
-            errors: validator.errors,
-          }
-        );
-      }
-    } else {
-      this.ctx.logger?.warn(
+
+    if (!validator) {
+      this.ctx.logger?.warn?.(
         `[AIService] Validation schema "${schemaName}" not found or not pre-compiled`
       );
+      return data;
     }
-    return data;
+
+    if (validator(data)) return data;
+
+    // OpenAI's strict mode has no way to say "optional" other than a union with
+    // null, so `pdf.externalReferenceCode` comes back as null on every call
+    // through that provider. Repaired the same way GenerationFacade repairs it,
+    // then judged - otherwise this gate would reject every PDF it was given.
+    if (
+      dropNullTypeViolations(data, validator.errors).length > 0 &&
+      validator(data)
+    ) {
+      return data;
+    }
+
+    const message = `AI generated data for ${schemaName} does not satisfy its generation schema`;
+
+    this.ctx.logger?.error?.(message, { errors: validator.errors });
+
+    // Thrown rather than logged and passed on. MediaGenerator's renderer
+    // substitutes a placeholder title and one boilerplate section for whatever
+    // is missing, so returning an invalid response attaches a document that
+    // looks like product documentation and contains none of it. The caller
+    // already catches per product, so the item is dropped, counted as a failed
+    // attachment and the rest of the run continues.
+    const error = new Error(message);
+    error.errors = validator.errors;
+    error.errorReference = createERC(ERC_PREFIX.ERROR);
+
+    throw error;
   }
 
   _getActualDataFromAIResponse(parsedResponse, schemaName) {

@@ -713,3 +713,104 @@ describe("AIService media provider 'inherit'", () => {
     expect(runtime.mediaProvider).toBe('openai');
   });
 });
+
+describe('AIService response gate', () => {
+  let aiService;
+  let logger;
+
+  // The wire format the product schema is asked for: `skuVariants[].options`
+  // as name/value pairs, and the properties GenerationFacade assigns still
+  // absent or null. Judged here it fails on every one of them, which is what
+  // filled a correct run with violations of a schema nothing had broken.
+  // See #760.
+  const wireFormatProducts = () => ({
+    products: [
+      {
+        baseSku: 'PRODUCT-001',
+        catalogId: null,
+        externalReferenceCode: 'PRODUCT-001',
+        productType: 'simple',
+        skuVariants: [
+          {
+            id: null,
+            inStock: true,
+            options: [{ name: 'Color', value: 'Black' }],
+            priceModifier: 0,
+            sku: 'PRODUCT-001-BLK',
+          },
+        ],
+      },
+    ],
+  });
+
+  const pdfContent = () => ({
+    sections: [{ title: 'Overview', content: 'A trail running shoe.' }],
+    title: 'Trail Runner 500 - Product Information',
+  });
+
+  beforeEach(async () => {
+    logger = {
+      debug: vi.fn(),
+      error: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+    };
+
+    aiService = new AIService({ config: {}, logger, prompt: {} });
+    await aiService.initializeSchemas();
+  });
+
+  it('leaves a generation entity to GenerationFacade rather than judging the wire format', () => {
+    const response = wireFormatProducts();
+
+    expect(aiService._validateResponse(response, 'product')).toBe(response);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('accepts a PDF response that satisfies its schema', () => {
+    const response = pdfContent();
+
+    expect(aiService._validateResponse(response, 'pdf')).toBe(response);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('drops the null that strict mode forces onto an optional PDF property', () => {
+    const response = { ...pdfContent(), externalReferenceCode: null };
+
+    const validated = aiService._validateResponse(response, 'pdf');
+
+    expect(validated).toBe(response);
+    expect('externalReferenceCode' in validated).toBe(false);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('fails a PDF response the renderer would turn into an empty document', () => {
+    // generateProductPDF substitutes a placeholder title and one boilerplate
+    // section for whatever is missing, so passing this on attaches a document
+    // that looks like product documentation and contains none of it.
+    expect(() =>
+      aiService._validateResponse({ title: 'Trail Runner 500' }, 'pdf')
+    ).toThrow(/does not satisfy its generation schema/);
+
+    expect(logger.error).toHaveBeenCalled();
+  });
+
+  it('still fails a PDF response whose only repairable fault was the null', () => {
+    expect(() =>
+      aiService._validateResponse(
+        { externalReferenceCode: null, sections: [{ title: 'Overview' }] },
+        'pdf'
+      )
+    ).toThrow(/does not satisfy its generation schema/);
+  });
+
+  it('carries an error reference so a failed attachment can be traced', () => {
+    try {
+      aiService._validateResponse({ sections: [] }, 'pdf');
+      throw new Error('expected the gate to reject the response');
+    } catch (error) {
+      expect(error.errorReference).toMatch(/^AICA-ERR-/);
+      expect(error.errors.length).toBeGreaterThan(0);
+    }
+  });
+});
