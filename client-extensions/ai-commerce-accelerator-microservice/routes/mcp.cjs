@@ -192,10 +192,11 @@ module.exports = (router, routeCtx) => {
       warehouseCount: parseInt(args.warehouseCount, 10) || 1,
       inventoryMin: 10,
       inventoryMax: 100,
-      // A percentage, not a fraction: runUpdateInventoryStep rolls
-      // `Math.random() * 100 > inventoryAssignmentRatio`, so the 1.0 this used
-      // to send gave every MCP run inventory on about one product in a
-      // hundred. See #711.
+      // A percentage, not a fraction. The 1.0 this used to send meant "all"
+      // to the caller and 1% to the step, so every MCP run stocked about one
+      // product in a hundred (#711). Since #729 a sub-1 value is read as the
+      // fraction it must have been and logged rather than acted on, but the
+      // scale is still percent and sending it explicitly says so.
       inventoryAssignmentRatio: 100,
       imageMode: 'none',
       pdfMode: 'none',
