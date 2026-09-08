@@ -15,9 +15,6 @@ You must return a JSON object that conforms to the provided JSON schema: a singl
   - cost: number.
   - price: number (> 0).
   - inventoryLevel: integer quantity in stock.
-  - published: boolean.
-  - purchasable: boolean.
-  - neverExpire: boolean.
   - externalReferenceCode: string. For all SKUs (base and variants), this MUST be the same as the "sku" field.
 - specifications: array of 3–5 realistic specification objects. Each spec object must have:
   - specificationKey: string, unique alphanumeric uppercase key for the specification (e.g. "MATERIAL", "WEIGHT", "SCREEN_SIZE").

@@ -321,12 +321,9 @@ class MockDataGenerator {
           // HARDENING: Removed placeholder ID to force physical resolution
           sku: sku,
           externalReferenceCode: sku,
-          published: true,
-          purchasable: true,
           price: basePrice,
           cost: basePrice * 0.6,
           inventoryLevel: getRandomInt(10, 100),
-          neverExpire: true,
         },
       ];
 

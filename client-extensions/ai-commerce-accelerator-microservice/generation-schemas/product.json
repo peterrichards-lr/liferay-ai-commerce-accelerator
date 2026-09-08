@@ -286,21 +286,9 @@
                   "description": "Available inventory quantity.",
                   "type": "integer"
                 },
-                "neverExpire": {
-                  "description": "Whether the SKU never expires.",
-                  "type": "boolean"
-                },
                 "price": {
                   "description": "The price of the product.",
                   "type": "number"
-                },
-                "published": {
-                  "description": "Whether the SKU is published.",
-                  "type": "boolean"
-                },
-                "purchasable": {
-                  "description": "Whether the SKU is purchasable.",
-                  "type": "boolean"
                 },
                 "sku": {
                   "description": "The SKU of the product.",
@@ -309,10 +297,6 @@
                 "id": {
                   "description": "Internal numeric ID (optional, used in Demo Mode).",
                   "type": "integer"
-                },
-                "externalReferenceCode": {
-                  "description": "Unique external reference for the SKU.",
-                  "type": "string"
                 }
               },
               "required": [
@@ -320,9 +304,6 @@
                 "cost",
                 "price",
                 "inventoryLevel",
-                "published",
-                "purchasable",
-                "neverExpire",
                 "externalReferenceCode"
               ],
               "type": "object"
