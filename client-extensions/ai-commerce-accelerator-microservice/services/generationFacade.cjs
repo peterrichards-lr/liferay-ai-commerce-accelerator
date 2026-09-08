@@ -163,6 +163,7 @@ class GenerationFacade {
       order: 'generateOrderData',
       warehouse: 'generateWarehouseData',
       pricing: 'generatePricingData',
+      promo: 'generatePromoData',
     };
 
     const methodName = methodMap[entityType];
@@ -294,6 +295,15 @@ class GenerationFacade {
       data = await generator.generatePricingData(
         options.products || [],
         options.pricingType || 'standard',
+        requestConfig,
+        requestConfig.aiModel,
+        selectedLanguages,
+        options
+      );
+    } else if (entityType === 'promo') {
+      data = await generator.generatePromoData(
+        options.products || [],
+        options.accounts || [],
         requestConfig,
         requestConfig.aiModel,
         selectedLanguages,
