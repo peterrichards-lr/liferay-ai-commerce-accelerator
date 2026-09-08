@@ -18,10 +18,6 @@
             "description": "Whether the product is active.",
             "type": "boolean"
           },
-          "allowBackOrder": {
-            "description": "Whether backorders are allowed for this product.",
-            "type": "boolean"
-          },
           "baseSku": {
             "description": "Base SKU without variant codes.",
             "type": "string"
@@ -34,7 +30,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Multilingual category names keyed by language code (e.g. {'en_US': 'Electronics', 'es_ES': 'Electrónica'}).",
+            "description": "Multilingual category names keyed by language code (e.g. {'en_US': 'Electronics', 'es_ES': 'Electr\u00f3nica'}).",
             "type": "object"
           },
           "description": {

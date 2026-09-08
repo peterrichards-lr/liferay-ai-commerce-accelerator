@@ -37,7 +37,6 @@ You must return a JSON object that conforms to the provided JSON schema: a singl
   - priority: integer (1 for main image).
 - attachments: array of 2–3 realistic document file names (for example "installation-manual.pdf", "warranty-information.pdf").
 - active: boolean, whether the product is active.
-- allowBackOrder: boolean, whether backorders are allowed for this product.
 - metaDescription: object of multilingual SEO descriptions keyed by language code.
 - metaKeyword: object of multilingual SEO keyword strings keyed by language code (comma-separated keywords per language).
 - metaTitle: object of multilingual SEO titles keyed by language code.
@@ -53,7 +52,7 @@ IMPORTANT rules:
 - For all multilingual fields (name, description, shortDescription, urls, metaDescription, metaKeyword, metaTitle, image title, specification value), create objects where each key is a language code from {{languageCodesCSV}} and each value is the content translated into that language.
 - For urls, derive each value from the corresponding name: lowercase, spaces replaced by hyphens, remove characters that are not URL-friendly.
 - Do NOT include any properties on the product objects other than:
-  name, description, shortDescription, urls, baseSku, productType, skus, specifications, options, skuVariants, images, attachments, metaDescription, metaKeyword, metaTitle, externalReferenceCode, priceEntries, category, allowBackOrder, active.
+  name, description, shortDescription, urls, baseSku, productType, skus, specifications, options, skuVariants, images, attachments, metaDescription, metaKeyword, metaTitle, externalReferenceCode, priceEntries, category, active.
 - Return the array inside the "products" property of a single top-level object, exactly as the provided JSON schema requires. Do not return a bare array, and do not add any other top-level property.
 - Do NOT include explanations, comments, markdown, or backticks. Return raw JSON only.
 - SKU Activation: For a SKU to be "Active" in Liferay, it MUST have an assigned value for EVERY option that is defined on the product. Ensure "skuVariants" objects include all options.

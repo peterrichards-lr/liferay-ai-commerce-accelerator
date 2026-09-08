@@ -73,6 +73,8 @@ const initialGenerationConfig = {
   inventoryMin: 0,
   inventoryMax: 1000,
   inventoryAssignmentRatio: 100,
+  enableBackorders: true,
+  backorderAssignmentRatio: 50,
   demoMode: true,
 };
 

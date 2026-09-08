@@ -128,7 +128,9 @@ function buildConfigAndOptions(req) {
     channelIds,
     clientId,
     clientSecret,
+    backorderAssignmentRatio,
     createWarehouses,
+    enableBackorders,
     reuseExistingWarehouses,
     currencyCode,
     demoMode,
@@ -279,6 +281,15 @@ function buildConfigAndOptions(req) {
   options.pdfContentType = pdfContentType;
   options.pdfRatio = mediaShare(pdfRatio, options.pdfMode, 'pdfRatio');
   options.seedPack = seedPack || undefined;
+  // Restored in #695. Removed as dead in #715 because nothing read them - but
+  // an option nobody implemented is a missing feature, not dead weight. The
+  // toggle is the switch and the ratio is the share, the same shape as
+  // imageMode gating imageRatio.
+  options.enableBackorders = toBoolean(enableBackorders);
+  options.backorderAssignmentRatio = toPercentage(backorderAssignmentRatio, {
+    field: 'backorderAssignmentRatio',
+    logger,
+  });
   options.createWarehouses = toBoolean(createWarehouses);
   // Restored in #730. Removed as redundant in #692 on the grounds that
   // unchecking createWarehouses *is* "reuse existing", which is true for two
