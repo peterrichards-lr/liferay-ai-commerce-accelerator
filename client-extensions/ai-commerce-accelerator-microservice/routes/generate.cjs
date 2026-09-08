@@ -14,6 +14,10 @@ const {
 const { evaluateGenerationRun } = require('../utils/channelSiteType.cjs');
 const { buildMediaSubflow } = require('../utils/mediaSubflow.cjs');
 const { channelBackfillSteps } = require('../utils/runChannels.cjs');
+const {
+  specificationSteps,
+  warehouseCreationSteps,
+} = require('../utils/productSubflow.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -397,17 +401,11 @@ module.exports = (
             options.categories = [];
           }
 
-          productSteps.push({ name: S.GENERATE_WAREHOUSE_DATA, type: 'sync' });
-          productSteps.push({ name: S.CREATE_WAREHOUSES, type: 'sync' });
-          productSteps.push({ name: S.RESOLVE_WAREHOUSE_IDS, type: 'sync' });
+          productSteps.push(...warehouseCreationSteps(options));
           productSteps.push({ name: S.LINK_WAREHOUSE_CHANNELS, type: 'sync' });
           productSteps.push({ name: S.GENERATE_PRODUCT_DATA, type: 'sync' });
           productSteps.push({ name: S.ENSURE_CATEGORIES, type: 'sync' });
-          productSteps.push({
-            name: S.ENSURE_SPECIFICATION_CATEGORIES,
-            type: 'sync',
-          });
-          productSteps.push({ name: S.ENSURE_SPECIFICATIONS, type: 'sync' });
+          productSteps.push(...specificationSteps(options));
           productSteps.push({ name: S.ENSURE_OPTIONS, type: 'sync' });
           productSteps.push({ name: S.CREATE_PRODUCTS, type: 'sync' });
           productSteps.push({ name: S.RESOLVE_PRODUCT_IDS, type: 'sync' });

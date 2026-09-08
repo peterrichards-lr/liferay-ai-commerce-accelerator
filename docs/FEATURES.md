@@ -11,7 +11,11 @@ Rapidly create high-quality commerce entities using state-of-the-art generative 
 - **Products**: Generates localized names, descriptions, and specifications.
 - **Accounts**: Creates realistic business accounts with multiple addresses (Billing, Shipping, Head Office). Choose Business, Individual, or Mixed — and with Mixed, set the business/individual split explicitly rather than leaving the proportion to the model. The channel dropdown shows each channel's commerce site type, and a run that would put business accounts into a B2C channel — or individual accounts into a B2B one — is refused rather than generating data Liferay will not let anyone order with. A channel whose site type has not been set is flagged but still allowed, since that is the normal state for one created through the API.
 - **Orders**: Generates historical order data linked to products and accounts. When generating orders against existing data you can choose which accounts receive them — any customer, business only, or individual only. Guest and supplier accounts are never used: guest exists for anonymous checkout, and a supplier sells to the business rather than buying from it.
-- **Warehouses**: Creates inventory locations and manages stock distribution.
+- **Warehouses**: Creates inventory locations and manages stock distribution. Unchecking **Create Warehouses** means exactly that — the run creates none and uses the warehouses already in the instance instead, linking them to the run's channels and stocking their inventory as before.
+
+### Generation Options
+
+Every option in the form gates the work it names, and a run does only what the form asks for. **Create Warehouses** and **Generate Specifications** each remove their steps from the workflow when unchecked, which is how an operator shortens a run and keeps unwanted entities out of the instance.
 
 ### Chunked Generation
 
@@ -89,4 +93,4 @@ A dedicated **Admin Dashboard** provides high-level oversight and diagnostic too
 
 ---
 
-_Last Updated: 2026-09-04_ | _Last Reviewed: 2026-09-04_
+_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
