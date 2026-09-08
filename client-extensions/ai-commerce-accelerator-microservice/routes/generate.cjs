@@ -23,6 +23,9 @@ const {
   logCommerceSelection,
   resolveRunCommerceSelection,
 } = require('../utils/commerceSelection.cjs');
+const {
+  assessInventoryFeasibility,
+} = require('../utils/inventoryFeasibility.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -113,6 +116,30 @@ module.exports = (
           success: false,
           error: commerceSelection.rejection,
           details: commerceSelection.rejections,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Inventory needs a warehouse to sit in. Refused here rather than at the
+      // step, because by then the products are generated and paid for and the
+      // only trace was a bare BYPASSED that counted as success (#732).
+      const inventoryFeasibility = await assessInventoryFeasibility({
+        config,
+        liferayService,
+        logger,
+        options,
+      });
+
+      logger.info(inventoryFeasibility.log.message, {
+        correlationId: req.correlationId,
+        operation: 'generate-workflow',
+        outcome: inventoryFeasibility.outcome,
+      });
+
+      if (inventoryFeasibility.rejection) {
+        return res.status(400).json({
+          success: false,
+          error: inventoryFeasibility.rejection,
           timestamp: new Date().toISOString(),
         });
       }
