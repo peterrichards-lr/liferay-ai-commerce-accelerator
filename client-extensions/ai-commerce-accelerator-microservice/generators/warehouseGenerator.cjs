@@ -8,6 +8,7 @@ const {
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { resolveRunChannelIds } = require('../utils/runChannels.cjs');
+const { assignWarehouseERCs } = require('../utils/warehouseErc.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -199,11 +200,13 @@ class WarehouseGenerator extends BaseGenerator {
         { sessionId }
       );
 
-      const normalized = existingList.map((w) => ({
-        ...w,
-        externalReferenceCode:
-          w.externalReferenceCode || createERC(ERC_PREFIX.WAREHOUSE),
-      }));
+      // A code we assigned before is kept, so a re-import lands on the same
+      // warehouses. Anything else is derived from the location rather than
+      // filled with a timestamped random one, which could never match an
+      // existing warehouse (#730).
+      const normalized = assignWarehouseERCs(existingList, {
+        logger: this.logger,
+      });
 
       await this.persistence.updateSessionContext(sessionId, {
         warehouseDataList: normalized,
@@ -275,12 +278,20 @@ class WarehouseGenerator extends BaseGenerator {
       // Re-read context to get updated options
       const updatedSession = await this.persistence.getSession(sessionId);
 
-      const warehouseDataList = await this.ctx.generation.generateData(
+      const generated = await this.ctx.generation.generateData(
         'warehouse',
         options.warehouseCount,
         config,
         updatedSession.context.options
       );
+
+      // Assigned here rather than asked of the model: identity has to be the
+      // same for the same place on every run, or nothing can tell whether a
+      // warehouse already exists (#730). After generation, so the schema the
+      // provider is given never declares the field.
+      const warehouseDataList = assignWarehouseERCs(generated, {
+        logger: this.logger,
+      });
 
       await this.persistence.updateSessionContext(sessionId, {
         warehouseDataList,
