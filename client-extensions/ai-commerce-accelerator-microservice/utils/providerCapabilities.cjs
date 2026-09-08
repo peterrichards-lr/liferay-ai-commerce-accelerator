@@ -6,7 +6,19 @@
  * but that happens midway through a run; these helpers let the same condition
  * be reported at configuration time and at startup instead.
  */
-const IMAGE_CAPABLE_PROVIDERS = ['openai', 'gemini', 'nanobanana'];
+// OpenAI alone, because it is the only provider that actually generates an
+// image. Both of the others were listed here and neither can (#642):
+//
+// - nanobanana returned the literal string BASE64_PLACEHOLDER_FOR_NANOBANANA
+//   and threw only when the key was missing, so with a key present it
+//   *succeeded* and produced nothing usable - worse than failing.
+// - gemini throws 'Image generation not supported yet for Gemini provider'.
+//   Honest at runtime, but advertising it here still let an operator pick it
+//   and lose a run to it, and mediaProviderIssue recommended both by name.
+//
+// A provider belongs here when its generateImage returns an image, not when
+// its vendor has a model that could.
+const IMAGE_CAPABLE_PROVIDERS = ['openai'];
 const INHERIT = 'inherit';
 
 const PROVIDER_LABELS = {
@@ -43,7 +55,7 @@ function mediaProviderIssue(coreProvider, mediaProvider) {
 
   return `${providerLabel(
     effective
-  )} cannot generate images. Select a dedicated Media Provider (OpenAI DALL-E or Nano Banana), or set image generation to none.`;
+  )} cannot generate images. Select a dedicated Media Provider (OpenAI), or set image generation to none.`;
 }
 
 /**

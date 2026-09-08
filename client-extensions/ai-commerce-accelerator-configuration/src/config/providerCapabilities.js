@@ -5,7 +5,9 @@
  * anthropicProvider.generateImage throws - so this list exists to catch the
  * combination before a run starts rather than midway through one.
  */
-export const IMAGE_CAPABLE_PROVIDERS = ['openai', 'gemini', 'nanobanana'];
+// OpenAI alone: nanobanana returns a placeholder string and gemini throws
+// 'not supported yet', so neither generates an image. See #642.
+export const IMAGE_CAPABLE_PROVIDERS = ['openai'];
 
 export const INHERIT = 'inherit';
 
@@ -31,7 +33,7 @@ export function mediaProviderIssue(coreProvider, mediaProvider) {
   const effective = resolveMediaProvider(coreProvider, mediaProvider);
   if (canGenerateImages(effective)) return null;
 
-  return `${providerLabel(effective)} cannot generate images. Select a dedicated Media Provider (OpenAI DALL·E or Nano Banana), or set image generation to none.`;
+  return `${providerLabel(effective)} cannot generate images. Select a dedicated Media Provider (OpenAI), or set image generation to none.`;
 }
 
 export function providerLabel(provider) {
