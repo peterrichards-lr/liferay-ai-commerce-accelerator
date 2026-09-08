@@ -321,6 +321,7 @@ const gracefulShutdown = async (signal) => {
   };
 
   require('./routes/generate.cjs')(apiV1Router, generateCtx);
+  require('./routes/generateMedia.cjs')(apiV1Router, generateCtx);
 
   apiV1Router.post(
     '/test-connection',
