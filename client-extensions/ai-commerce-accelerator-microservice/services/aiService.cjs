@@ -11,6 +11,7 @@ const {
 const { createERC } = require('../utils/misc.cjs');
 const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { apiKeyIssue } = require('../utils/apiKeys.cjs');
+const { expandLocaleMapsForPrompt } = require('../utils/schemaProjection.cjs');
 
 // Extra generation rounds allowed to close a shortfall. Two is enough for the
 // nine-instead-of-ten case without turning a stubborn model into a cost sink.
@@ -241,7 +242,14 @@ class AIService {
     return this.factory.getProvider(providerName);
   }
 
-  async _chatJson(task, prompt, requestConfig, model, schemaName) {
+  /**
+   * @param {string[]} [languages] - The run's selectedLanguages. Passed on to
+   *   the provider so the locale-keyed maps in the generation schema can be
+   *   expanded into named properties for structured output; without them an
+   *   open map cannot be expressed and the provider falls back to describing
+   *   the schema in the prompt. See #633.
+   */
+  async _chatJson(task, prompt, requestConfig, model, schemaName, languages) {
     const { logger, config } = this.ctx;
     try {
       const provider = await this.getAIProvider(requestConfig, 'text');
@@ -251,10 +259,15 @@ class AIService {
         ? await config.getAISchema(requestConfig, schemaName)
         : null;
 
-      // Pre-flight Token Estimator Guardrail
+      // Pre-flight Token Estimator Guardrail. Estimated against the schema
+      // as the provider would describe it in the prompt, which is the largest
+      // of the shapes it may send - a provider that sends the schema as a
+      // structured output sends no prose copy of it at all.
       const systemInstruction = `You are an expert AI generator for ${task} data. Return only valid JSON.${
         schema
-          ? `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(schema)}`
+          ? `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
+              expandLocaleMapsForPrompt(schema, languages)
+            )}`
           : ''
       }`;
 
@@ -287,6 +300,7 @@ class AIService {
         effectivePrompt,
         {
           ...runtime,
+          languages,
           maxTokens: effectiveMaxTokens,
           model: model || runtime.model,
         },
@@ -614,7 +628,8 @@ class AIService {
         promptContent,
         requestConfig,
         model,
-        'product'
+        'product',
+        langs
       );
     } catch (error) {
       const errorReference =
@@ -787,7 +802,8 @@ class AIService {
         promptContent,
         requestConfig,
         model,
-        'account'
+        'account',
+        langs
       );
     } catch (error) {
       const errorReference =
@@ -920,7 +936,8 @@ class AIService {
         promptContent,
         requestConfig,
         model,
-        'order'
+        'order',
+        langs
       );
     } catch (error) {
       const errorReference =
@@ -1030,7 +1047,8 @@ class AIService {
         promptContent,
         requestConfig,
         model,
-        'warehouse'
+        'warehouse',
+        langs
       );
     } catch (error) {
       const errorReference =

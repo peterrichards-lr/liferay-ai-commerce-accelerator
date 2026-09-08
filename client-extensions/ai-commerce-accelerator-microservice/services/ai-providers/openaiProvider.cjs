@@ -2,6 +2,30 @@ const crypto = require('crypto');
 const OpenAI = require('openai');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
+const {
+  expandLocaleMapsForPrompt,
+  looksLikeSchemaRejection,
+  projectGenerationSchema,
+} = require('../../utils/schemaProjection.cjs');
+
+const DEFAULT_MODEL = 'gpt-4o-mini';
+
+const JSON_OBJECT_FORMAT = { type: 'json_object' };
+
+/**
+ * Models that predate `response_format: { type: 'json_schema' }`. Everything
+ * from gpt-4o-mini and gpt-4o-2024-08-06 onwards supports it, so this is a
+ * denylist rather than an allowlist: the model list is runtime data an
+ * administrator can add to, and a newer model this build has never heard of
+ * should get structured output rather than be quietly downgraded. Anything that
+ * slips through is caught by the rejection fallback in generateJSON.
+ */
+const NO_JSON_SCHEMA_MODELS = [/^gpt-3\.5/i, /^gpt-4(?:$|[-.]turbo|-0|-1)/i];
+
+function supportsJsonSchema(model) {
+  const id = String(model || '');
+  return !NO_JSON_SCHEMA_MODELS.some((pattern) => pattern.test(id));
+}
 
 /**
  * The image model. Verified against /v1/models rather than chosen from memory:
@@ -103,9 +127,104 @@ class OpenAIProvider extends BaseAIProvider {
     return client;
   }
 
+  /**
+   * The response_format for this call: an enforced json_schema when the
+   * generation schema projects cleanly into strict mode, an unenforced one when
+   * it does not, and plain JSON mode when the model cannot take a schema at
+   * all.
+   */
+  _responseFormat(task, schema, options, model) {
+    if (!schema || !supportsJsonSchema(model)) {
+      return JSON_OBJECT_FORMAT;
+    }
+
+    const projectionOptions = {
+      languages: options.languages,
+      provider: 'openai',
+    };
+    const enforced = projectGenerationSchema(schema, projectionOptions);
+
+    if (enforced.schema) {
+      return {
+        json_schema: {
+          name: `${task}_response`,
+          schema: enforced.schema,
+          strict: true,
+        },
+        type: 'json_schema',
+      };
+    }
+
+    // Strict mode requires every object to be closed, so a map whose keys the
+    // model invents in the same response - skuVariants[].options - cannot be
+    // expressed. Sending the same schema unenforced still gives the model the
+    // expanded locale maps as a schema rather than as prose, which is the part
+    // that matters here; ajv and the retry remain the actual gate.
+    const advisory = projectGenerationSchema(schema, {
+      ...projectionOptions,
+      mode: 'advisory',
+    });
+
+    if (!advisory.schema) {
+      return JSON_OBJECT_FORMAT;
+    }
+
+    this.ctx?.logger?.debug?.(
+      `[OpenAIProvider] ${task} schema cannot be enforced in strict mode; sending it unenforced`,
+      { blockers: enforced.blockers, model }
+    );
+
+    return {
+      json_schema: {
+        name: `${task}_response`,
+        schema: advisory.schema,
+        strict: false,
+      },
+      type: 'json_schema',
+    };
+  }
+
   async generateJSON(task, prompt, options, schema) {
     const client = await this._getClient(options.credentials);
+    const model = options.model || DEFAULT_MODEL;
+    const responseFormat = this._responseFormat(task, schema, options, model);
 
+    try {
+      return await this._chat(client, task, prompt, options, {
+        model,
+        responseFormat,
+        schema,
+      });
+    } catch (error) {
+      if (
+        responseFormat.type === 'json_object' ||
+        !looksLikeSchemaRejection(error)
+      ) {
+        throw error;
+      }
+
+      // A model that cannot take this schema must not end the run: fall back to
+      // what every call did before structured output existed.
+      this.ctx?.logger?.warn?.(
+        `[OpenAIProvider] ${model} rejected the ${task} response schema; retrying with JSON mode`,
+        { message: error.message, model }
+      );
+
+      return await this._chat(client, task, prompt, options, {
+        model,
+        responseFormat: JSON_OBJECT_FORMAT,
+        schema,
+      });
+    }
+  }
+
+  async _chat(
+    client,
+    task,
+    prompt,
+    options,
+    { model, responseFormat, schema }
+  ) {
     const messages = [
       {
         role: 'system',
@@ -117,16 +236,19 @@ class OpenAIProvider extends BaseAIProvider {
       },
     ];
 
-    if (schema) {
+    // Only described in the prompt when it is not being sent as a schema:
+    // pasting it in both places doubles the schema's tokens and gives the model
+    // two statements of the same thing to reconcile.
+    if (schema && responseFormat.type === 'json_object') {
       messages[0].content += `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
-        schema
+        expandLocaleMapsForPrompt(schema, options.languages)
       )}`;
     }
 
     const response = await client.chat.completions.create({
-      model: options.model || 'gpt-4o-mini',
+      model,
       messages,
-      response_format: { type: 'json_object' },
+      response_format: responseFormat,
       temperature: options.temperature || 0.7,
       max_tokens: options.maxTokens || 16384,
     });
@@ -135,6 +257,12 @@ class OpenAIProvider extends BaseAIProvider {
     if (choice?.finish_reason === 'length') {
       throw new Error(
         'AI provider response truncated: output token limit reached (finish_reason: length). Please reduce chunk size or product count.'
+      );
+    }
+
+    if (choice?.message?.refusal) {
+      throw new Error(
+        `OpenAI declined to generate this content: ${choice.message.refusal}`
       );
     }
 
