@@ -21,6 +21,7 @@ function hasErr(map, key, msgStartsWith) {
 }
 
 function DataGeneratorForm({
+  existingWarehouseCount,
   generationConfig,
   setGenerationConfig,
   onGenerate,
@@ -728,6 +729,7 @@ function DataGeneratorForm({
                   Inventory Strategy
                 </h3>
                 <WarehousesToggle
+                  existingWarehouseCount={existingWarehouseCount}
                   productCount={generationConfig.productCount}
                   values={{
                     createWarehouses: generationConfig.createWarehouses,

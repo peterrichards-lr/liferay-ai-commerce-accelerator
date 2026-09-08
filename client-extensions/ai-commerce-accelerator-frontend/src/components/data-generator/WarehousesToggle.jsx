@@ -36,6 +36,38 @@ function WarehousesToggle({
   // stays available and the run's own pre-flight refuses if it has to (#732).
   const knownEmpty = existingWarehouseCount === 0;
 
+  // What the count will actually do, spelled out. The number means a target
+  // total when topping up and a number to create otherwise, and saying which
+  // is the point of the dropdown - a bare count of what exists would leave the
+  // operator to do this arithmetic themselves.
+  const outcome = (() => {
+    if (typeof existingWarehouseCount !== 'number') {
+      return null;
+    }
+
+    const requested = Number(values.warehouseCount) || 0;
+
+    if (strategy === WAREHOUSE_STRATEGIES.EXISTING_ONLY) {
+      return existingWarehouseCount === 0
+        ? 'This instance has no warehouses, so there would be nowhere to put inventory.'
+        : `Inventory will be placed in the ${existingWarehouseCount} warehouse(s) already here.`;
+    }
+
+    if (strategy === WAREHOUSE_STRATEGIES.FRESH_SET) {
+      return existingWarehouseCount === 0
+        ? `${requested} will be created.`
+        : `${requested} will be created, leaving ${existingWarehouseCount + requested} in total. The existing ${existingWarehouseCount} will not receive inventory.`;
+    }
+
+    const toCreate = Math.max(0, requested - existingWarehouseCount);
+
+    if (toCreate === 0) {
+      return `${existingWarehouseCount} already here, so none will be created.`;
+    }
+
+    return `${existingWarehouseCount} already here, so ${toCreate} will be created to reach ${requested}.`;
+  })();
+
   const handleStrategyChange = (value) => {
     const next = optionsForStrategy(value);
 
@@ -72,11 +104,7 @@ function WarehousesToggle({
         </ClaySelect>
         <small className="help-text mt-1 d-block">{description}</small>
         {typeof existingWarehouseCount === 'number' && (
-          <small className="text-secondary mt-1 d-block">
-            {existingWarehouseCount === 0
-              ? 'This instance has no warehouses yet.'
-              : `This instance already has ${existingWarehouseCount} warehouse(s).`}
-          </small>
+          <small className="text-secondary mt-1 d-block">{outcome}</small>
         )}
       </ClayForm.Group>
 
