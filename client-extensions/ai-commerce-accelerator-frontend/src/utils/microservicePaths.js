@@ -9,6 +9,7 @@ const DELETE_SELECTED_COMMERCE_DATA = `${BASE_PATH}/delete-selected-commerce-dat
 const EXPORT_COMMERCE_DATA = `${BASE_PATH}/export-commerce-data`;
 const GET_CATALOGS = `${BASE_PATH}/get-catalogs`;
 const GET_CHANNELS = `${BASE_PATH}/get-channels`;
+const GET_WAREHOUSES = `${BASE_PATH}/get-warehouses`;
 const CREATE_CHANNEL = `${BASE_PATH}/create-channel`;
 const GET_CURRENCIES = `${BASE_PATH}/get-currencies`;
 const GET_LANGUAGES = `${BASE_PATH}/get-languages`;
@@ -50,6 +51,7 @@ export {
   GET_CATALOGS,
   GET_CATEGORIES,
   GET_CHANNELS,
+  GET_WAREHOUSES,
   CREATE_CHANNEL,
   GET_CURRENCIES,
   GET_LANGUAGES,
