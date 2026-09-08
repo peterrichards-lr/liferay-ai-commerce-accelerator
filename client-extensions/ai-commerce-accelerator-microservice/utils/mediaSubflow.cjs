@@ -11,11 +11,14 @@ const S = WORKFLOW_STEPS;
  * produced the commerce data the media would have decorated, rather than
  * having spent that budget on decoration first.
  */
-function buildMediaSubflow() {
+function buildMediaSubflow({ includeSyncDelay = false } = {}) {
   return {
     name: 'subflow-media',
     type: 'sequence',
     steps: [
+      // A media-only run attaches to products some earlier session created, so
+      // it cannot assume Liferay has finished indexing them.
+      ...(includeSyncDelay ? [{ name: S.SYNC_DELAY_MEDIA, type: 'sync' }] : []),
       { name: S.ATTACH_IMAGES, type: 'sync' },
       { name: S.ATTACH_PDFS, type: 'sync' },
     ],

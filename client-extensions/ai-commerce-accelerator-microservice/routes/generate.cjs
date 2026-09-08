@@ -13,6 +13,7 @@ const {
 } = require('../utils/validateGenerationRequest.cjs');
 const { evaluateGenerationRun } = require('../utils/channelSiteType.cjs');
 const { buildMediaSubflow } = require('../utils/mediaSubflow.cjs');
+const { channelBackfillSteps } = require('../utils/runChannels.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -214,6 +215,12 @@ module.exports = (
 
         if (orders.length > 0) {
           orderSteps.push({ name: S.SYNC_DELAY_ORDERS, type: 'sync' });
+          orderSteps.push(
+            ...channelBackfillSteps({
+              orderCount: orders.length,
+              productCount: products.length,
+            })
+          );
           orderSteps.push({ name: S.GENERATE_ORDER_DATA, type: 'sync' });
           orderSteps.push({ name: S.CREATE_ORDERS, type: 'sync' });
         }
@@ -435,6 +442,7 @@ module.exports = (
         }
 
         if (options.orderCount > 0) {
+          orderSteps.push(...channelBackfillSteps(options));
           orderSteps.push({ name: S.GENERATE_ORDER_DATA, type: 'sync' });
           orderSteps.push({ name: S.CREATE_ORDERS, type: 'sync' });
         }

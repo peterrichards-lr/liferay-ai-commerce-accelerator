@@ -31,11 +31,14 @@ class ProductGenerator extends BaseGenerator {
       [S.ENSURE_OPTIONS]: specifications.runEnsureOptionsStep.bind(this),
       [S.CREATE_PRODUCTS]: products.runProductCreationStep.bind(this),
       [S.RESOLVE_PRODUCT_IDS]: products.runResolveProductIdsStep.bind(this),
+      [S.LINK_PRODUCT_CHANNELS]: products.runLinkProductChannelsStep.bind(this),
       [S.LINK_PRODUCT_OPTIONS]: skus.runLinkProductOptionsStep.bind(this),
       [S.CREATE_PRODUCT_SKUS]: skus.runProductSkusStep.bind(this),
       [S.RESOLVE_SKU_IDS]: skus.runResolveSkuIdsStep.bind(this),
       [S.SYNC_DELAY_PRICING]: (sId) =>
         this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY_PRICING),
+      [S.SYNC_DELAY_MEDIA]: (sId) =>
+        this._runInterServiceSyncDelayStep(sId, S.SYNC_DELAY_MEDIA),
       [S.UPDATE_CATALOG_CONFIG]:
         pricing.runUpdateCatalogConfigurationStep.bind(this),
       [S.GENERATE_PRICE_LISTS]: pricing.runGeneratePriceListsStep.bind(this),

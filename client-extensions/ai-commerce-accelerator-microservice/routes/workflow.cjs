@@ -2,6 +2,10 @@ const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { sanitizeValue } = require('../utils/normalize.cjs');
+const {
+  MEDIA_SCOPES,
+  selectProductsForMedia,
+} = require('../utils/mediaScope.cjs');
 
 function safeErrorResponse({
   res,
@@ -72,17 +76,32 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
     try {
       const sessions = await persistenceService.getCompletedSessions();
 
-      // Return a concise list for the selector modal
-      const mapped = sessions.map((s) => ({
-        id: s.session_id,
-        name: s.session_name,
-        date: s.created_at,
-        counts: {
-          products: s.context?.productCount || 0,
-          accounts: s.context?.accountCount || 0,
-          orders: s.context?.orderCount || 0,
-        },
-      }));
+      // Return a concise list for the selector modals
+      const mapped = sessions.map((s) => {
+        const context = s.context || {};
+        const options = context.options || {};
+        const missing = selectProductsForMedia(context, {
+          scope: MEDIA_SCOPES.MISSING,
+        });
+
+        return {
+          id: s.session_id,
+          name: s.session_name,
+          date: s.created_at,
+          flowType: s.flow_type,
+          counts: {
+            products:
+              context.productDataList?.length || options.productCount || 0,
+            accounts:
+              context.accountDataList?.length || options.accountCount || 0,
+            orders: context.orderDataList?.length || options.orderCount || 0,
+          },
+          media: {
+            missingImages: missing.imageProducts.length,
+            missingPdfs: missing.pdfProducts.length,
+          },
+        };
+      });
 
       res.json({ success: true, sessions: mapped });
     } catch (error) {

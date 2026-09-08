@@ -20,9 +20,33 @@ Empirical testing confirms that Liferay's REST and GraphQL engines are inconsist
 
 In newer Liferay Commerce versions, Catalogs and Channels are decoupled. For a store to function, the "Glue" must be explicitly established via indirect relationships:
 
-1.  **Product Visibility**: Every product must be linked to a channel via the **`/product-channels`** API. Without this, products will not appear in the storefront.
+1.  **Product Visibility**: Every product must be linked to a channel. Without this, products will not appear in the storefront.
 2.  **Inventory Visibility**: Every warehouse must be linked to a channel via the **`/warehouse-channels`** API. Without this, stock levels will remain at zero in the checkout, regardless of warehouse items.
 3.  **ERC-First Resilience**: Always use the `by-externalReferenceCode` path for establishing these links to bypass search index lag.
+
+### Writing a product-to-channel link
+
+`/product-channels` is **read and delete only** — `products/{id}/product-channels` and its `by-externalReferenceCode` twin expose `GET`, and `product-channels/{id}` exposes `GET` and `DELETE`. There is no `POST`. The association can only be written through the product itself, whose DTO carries `productChannels` as a nested collection, so either:
+
+- send `productChannels` when creating the product (`create-products` does this for every channel the run names), or
+- `PATCH` the product with `productChannels` afterwards (`link-product-channels` does this to attach a later run's channel to an existing catalogue).
+
+**The PATCH replaces, it does not append.** `ProductResourceImpl`'s update path calls `deleteCommerceChannelRels` for the whole product and then re-adds exactly what the payload names, so a PATCH must always carry the union of the channels the product already has and the ones being added. Read the current set from `GET .../product-channels` first.
+
+`productChannelFilter` is a separate field from `productChannels`, and adding channels does not turn it on. It defaults to `false` on create, and Liferay keeps the existing value when the field is absent from a PATCH. While it is `false`, `CPDefinition.channelFilterEnabled` is `false` and the channel rels do not restrict anything — see [Channel eligibility is not enforced on the admin-order path](#channel-eligibility-is-not-enforced-on-the-admin-order-path).
+
+### Channel eligibility is not enforced on the admin-order path
+
+Liferay does have a channel-eligibility check for order items — `VisibilityCommerceOrderValidatorImpl._isChannelEnabled`, which looks up a `CommerceChannelRel` keyed on the `CPDefinition` and the order's channel, and fails with `one-or-more-products-are-no-longer-available`. It is gated twice, and AICA's generation path clears both gates:
+
+- The check short-circuits to `true` unless `CPDefinition.channelFilterEnabled` is set, and AICA never sends `productChannelFilter`.
+- `OrderItemUtil.addCommerceOrderItem` and `addOrUpdateCommerceOrderItem` in `headless-commerce-admin-order` both call `ExportImportThreadLocal.setPortletImportInProcess(true)` as their first instruction, and `CommerceOrderItemLocalServiceImpl._validate` skips the entire `CommerceOrderValidatorRegistry` chain while an import is in process. `POST /orders` with nested `orderItems` goes through the same helper.
+
+The only product-side validation the admin-order API performs is that the SKU id or ERC resolves to a `CPInstance` in the same **company** — not the catalog, and not the channel.
+
+`headless-commerce-delivery-cart` (`CartItemResourceImpl`) does **not** set the import flag, so the validator chain does run for a real shopper adding to a cart.
+
+Verified against `dxp-2026.q1.7-lts` bytecode. The practical consequence: an unlinked product produces orders Liferay accepts but a storefront cannot browse, so missing links are a visibility defect on the generation path rather than an order-creation failure.
 
 ---## Strict DTO Hardening
 
@@ -71,4 +95,4 @@ Liferay evaluates batch payloads recursively. If a single payload contains neste
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_

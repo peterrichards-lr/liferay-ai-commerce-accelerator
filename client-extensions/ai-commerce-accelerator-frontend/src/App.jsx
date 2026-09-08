@@ -29,11 +29,13 @@ import HelpSection from './components/dashboard/HelpSection';
 import Dashboard from './components/dashboard/Dashboard';
 import ActivityLog from './components/dashboard/ActivityLog';
 import SessionSelectorModal from './components/ui/SessionSelectorModal';
+import MediaGenerationModal from './components/ui/MediaGenerationModal';
 import LogConsole from './components/data-generator/LogConsole';
 
 import useAppConfigIO from './hooks/useAppConfigIO';
 import useLogExport from './hooks/useLogExport';
 import useDatasetIO from './hooks/useDatasetIO';
+import useMediaGeneration from './hooks/useMediaGeneration';
 
 import {
   AI_CONFIG,
@@ -98,6 +100,7 @@ function AppUI() {
   const [aiMediaKeyAvailable, setAiMediaKeyAvailable] = useState(false);
   const [batchErrors, setBatchErrors] = useState([]);
   const [showSessionSelector, setShowSessionSelector] = useState(false);
+  const [showMediaGenerator, setShowMediaGenerator] = useState(false);
   const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
 
   const [generationLimits, setGenerationLimits] = useState({
@@ -342,6 +345,14 @@ function AppUI() {
     isGenerating,
   });
 
+  const { generateMedia, isSubmittingMedia } = useMediaGeneration({
+    api,
+    addLog,
+    buildPayload,
+    dispatch,
+    isGenerating,
+  });
+
   const handleSettingsReset = () => {
     setGenerationConfig(initialGenerationConfig);
     notifyUser('Generator settings restored to defaults.');
@@ -545,6 +556,15 @@ function AppUI() {
                   >
                     Export
                   </ClayButton>
+                  <ClayButton
+                    displayType="secondary"
+                    size="sm"
+                    onClick={() => setShowMediaGenerator(true)}
+                    disabled={isGenerating || isSubmittingMedia}
+                    title="Generate images and attachments for a dataset that has none"
+                  >
+                    Media
+                  </ClayButton>
                 </div>
               </li>
 
@@ -577,6 +597,14 @@ function AppUI() {
               onChange={importDataset}
               style={{ display: 'none' }}
               disabled={isGenerating}
+            />
+
+            <MediaGenerationModal
+              visible={showMediaGenerator}
+              onClose={() => setShowMediaGenerator(false)}
+              onGenerate={generateMedia}
+              submitting={isSubmittingMedia}
+              api={api}
             />
 
             <SessionSelectorModal

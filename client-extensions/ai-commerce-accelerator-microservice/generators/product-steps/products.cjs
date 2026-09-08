@@ -6,8 +6,13 @@ const {
   toI18n,
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
+const { PATH, byERC } = require('../../utils/liferayPaths.cjs');
+const { resolveRunChannelIds } = require('../../utils/runChannels.cjs');
 
 const S = WORKFLOW_STEPS;
+
+const CHANNEL_PAGE_SIZE = 200;
+const PRODUCT_PAGE_SIZE = 200;
 
 async function runProductCreationStep(sessionId) {
   const session = await this.persistence.getSession(sessionId);
@@ -23,6 +28,7 @@ async function runProductCreationStep(sessionId) {
   }
 
   try {
+    const runChannelIds = resolveRunChannelIds(config);
     const prepared = productDataList.map((pd, productIndex) => {
       // Liferay Headless Commerce API (v1.0) requires all products to be 'simple' during initial creation.
       const productType = 'simple';
@@ -78,12 +84,11 @@ async function runProductCreationStep(sessionId) {
             (id) => id !== null && id !== undefined && id !== '' && id !== 0
           )
           .map((id) => ({ id })),
-        // HARDENING: Establishing indirect channel relationship at creation
-        productChannels: [
-          {
-            channelId: parseInt(config.channelId, 10),
-          },
-        ],
+        // HARDENING: Establishing indirect channel relationship at creation.
+        // Every channel the run names, not just the primary one, so a single
+        // catalogue can back a B2B and a B2C storefront from the outset.
+        // See #664.
+        productChannels: runChannelIds.map((channelId) => ({ channelId })),
         productSpecifications: (
           pd.productSpecifications ||
           pd.specifications ||
@@ -237,6 +242,145 @@ async function runResolveProductIdsStep(sessionId) {
   }
 }
 
+/**
+ * The products the channel-linking step should cover.
+ *
+ * A run that generated products knows exactly which ones it made. A run that
+ * generated none - the "accounts and orders only, against a second channel"
+ * half of a two-run build - is reusing whatever the catalog already holds, so
+ * that is what it has to reach for.
+ */
+async function resolveProductERCsToLink(config, productDataList) {
+  const runERCs = (productDataList || [])
+    .map((pd) => pd.externalReferenceCode)
+    .filter(Boolean);
+
+  if (runERCs.length > 0) {
+    return [...new Set(runERCs)];
+  }
+
+  const existing = await this.liferay.getProducts(config, {
+    catalogId: config.catalogId,
+    pageSize: PRODUCT_PAGE_SIZE,
+  });
+  const items = existing?.items || (Array.isArray(existing) ? existing : []);
+
+  return [
+    ...new Set(items.map((p) => p.externalReferenceCode).filter(Boolean)),
+  ];
+}
+
+/**
+ * Returns true when the product gained a channel it did not have.
+ *
+ * The catalog API exposes product-channels as GET and DELETE only - there is
+ * no POST - so the association can only be written through the product itself,
+ * whose DTO carries productChannels as a nested collection.
+ *
+ * The PATCH sends the union of the existing channels and the new ones rather
+ * than only the additions. ProductResourceImpl's update path calls
+ * deleteCommerceChannelRels for the whole product before re-adding whatever
+ * the payload names, so sending only the additions would silently drop the
+ * channel an earlier run established - the exact thing this step exists to
+ * preserve.
+ *
+ * productChannelFilter is deliberately left out: Liferay keeps the product's
+ * existing flag when the field is absent, and turning channel filtering on for
+ * a product that did not have it would restrict a product that was previously
+ * visible everywhere.
+ */
+async function addProductChannels(config, productERC, channelIds) {
+  const existing = await this.liferay.rest._get(
+    config,
+    PATH.PRODUCT_CHANNELS_BY_ERC(productERC),
+    'get-product-channels',
+    'Failed to read product channels',
+    { params: { pageSize: CHANNEL_PAGE_SIZE } }
+  );
+  const linkedIds = new Set(
+    (existing?.items || (Array.isArray(existing) ? existing : []))
+      .map((productChannel) => parseInt(productChannel.channelId, 10))
+      .filter(Number.isInteger)
+  );
+
+  const missing = channelIds.filter((channelId) => !linkedIds.has(channelId));
+
+  if (missing.length === 0) {
+    return false;
+  }
+
+  await this.liferay.rest._patch(
+    config,
+    byERC(PATH.BASE.PRODUCTS, productERC, PATH.VARIANT.products),
+    {
+      productChannels: [...linkedIds, ...missing].map((channelId) => ({
+        channelId,
+      })),
+    },
+    'patch-product-channels',
+    'Failed to add product channels'
+  );
+
+  return true;
+}
+
+async function runLinkProductChannelsStep(sessionId) {
+  const session = await this.persistence.getSession(sessionId);
+  const { config, productDataList } = session.context;
+  const stepKey = S.LINK_PRODUCT_CHANNELS;
+
+  try {
+    const channelIds = resolveRunChannelIds(config);
+    const productERCs = channelIds.length
+      ? await resolveProductERCsToLink.call(this, config, productDataList)
+      : [];
+
+    if (channelIds.length === 0 || productERCs.length === 0) {
+      return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
+    }
+
+    this.logger.info(
+      `Linking ${productERCs.length} products to channels ${channelIds.join(', ')}`,
+      { sessionId }
+    );
+
+    let updated = 0;
+    for (const productERC of productERCs) {
+      if (await addProductChannels.call(this, config, productERC, channelIds)) {
+        updated++;
+      }
+    }
+
+    this.logger.info(
+      `Added channel associations to ${updated} of ${productERCs.length} products`,
+      { sessionId }
+    );
+
+    return await this.completeSyncStep(
+      sessionId,
+      stepKey,
+      'SYNCHRONOUS',
+      productERCs.length,
+      productERCs.length
+    );
+  } catch (error) {
+    const errorReferenceCode =
+      resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
+    this.logger.error('Failed to link products to channels', {
+      sessionId,
+      errorReferenceCode,
+      error: error.message,
+    });
+    await this.persistence.createBatch({
+      erc: createERC(ERC_PREFIX.BATCH),
+      sessionId,
+      stepKey,
+      status: 'FAILED',
+    });
+    throw error;
+  }
+}
+
 function cleanProductForLiferay(product, options = {}) {
   let clean = this.deepClean(product);
 
@@ -251,6 +395,7 @@ function cleanProductForLiferay(product, options = {}) {
 }
 
 module.exports = {
+  runLinkProductChannelsStep,
   runProductCreationStep,
   runResolveProductIdsStep,
   cleanProductForLiferay,

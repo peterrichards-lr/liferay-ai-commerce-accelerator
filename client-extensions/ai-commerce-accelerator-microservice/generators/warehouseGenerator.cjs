@@ -7,8 +7,11 @@ const {
   toI18n,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
+const { resolveRunChannelIds } = require('../utils/runChannels.cjs');
 
 const S = WORKFLOW_STEPS;
+
+const WAREHOUSE_PAGE_SIZE = 200;
 
 class WarehouseGenerator extends BaseGenerator {
   constructor(ctx) {
@@ -98,49 +101,76 @@ class WarehouseGenerator extends BaseGenerator {
     }
   }
 
+  /**
+   * The warehouses whose stock this run's channels need to see.
+   *
+   * A run that created warehouses links those. A run that created none - the
+   * "accounts and orders only, against a second channel" half of a two-run
+   * build - has to reach for the warehouses that already exist, or the second
+   * channel gets products with no inventory availability behind them. Products
+   * alone are not enough. See #664.
+   */
+  async _resolveWarehouseIdsToLink(config, warehouseDataList) {
+    const runIds = (warehouseDataList || []).map((w) => w.id).filter(Boolean);
+
+    if (runIds.length > 0) {
+      return [...new Set(runIds)];
+    }
+
+    const existing = await this.liferay.getWarehouses(config, {
+      pageSize: WAREHOUSE_PAGE_SIZE,
+    });
+    const items = existing?.items || (Array.isArray(existing) ? existing : []);
+
+    return [...new Set(items.map((w) => w.id).filter(Boolean))];
+  }
+
   async _runLinkWarehouseChannelsStep(sessionId) {
     const session = await this.persistence.getSession(sessionId);
     const { config, warehouseDataList } = session.context;
     const stepKey = S.LINK_WAREHOUSE_CHANNELS;
 
     try {
-      const channelId = parseInt(config.channelId, 10);
-      const payloads = warehouseDataList
-        .filter((w) => w.id)
-        .map((w) => ({
-          channelId,
-          warehouseId: w.id,
-        }));
+      const channelIds = resolveRunChannelIds(config);
+      const warehouseIds = channelIds.length
+        ? await this._resolveWarehouseIdsToLink(config, warehouseDataList)
+        : [];
 
-      if (payloads.length === 0) {
+      if (channelIds.length === 0 || warehouseIds.length === 0) {
         return await this.completeSyncStep(sessionId, stepKey, 'BYPASSED');
       }
 
       this.logger.info(
-        `Linking ${payloads.length} warehouses to channel ${channelId}`,
+        `Linking ${warehouseIds.length} warehouses to channels ${channelIds.join(', ')}`,
         {
           sessionId,
         }
       );
 
-      // HARDENING: Link warehouses individually to avoid schema/batch issues
-      for (const payload of payloads) {
-        await this.liferay.createWarehouseChannel(
-          config,
-          payload.warehouseId,
-          payload.channelId
-        );
+      // HARDENING: Link warehouses individually to avoid schema/batch issues.
+      // createWarehouseChannel treats a 409 as ALREADY_EXISTS, so re-running
+      // this against a channel a warehouse already serves is a no-op.
+      let linkCount = 0;
+      for (const warehouseId of warehouseIds) {
+        for (const channelId of channelIds) {
+          await this.liferay.createWarehouseChannel(
+            config,
+            warehouseId,
+            channelId
+          );
+          linkCount++;
+        }
       }
 
       await this.completeSyncStep(
         sessionId,
         stepKey,
         'SYNCHRONOUS',
-        payloads.length,
-        payloads.length
+        linkCount,
+        linkCount
       );
     } catch (error) {
-      this.logger.error('Failed to link warehouses to channel', {
+      this.logger.error('Failed to link warehouses to channels', {
         sessionId,
         error: error.message,
       });

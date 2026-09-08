@@ -3,6 +3,7 @@ const multer = require('multer');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { buildConfigAndOptions } = require('../utils/normalize.cjs');
+const { channelBackfillSteps } = require('../utils/runChannels.cjs');
 
 const S = WORKFLOW_STEPS;
 const upload = multer({ storage: multer.memoryStorage() });
@@ -189,6 +190,12 @@ module.exports = (
         // 4. Order Subflow
         if (orders.length > 0) {
           orderSteps.push({ name: S.SYNC_DELAY_ORDERS, type: 'sync' });
+          orderSteps.push(
+            ...channelBackfillSteps({
+              orderCount: orders.length,
+              productCount: products.length,
+            })
+          );
           orderSteps.push({ name: S.GENERATE_ORDER_DATA, type: 'sync' });
           orderSteps.push({ name: S.CREATE_ORDERS, type: 'sync' });
         }
