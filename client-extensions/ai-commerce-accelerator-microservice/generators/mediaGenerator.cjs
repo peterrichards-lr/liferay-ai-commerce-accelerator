@@ -294,10 +294,20 @@ class MediaGenerator {
     );
 
     if (productsToProcess.length === 0) {
-      logger.info('No products selected for image generation.', {
-        sessionId,
-        correlationId,
-      });
+      // Say which gate emptied the set. The mode gate above has already
+      // passed, so an empty share here means the ratio - and an operator who
+      // set a mode and got no images deserves to know that rather than read
+      // "no products selected" and go looking at the product list (#736).
+      logger.warn(
+        `No products selected for image generation: imageMode is '${imageMode}' but imageRatio is ${options.imageRatio}.`,
+        {
+          correlationId,
+          imageMode,
+          imageRatio: options.imageRatio,
+          productCount: products.length,
+          sessionId,
+        }
+      );
       return;
     }
 
@@ -504,10 +514,16 @@ class MediaGenerator {
     );
 
     if (productsToProcess.length === 0) {
-      logger.info('No products selected for PDF generation.', {
-        sessionId,
-        correlationId,
-      });
+      logger.warn(
+        `No products selected for PDF generation: pdfMode is '${pdfMode}' but pdfRatio is ${options.pdfRatio}.`,
+        {
+          correlationId,
+          pdfMode,
+          pdfRatio: options.pdfRatio,
+          productCount: products.length,
+          sessionId,
+        }
+      );
       return;
     }
 
