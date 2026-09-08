@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
 const {
-  expandLocaleMapsForPrompt,
+  expandOpenMapsForPrompt,
   looksLikeSchemaRejection,
   projectGenerationSchema,
 } = require('../../utils/schemaProjection.cjs');
@@ -104,7 +104,7 @@ class GeminiProvider extends BaseAIProvider {
     const systemInstruction = `You are an expert AI generator for ${task} data. Return only valid JSON.${
       schema && !responseSchema
         ? `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
-            expandLocaleMapsForPrompt(schema, languages)
+            expandOpenMapsForPrompt(schema, languages)
           )}`
         : ''
     }`;

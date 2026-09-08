@@ -5,6 +5,7 @@ const addFormats = require('ajv-formats');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { validationFeedback } = require('../utils/validationFeedback.cjs');
+const { optionPairsToMap } = require('../utils/schemaProjection.cjs');
 
 // One retry. A second malformed response after being shown its own errors
 // indicates a prompt or schema problem rather than a bad roll, and each
@@ -550,6 +551,18 @@ class GenerationFacade {
             item.name && typeof item.name === 'object'
               ? { ...item.name }
               : { en_US: String(item.name || 'Product summary') };
+        }
+      }
+      // The provider is asked for `skuVariants[].options` as an array of
+      // name/value pairs, because a map keyed by names the model invents in the
+      // same response cannot be expressed in any provider's structured-output
+      // subset. Converted back here, before ajv, so the generation schema and
+      // every downstream consumer still see the map. See #691.
+      if (Array.isArray(item.skuVariants)) {
+        for (const variant of item.skuVariants) {
+          if (variant && typeof variant === 'object') {
+            variant.options = optionPairsToMap(variant.options);
+          }
         }
       }
       if (!item.urls) {

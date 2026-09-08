@@ -11,7 +11,7 @@ const {
 const { createERC } = require('../utils/misc.cjs');
 const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { apiKeyIssue } = require('../utils/apiKeys.cjs');
-const { expandLocaleMapsForPrompt } = require('../utils/schemaProjection.cjs');
+const { expandOpenMapsForPrompt } = require('../utils/schemaProjection.cjs');
 
 // Extra generation rounds allowed to close a shortfall. Two is enough for the
 // nine-instead-of-ten case without turning a stubborn model into a cost sink.
@@ -266,7 +266,7 @@ class AIService {
       const systemInstruction = `You are an expert AI generator for ${task} data. Return only valid JSON.${
         schema
           ? `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
-              expandLocaleMapsForPrompt(schema, languages)
+              expandOpenMapsForPrompt(schema, languages)
             )}`
           : ''
       }`;

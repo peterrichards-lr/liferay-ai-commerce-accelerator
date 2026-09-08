@@ -3,7 +3,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
 const {
-  expandLocaleMapsForPrompt,
+  expandOpenMapsForPrompt,
   looksLikeSchemaRejection,
   projectGenerationSchema,
 } = require('../../utils/schemaProjection.cjs');
@@ -170,7 +170,7 @@ class AnthropicProvider extends BaseAIProvider {
     // stating it twice doubles the schema's tokens for no added constraint.
     if (schema && !outputSchema) {
       system += `\n\nThe JSON output must conform to the following schema:\n\n${JSON.stringify(
-        expandLocaleMapsForPrompt(schema, options.languages)
+        expandOpenMapsForPrompt(schema, options.languages)
       )}`;
     }
 
