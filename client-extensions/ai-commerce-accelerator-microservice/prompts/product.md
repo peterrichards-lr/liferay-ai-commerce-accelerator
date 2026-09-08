@@ -30,7 +30,7 @@ You must return a JSON object that conforms to the provided JSON schema: a singl
   - productOptionValues: array of string values (for example ["Black", "Silver"]). IMPORTANT: This array must be EMPTY for the "numeric" and "text" field types.
 - skuVariants: array of variant SKU objects generated from meaningful combinations of the options. Limit to 8–12 variants per product. Each variant object must have:
   - sku: string composed from baseSku plus variant codes (for example "PRODUCT-001-BLK-L").
-  - options: object mapping option names to selected values (for example {"color": "Black", "size": "Large"}). IMPORTANT: You MUST provide a value for EVERY option defined in the "options" array, even if it is not a skuContributor.
+  - options: array of {"name", "value"} entries, one per option, where "name" matches an option name from the "options" array above and "value" is the selected value (for example [{"name": "Color", "value": "Black"}, {"name": "Size", "value": "Large"}]). IMPORTANT: You MUST provide an entry for EVERY option defined in the "options" array, even if it is not a skuContributor.
   - priceModifier: number representing percentage adjustment from the base price (for example -0.15 for -15%, 0.2 for +20%). Premium options should cost more.
   - inStock: boolean (for realism, roughly 90% true and 10% false).
     {{priceEntriesInstruction}}

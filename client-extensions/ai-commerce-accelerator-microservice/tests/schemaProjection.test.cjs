@@ -5,8 +5,10 @@ const path = require('path');
 const { GenerationFacade } = require('../services/generationFacade.cjs');
 const {
   LOCALE_KEYED_PROPERTIES,
-  expandLocaleMapsForPrompt,
+  PAIR_KEYED_PROPERTIES,
+  expandOpenMapsForPrompt,
   looksLikeSchemaRejection,
+  optionPairsToMap,
   projectGenerationSchema,
 } = require('../utils/schemaProjection.cjs');
 
@@ -119,18 +121,56 @@ describe('schemaProjection', () => {
       ).toEqual(['en_US']);
     });
 
-    it('leaves a map that is not keyed by language alone, and blocks on it', () => {
+    it('asks for a map keyed by names the model invents as a pair array', () => {
       const result = projectGenerationSchema(sourceSchema('product'), {
         languages: LANGUAGES,
         provider: 'openai',
       });
 
       // skuVariants[].options is keyed by option name - names the model invents
-      // in the same response - so its keys cannot be written out.
+      // in the same response - so its keys cannot be written out. As an array
+      // of name/value pairs it is expressible, and product stops being the one
+      // schema no provider can enforce. See #691.
+      expect(result.blockers).toEqual([]);
+      expect(result.schema).not.toBeNull();
+
+      const options =
+        result.schema.properties.products.items.properties.skuVariants.items
+          .properties.options;
+
+      expect(options.type).toBe('array');
+      expect(options.minItems).toBe(1);
+      expect(options.items).toEqual({
+        additionalProperties: false,
+        properties: {
+          name: {
+            description: 'The name of the option this entry gives a value for.',
+            type: 'string',
+          },
+          value: { type: 'string' },
+        },
+        required: ['name', 'value'],
+        type: 'object',
+      });
+    });
+
+    it('leaves a map that is classified in neither registry alone, and blocks', () => {
+      const result = projectGenerationSchema(
+        {
+          properties: {
+            attributes: {
+              additionalProperties: { type: 'string' },
+              type: 'object',
+            },
+          },
+          required: ['attributes'],
+          type: 'object',
+        },
+        { languages: LANGUAGES, provider: 'openai' }
+      );
+
       expect(result.schema).toBeNull();
-      expect(result.blockers).toEqual([
-        '/products/items/skuVariants/items/options',
-      ]);
+      expect(result.blockers).toEqual(['/attributes']);
     });
   });
 
@@ -382,7 +422,7 @@ describe('schemaProjection', () => {
       );
 
       expect(schema).not.toBeNull();
-      expect(blockers).not.toHaveLength(0);
+      expect(blockers).toEqual([]);
 
       const items = schema.properties.products.items;
 
@@ -399,7 +439,7 @@ describe('schemaProjection', () => {
       expect(items.properties.images.type).toBe('array');
     });
 
-    it('still expands the locale maps, and leaves the option map open', () => {
+    it('still expands the locale maps, and pairs the option map', () => {
       const { schema } = projectGenerationSchema(sourceSchema('product'), {
         languages: LANGUAGES,
         mode: 'advisory',
@@ -412,11 +452,13 @@ describe('schemaProjection', () => {
         'en_US',
         'es_ES',
       ]);
-      expect(items.properties.skuVariants.items.properties.options).toEqual({
-        additionalProperties: { type: 'string' },
-        description: 'The specific option combination, keyed by option name.',
-        type: 'object',
-      });
+      // The prose path and the schema path must ask for one shape, not two.
+      expect(items.properties.skuVariants.items.properties.options.type).toBe(
+        'array'
+      );
+      expect(
+        items.properties.skuVariants.items.properties.options.description
+      ).toBe(PAIR_KEYED_PROPERTIES.get('options'));
     });
   });
 
@@ -476,7 +518,11 @@ describe('schemaProjection', () => {
           typeof node.additionalProperties === 'object' &&
           !node.properties;
 
-        if (open && !LOCALE_KEYED_PROPERTIES.has(name)) {
+        if (
+          open &&
+          !LOCALE_KEYED_PROPERTIES.has(name) &&
+          !PAIR_KEYED_PROPERTIES.has(name)
+        ) {
           unclassified.push(pointer);
         }
 
@@ -489,9 +535,7 @@ describe('schemaProjection', () => {
         walk(sourceSchema(entity), '', entity);
       }
 
-      expect(unclassified).toEqual([
-        'product/properties/products/items/properties/skuVariants/items/properties/options',
-      ]);
+      expect(unclassified).toEqual([]);
     });
   });
 
@@ -606,11 +650,49 @@ describe('schemaProjection', () => {
         })
       ).toThrow(/failed schema validation/);
     });
+
+    it('converts a pair array on the way through _standardize, then validates', () => {
+      // The wire format only reaches ajv through _standardize. If the two ever
+      // disagree, every product in every run fails validation, so the two
+      // halves are asserted together rather than each in isolation.
+      const source = sourceSchema('product');
+      const variantSchema =
+        source.properties.products.items.properties.skuVariants.items;
+
+      const standardized = facade()._standardize(
+        {
+          products: [
+            {
+              baseSku: 'PRODUCT-001',
+              externalReferenceCode: 'PRODUCT-001',
+              productType: 'simple',
+              skuVariants: [
+                {
+                  inStock: true,
+                  options: [
+                    { name: 'Color', value: 'Black' },
+                    { name: 'Size', value: 'Large' },
+                  ],
+                  priceModifier: 0,
+                  sku: 'PRODUCT-001-BLK-L',
+                },
+              ],
+            },
+          ],
+        },
+        'product'
+      );
+
+      const variant = standardized.products[0].skuVariants[0];
+
+      expect(variant.options).toEqual({ Color: 'Black', Size: 'Large' });
+      expect(validAgainst(variantSchema, variant).valid).toBe(true);
+    });
   });
 
-  describe('expandLocaleMapsForPrompt', () => {
+  describe('expandOpenMapsForPrompt', () => {
     it('names the locale keys and leaves everything else alone', () => {
-      const expanded = expandLocaleMapsForPrompt(
+      const expanded = expandOpenMapsForPrompt(
         sourceSchema('warehouse'),
         LANGUAGES
       );
@@ -632,21 +714,68 @@ describe('schemaProjection', () => {
       const source = sourceSchema('warehouse');
       const before = JSON.stringify(source);
 
-      expandLocaleMapsForPrompt(source, LANGUAGES);
+      expandOpenMapsForPrompt(source, LANGUAGES);
 
       expect(JSON.stringify(source)).toBe(before);
     });
 
-    it('leaves the option map open', () => {
-      const expanded = expandLocaleMapsForPrompt(
+    it('describes the option map as the same pair array the schema asks for', () => {
+      const expanded = expandOpenMapsForPrompt(
         sourceSchema('product'),
         LANGUAGES
       );
 
-      expect(
+      const options =
         expanded.properties.products.items.properties.skuVariants.items
-          .properties.options.additionalProperties
-      ).toEqual({ type: 'string' });
+          .properties.options;
+
+      expect(options.type).toBe('array');
+      expect(options.minItems).toBe(1);
+      expect(options.additionalProperties).toBeUndefined();
+      expect(options.items.properties.value).toEqual({ type: 'string' });
+      expect(options.items.required).toEqual(['name', 'value']);
+    });
+  });
+
+  describe('optionPairsToMap', () => {
+    it('converts a pair array to the map the generation schema declares', () => {
+      expect(
+        optionPairsToMap([
+          { name: 'Color', value: 'Black' },
+          { name: 'Size', value: 'Large' },
+        ])
+      ).toEqual({ Color: 'Black', Size: 'Large' });
+    });
+
+    it('leaves a map alone, so demo mode and the prose path still work', () => {
+      const map = { Color: 'Black' };
+
+      expect(optionPairsToMap(map)).toBe(map);
+      expect(optionPairsToMap(undefined)).toBeUndefined();
+    });
+
+    it('trims the name, because it becomes an option lookup key', () => {
+      expect(optionPairsToMap([{ name: '  Color  ', value: 'Black' }])).toEqual(
+        {
+          Color: 'Black',
+        }
+      );
+    });
+
+    it('returns the array unchanged when a pair has no usable name', () => {
+      // Dropping the entry would lose an option value silently, and a SKU
+      // without a value for every option its product defines is INACTIVE in
+      // Liferay. Left as an array, ajv reports it and the retry loop feeds the
+      // error back.
+      const pairs = [{ name: 'Color', value: 'Black' }, { value: 'Large' }];
+
+      expect(optionPairsToMap(pairs)).toBe(pairs);
+    });
+
+    it('passes a missing value through rather than coercing it', () => {
+      expect(optionPairsToMap([{ name: 'Color', value: null }])).toEqual({
+        Color: null,
+      });
     });
   });
 
