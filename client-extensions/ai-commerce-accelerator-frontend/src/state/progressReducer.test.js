@@ -100,15 +100,126 @@ describe('entity totals stay separate (#752)', () => {
   it('starts skus and inventory at zero rather than undefined', () => {
     expect(initialProgress.skus).toEqual({
       total: 0,
+      requested: 0,
       completed: 0,
       errors: [],
       batches: {},
+      isDone: false,
     });
     expect(initialProgress.inventory).toEqual({
       total: 0,
+      requested: 0,
       completed: 0,
       errors: [],
       batches: {},
+      isDone: false,
     });
+  });
+});
+
+// The 2026-09-08 run asked for 50 products and the AI delivered 16. The
+// database recorded generate-product-data as 16/50; the bar read 50 / 50, Done.
+describe('a step that finished short says so (#761, #756)', () => {
+  const runAskingFor50Products = () =>
+    progressReducer(initialProgress, ACTIONS.resetAll({ products: 50 }));
+
+  it('keeps the count a finishing step reports instead of filling to the total', () => {
+    let state = runAskingFor50Products();
+    state = progressReducer(state, ACTIONS.markDone('products', 16));
+
+    expect(state.products.completed).toBe(16);
+    expect(state.products.total).toBe(50);
+    expect(state.products.isDone).toBe(true);
+  });
+
+  it('leaves the count already gathered when a step reports none', () => {
+    let state = runAskingFor50Products();
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('products', 'b1', 16, 16)
+    );
+    state = progressReducer(state, ACTIONS.markDone('products'));
+
+    expect(state.products.completed).toBe(16);
+    expect(state.products.total).toBe(50);
+    expect(state.products.isDone).toBe(true);
+  });
+
+  it('does not let a later step lower the total to what the run produced', () => {
+    let state = runAskingFor50Products();
+
+    // create-products only has the 16 products that survived generation.
+    state = progressReducer(state, ACTIONS.setTotal('products', 16));
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('products', 'b1', 10, 10)
+    );
+    state = progressReducer(state, ACTIONS.updateBatch('products', 'b2', 6, 6));
+    state = progressReducer(state, ACTIONS.markDone('products', 16));
+
+    expect(state.products.completed).toBe(16);
+    expect(state.products.total).toBe(50);
+  });
+
+  it('still grows a total past the request when the run produces more', () => {
+    let state = runAskingFor50Products();
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('products', 'b1', 60, 60)
+    );
+
+    expect(state.products.total).toBe(60);
+  });
+
+  it('ignores the count from a step nothing was asked of', () => {
+    // A bypassed step still broadcasts a completion, carrying the count the
+    // SDK defaults to.
+    const state = progressReducer(
+      initialProgress,
+      ACTIONS.markDone('orders', 1)
+    );
+
+    expect(state.orders.completed).toBe(0);
+    expect(state.orders.isDone).toBe(true);
+  });
+
+  it('does not write a run total back into the shared initial state', () => {
+    progressReducer(initialProgress, ACTIONS.resetAll({ products: 50 }));
+
+    expect(initialProgress.products.total).toBe(0);
+    expect(initialProgress.products.requested).toBe(0);
+  });
+});
+
+// create-skus submits a product batch - a product upsert carrying SKUs - so
+// Liferay completes it with a product count. resolve-sku-ids is the step that
+// counts SKUs, and it is the one that must have the last word on the bar.
+describe('the SKU bar ends on SKUs, not on products (#756)', () => {
+  it('reports the SKUs resolved rather than the products that carried them', () => {
+    let state = initialProgress;
+
+    state = progressReducer(state, ACTIONS.setTotal('skus', 10));
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('skus', 'sku-batch', 10, 10)
+    );
+    state = progressReducer(state, ACTIONS.markDone('skus', 10));
+
+    // resolve-sku-ids: 90 SKU references, all resolved.
+    state = progressReducer(state, ACTIONS.setTotal('skus', 90));
+    state = progressReducer(state, ACTIONS.markDone('skus', 90));
+
+    expect(state.skus.completed).toBe(90);
+    expect(state.skus.total).toBe(90);
+    expect(state.skus.isDone).toBe(true);
+  });
+
+  it('reports a shortfall when fewer SKUs resolve than were sent', () => {
+    let state = progressReducer(initialProgress, ACTIONS.setTotal('skus', 90));
+    state = progressReducer(state, ACTIONS.markDone('skus', 84));
+
+    expect(state.skus.completed).toBe(84);
+    expect(state.skus.total).toBe(90);
+    expect(state.skus.isDone).toBe(true);
   });
 });

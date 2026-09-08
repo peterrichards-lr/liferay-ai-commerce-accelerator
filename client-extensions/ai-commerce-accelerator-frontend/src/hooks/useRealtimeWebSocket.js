@@ -478,10 +478,15 @@ export default function useRealtimeWebSocket({
             }
 
             if (currentOnProgress && entityType) {
-              // Mark as 100% complete
+              // The count the step reports travels with the completion, so a
+              // step that finished having done less than it was asked to do
+              // can say so. Nothing else carries that number: the bar was
+              // simply filled to its total, and a run that produced 16 of 50
+              // products read 50 / 50 (#761).
               currentOnProgress({
-                type: 'SET_COMPLETED_TO_TOTAL',
+                type: 'MARK_DONE',
                 entity: entityType,
+                completed: processedCount,
               });
             }
           } else if (scope === WS_SCOPE.BATCH && batchId) {
