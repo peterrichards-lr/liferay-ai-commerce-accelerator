@@ -11,7 +11,10 @@ import WarehousesToggle from './WarehousesToggle';
 import InventoryControls from './InventoryControls';
 import VisualAssetControls from './VisualAssetControls';
 import OrderDistributionControl from './OrderDistributionControl';
-import { evaluateAccountType } from '../../config/channelSiteType';
+import {
+  defaultAccountTypeFor,
+  evaluateAccountType,
+} from '../../config/channelSiteType';
 
 function hasErr(map, key, msgStartsWith) {
   const list = map?.[key] || [];
@@ -168,6 +171,25 @@ function DataGeneratorForm({
       handleConfigChange('demoMode', true);
     }
   }, [aiKeyAvailable, generationConfig.demoMode, handleConfigChange]);
+
+  // The account type follows the channel, because the channel decides which
+  // accounts it will hold. It is a default rather than a lock: the operator can
+  // change it, and only a change of channel proposes a new one. Without this
+  // the form opened on `business` against a channel defaulting to B2C, a pair
+  // the microservice refuses (#640).
+  const channelAccountType = defaultAccountTypeFor(selectedChannel);
+  const channelId = selectedChannel?.id;
+
+  useEffect(() => {
+    // A site type that could not be read implies nothing, so nothing is
+    // proposed and whatever the operator chose stands.
+    if (!channelId || !channelAccountType) return;
+
+    handleConfigChange('accountType', channelAccountType);
+    // Keyed on the channel alone: reacting to accountType too would undo the
+    // operator's own change the moment they made it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId, channelAccountType]);
 
   // A config saved or imported with AI media can arrive when media is not
   // available, which would leave 'ai' selected on a button the user can no

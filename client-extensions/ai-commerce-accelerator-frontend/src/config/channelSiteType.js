@@ -54,6 +54,47 @@ function isDefaultedToB2C(channel) {
  * A short suffix for the channel dropdown: the site type when it is known,
  * a note when it is not, and nothing at all when the module did not answer.
  */
+/**
+ * The account type a channel implies, used as the form's default.
+ *
+ * The app defaulted to `business` regardless of the channel, and an
+ * unconfigured channel defaults to B2C - so the out-of-the-box combination was
+ * one the microservice refuses. Deriving it from the channel means the form
+ * opens on something that will actually run.
+ *
+ * Returns null when the site type could not be read. Nothing is claimed about
+ * such a channel elsewhere in this module, and guessing here would replace a
+ * deliberate selection with a coin toss.
+ */
+export function defaultAccountTypeFor(channel) {
+  if (!channel) {
+    return null;
+  }
+
+  const allowed = Array.isArray(channel.allowedAccountTypes)
+    ? channel.allowedAccountTypes.map((type) => String(type).toLowerCase())
+    : [];
+
+  if (allowed.length === 0) {
+    // An unset site type is B2C rather than unknown (#640), so it does imply
+    // a default - unlike a type that could not be read at all.
+    return isDefaultedToB2C(channel) ? 'person' : null;
+  }
+
+  const business = allowed.includes('business');
+  const person = allowed.includes('person');
+
+  if (business && person) {
+    return 'mixed';
+  }
+
+  if (business) {
+    return 'business';
+  }
+
+  return person ? 'person' : null;
+}
+
 export function channelSiteTypeSuffix(channel) {
   const status = channel?.siteTypeStatus;
 
