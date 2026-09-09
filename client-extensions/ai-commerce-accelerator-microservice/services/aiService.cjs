@@ -52,7 +52,7 @@ function topUpBudget(chunkCount) {
   return Math.min(TOPUP_ATTEMPTS_MAX, Math.max(TOPUP_ATTEMPTS, chunkCount));
 }
 const { resolveMediaProvider } = require('../utils/providerCapabilities.cjs');
-const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { ENV, ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 const { shareCount } = require('../utils/shareSelection.cjs');
 const { createProductLedger } = require('../utils/productLedger.cjs');
@@ -278,15 +278,57 @@ class AIService {
       typeof aiCfg.temperature === 'number' ? aiCfg.temperature : 0.7;
     const maxTokens =
       (aiCfg.maxTokens && aiCfg.maxTokens.default) || aiCfg.maxTokens || 4000;
-    const requestTimeoutMs =
-      typeof aiCfg.requestTimeoutMs === 'number'
-        ? aiCfg.requestTimeoutMs
-        : 60000;
+    // A positive number or null, so "not configured" is distinguishable from
+    // "configured as zero" and cannot silently win a ?? chain.
+    const positive = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
 
-    const chunkSizes =
+    // Resolved as a chain rather than a single source, because the ai-config
+    // object lives in the Liferay the client extensions are deployed to, while
+    // a run may target a different instance. Against such a target aiCfg is the
+    // apiKey-only fallback, which carries no requestTimeoutMs at all - so every
+    // AI setting used to land on its hardcoded default with no way to override
+    // it from anywhere. See #762.
+    //
+    // Request first: a per-run value is the only layer that is safe on a shared
+    // deployment, where ENV is one value for every user of the server.
+    const requestTimeoutMs =
+      positive(requestConfig?.requestTimeoutMs) ??
+      (typeof aiCfg.requestTimeoutMs === 'number'
+        ? aiCfg.requestTimeoutMs
+        : null) ??
+      ENV.AI_REQUEST_TIMEOUT_MS ??
+      60000;
+
+    const configuredChunkSizes =
       typeof config.getAIChunkSizes === 'function'
         ? await config.getAIChunkSizes(requestConfig)
         : { product: 10, account: 10, order: 10, warehouse: 10 };
+
+    // ENV outranks the stored value here, unlike the timeout above, because
+    // getAIChunkSizes substitutes its own { product: 10, ... } when the target
+    // holds nothing. That makes an absent setting indistinguishable from a
+    // deliberate 10, so an ENV layer placed below it could never take effect.
+    const envChunkSizes = {
+      account: ENV.AI_CHUNK_SIZE_ACCOUNT,
+      order: ENV.AI_CHUNK_SIZE_ORDER,
+      pricing: ENV.AI_CHUNK_SIZE_PRICING,
+      product: ENV.AI_CHUNK_SIZE_PRODUCT,
+      warehouse: ENV.AI_CHUNK_SIZE_WAREHOUSE,
+    };
+    const requestChunkSizes = requestConfig?.chunkSizes || {};
+    const chunkSizes = { ...configuredChunkSizes };
+
+    for (const task of Object.keys(envChunkSizes)) {
+      const resolved =
+        positive(requestChunkSizes[task]) ??
+        envChunkSizes[task] ??
+        positive(configuredChunkSizes?.[task]);
+
+      if (resolved !== null) chunkSizes[task] = resolved;
+    }
 
     return {
       provider,
