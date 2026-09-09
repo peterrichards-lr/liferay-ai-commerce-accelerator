@@ -260,6 +260,7 @@ class AccountGenerator extends BaseGenerator {
           groundingMetadata: {
             languages: siteLanguages || [],
           },
+          sessionId,
         }
       );
 

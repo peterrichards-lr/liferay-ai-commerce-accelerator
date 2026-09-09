@@ -337,7 +337,7 @@ class WarehouseGenerator extends BaseGenerator {
               'warehouse',
               shortfall,
               config,
-              updatedSession.context.options
+              { ...updatedSession.context.options, sessionId }
             )
           : [];
 

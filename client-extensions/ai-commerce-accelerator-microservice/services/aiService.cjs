@@ -46,6 +46,11 @@ const RESPONSE_GATED_SCHEMAS = new Set(['pdf']);
 // and capped so a model that keeps returning one item cannot bill for a
 // hundred rounds. A round that adds nothing still breaks out immediately,
 // which is what stops this being expensive in the case that matters.
+// How often a chunk that is still running re-announces itself. A single chunk
+// can occupy minutes at a raised requestTimeoutMs, and without a periodic
+// signal a working run looks identical to a hung one.
+const CHUNK_PROGRESS_HEARTBEAT_MS = 15000;
+
 const TOPUP_ATTEMPTS = 2;
 const TOPUP_ATTEMPTS_MAX = 10;
 
@@ -516,6 +521,64 @@ class AIService {
     }
   }
 
+  /**
+   * Wraps one chunk of a chunked generation loop so its progress is visible.
+   *
+   * Emits three kinds of signal: a chunk started, it is still running, and it
+   * settled. The middle one matters most - the product step took nearly ten
+   * minutes in a real run, and with nothing emitted in between there was no way
+   * to tell a working run from a hung one.
+   *
+   * Two deliberate properties:
+   *
+   * - Every emit is swallowed. Progress must never be able to fail a run.
+   * - A caller that did not thread `sessionId` through options is a silent
+   *   no-op, not an error. The AI service has no session context of its own,
+   *   and `stepProgress` cannot address an event without one.
+   */
+  async _withChunkProgress(options, meta, run) {
+    const progress = this.ctx?.progress;
+    const sessionId = options?.sessionId;
+
+    if (!progress || !sessionId) {
+      return run();
+    }
+
+    const emit = (processedCount) => {
+      try {
+        progress.stepProgress({
+          correlationId: options?.correlationId,
+          entityType: meta.entityType,
+          operation: 'ai-generate',
+          processedCount,
+          sessionId,
+          totalCount: meta.total,
+        });
+      } catch {
+        // Reporting failure is never a generation failure.
+      }
+    };
+
+    // Chunks before this one are done; this one is not yet. The heartbeat
+    // repeats that same count - the value does not change, the arrival is the
+    // liveness signal.
+    const completedBefore = meta.index - 1;
+
+    emit(completedBefore);
+
+    const heartbeat = setInterval(
+      () => emit(completedBefore),
+      CHUNK_PROGRESS_HEARTBEAT_MS
+    );
+
+    try {
+      return await run();
+    } finally {
+      clearInterval(heartbeat);
+      emit(meta.index);
+    }
+  }
+
   async generateProductData(
     category,
     count = 1,
@@ -576,17 +639,22 @@ class AIService {
             }
           );
 
-          const chunkResult = await this.generateProductData(
-            chunkCategory,
-            chunkCount,
-            requestConfig,
-            model,
-            selectedLanguages,
-            {
-              ...options,
-              avoidProducts: ledger.avoid(),
-              categories: [chunkCategory],
-            }
+          const chunkResult = await this._withChunkProgress(
+            options,
+            { entityType: 'products', index: i + 1, total: chunks.length },
+            () =>
+              this.generateProductData(
+                chunkCategory,
+                chunkCount,
+                requestConfig,
+                model,
+                selectedLanguages,
+                {
+                  ...options,
+                  avoidProducts: ledger.avoid(),
+                  categories: [chunkCategory],
+                }
+              )
           );
 
           const chunkItems = Array.isArray(chunkResult)
@@ -899,13 +967,18 @@ class AIService {
             }
           );
 
-          const chunkResult = await this.generateAccountData(
-            chunkCount,
-            requestConfig,
-            model,
-            categories,
-            selectedLanguages,
-            options
+          const chunkResult = await this._withChunkProgress(
+            options,
+            { entityType: 'accounts', index: i + 1, total: chunks.length },
+            () =>
+              this.generateAccountData(
+                chunkCount,
+                requestConfig,
+                model,
+                categories,
+                selectedLanguages,
+                options
+              )
           );
 
           const items = Array.isArray(chunkResult)
@@ -1024,14 +1097,19 @@ class AIService {
             }
           );
 
-          const chunkResult = await this.generateOrderData(
-            products,
-            accounts,
-            chunkCount,
-            requestConfig,
-            model,
-            selectedLanguages,
-            options
+          const chunkResult = await this._withChunkProgress(
+            options,
+            { entityType: 'orders', index: i + 1, total: chunks.length },
+            () =>
+              this.generateOrderData(
+                products,
+                accounts,
+                chunkCount,
+                requestConfig,
+                model,
+                selectedLanguages,
+                options
+              )
           );
 
           const items = Array.isArray(chunkResult)
@@ -1153,12 +1231,17 @@ class AIService {
             }
           );
 
-          const chunkResult = await this.generateWarehouseData(
-            chunkCount,
-            requestConfig,
-            model,
-            selectedLanguages,
-            options
+          const chunkResult = await this._withChunkProgress(
+            options,
+            { entityType: 'warehouses', index: i + 1, total: chunks.length },
+            () =>
+              this.generateWarehouseData(
+                chunkCount,
+                requestConfig,
+                model,
+                selectedLanguages,
+                options
+              )
           );
 
           const items = Array.isArray(chunkResult)
@@ -1347,13 +1430,18 @@ class AIService {
             }
           );
 
-          const chunkResult = await this.generatePricingData(
-            batches[i],
-            pricingType,
-            requestConfig,
-            model,
-            _selectedLanguages,
-            options
+          const chunkResult = await this._withChunkProgress(
+            options,
+            { entityType: 'pricing', index: i + 1, total: batches.length },
+            () =>
+              this.generatePricingData(
+                batches[i],
+                pricingType,
+                requestConfig,
+                model,
+                _selectedLanguages,
+                options
+              )
           );
 
           const entries = Array.isArray(chunkResult)

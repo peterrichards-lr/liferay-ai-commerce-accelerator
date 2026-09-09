@@ -214,8 +214,9 @@ class OrderGenerator extends BaseGenerator {
         config,
         {
           ...options,
-          products,
           accounts,
+          products,
+          sessionId,
         }
       );
 
