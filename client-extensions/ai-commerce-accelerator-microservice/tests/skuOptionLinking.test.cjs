@@ -275,4 +275,146 @@ describe('SKU option links', () => {
       expect.objectContaining({ options: ['COLOR'] })
     );
   });
+
+  /**
+   * The prompt asks for a variant entry for every option, a `text` one
+   * included, and those must declare no values - so the entry has nothing to
+   * resolve to. Reporting it as a dropped link produced twelve warnings in one
+   * live run, byte-identical to the one that accompanied the 22 unsellable
+   * SKUs of #754, and the fix for those was read as having regressed. See
+   * #797.
+   */
+  describe('alongside an option that cannot carry values', () => {
+    const linkedEngraving = {
+      id: 71570,
+      optionId: 44870,
+      key: 'CUSTOMENGRAV',
+      name: { en_US: 'Custom Engraving' },
+      fieldType: 'text',
+      skuContributor: false,
+    };
+
+    const linkedStrap = {
+      id: 71580,
+      optionId: 44880,
+      key: 'STRAP',
+      name: { en_US: 'Strap' },
+      fieldType: 'select',
+      skuContributor: false,
+      productOptionValues: [
+        { id: 71581, key: 'NYLON', name: { en_US: 'Nylon' } },
+      ],
+    };
+
+    beforeEach(() => {
+      const [pd] = session.context.productDataList;
+
+      pd.options.push({
+        name: 'Custom Engraving',
+        fieldType: 'text',
+        skuContributor: false,
+        productOptionValues: [],
+      });
+      pd.skuVariants[0].options = { Color: 'Black', 'Custom Engraving': '' };
+
+      const globalIds = { COLOR: 44862, CUSTOMENGRAV: 44870, STRAP: 44880 };
+
+      liferay.createOptionWithReuse.mockImplementation(
+        async (_cfg, option) => ({
+          id: globalIds[option.key],
+          key: option.key,
+        })
+      );
+      liferay.addProductOptions.mockResolvedValue({
+        items: [linkedColour(liferayValues), linkedEngraving],
+      });
+      liferay.getProductOptions.mockResolvedValue([
+        linkedColour(liferayValues),
+        linkedEngraving,
+      ]);
+    });
+
+    it('says nothing at all about it', async () => {
+      await runToSkus();
+
+      expect(skuOptionsOf()).toEqual([
+        { optionId: 71565, optionValueId: 71566 },
+      ]);
+      expect(logger.warn).not.toHaveBeenCalled();
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it('still reports a contributing option that did not resolve', async () => {
+      // Same product, same harmless text option; the difference is that
+      // Liferay came back with no value relationships for Color. That is an
+      // inactive SKU, and it has to stay as loud as it was.
+      liferay.addProductOptions.mockResolvedValue({
+        items: [linkedColour([]), linkedEngraving],
+      });
+      liferay.getProductOptions.mockResolvedValue([
+        linkedColour([]),
+        linkedEngraving,
+      ]);
+
+      await runToSkus();
+
+      expect(skuOptionsOf()).toEqual([]);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'dropped 1 option link on SKU-contributing option'
+        ),
+        expect.objectContaining({
+          unresolved: [expect.stringContaining('Color=Black')],
+        })
+      );
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Option linking incomplete'),
+        expect.anything()
+      );
+    });
+
+    it('does not let the skip stand in for a contributing option', async () => {
+      // A drop on a non-contributing option costs the SKU nothing, so it is
+      // reported in its own words rather than in the ones that mean an
+      // unsellable SKU - being unable to tell the two apart is the whole
+      // defect.
+      session.context.productDataList[0].skuVariants[0].options = {
+        Color: 'Black',
+        'Custom Engraving': '',
+        Strap: 'Leather',
+      };
+      session.context.productDataList[0].options.push({
+        name: 'Strap',
+        fieldType: 'select',
+        skuContributor: false,
+        productOptionValues: ['Nylon'],
+      });
+      liferay.addProductOptions.mockResolvedValue({
+        items: [linkedColour(liferayValues), linkedEngraving, linkedStrap],
+      });
+      liferay.getProductOptions.mockResolvedValue([
+        linkedColour(liferayValues),
+        linkedEngraving,
+        linkedStrap,
+      ]);
+
+      await runToSkus();
+
+      expect(skuOptionsOf()).toEqual([
+        { optionId: 71565, optionValueId: 71566 },
+      ]);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'dropped 1 option link on non-contributing option'
+        ),
+        expect.objectContaining({
+          unresolved: [expect.stringContaining('Strap=Leather')],
+        })
+      );
+      expect(logger.warn).not.toHaveBeenCalledWith(
+        expect.stringContaining('SKU-contributing'),
+        expect.anything()
+      );
+    });
+  });
 });
