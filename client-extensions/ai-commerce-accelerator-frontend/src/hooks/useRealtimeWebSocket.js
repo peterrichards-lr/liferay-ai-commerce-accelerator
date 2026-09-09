@@ -9,6 +9,43 @@ import { normalizeEntityType } from '../utils/misc';
 import { WORKFLOW_STATUS } from '../utils/microservicePaths';
 import { getOAuth2AccessToken } from '../services/oauth2Service';
 
+// The service broadcasts every line it logs. Only the levels that describe
+// something the operator has to act on are promoted to the activity log; the
+// rest stay in the raw console stream (LogConsole) that already carries them.
+const SERVICE_LOG_TYPES = new Map([
+  ['ERROR', 'error'],
+  ['WARN', 'warning'],
+]);
+
+// A per-run ceiling so a step that warns once per item cannot evict the run's
+// lifecycle entries from the 500-entry activity log.
+const SERVICE_LOG_ENTRIES_PER_RUN = 200;
+
+const SERVICE_LOG_EVENT = 'LOG_ENTRY';
+
+// The prefix every service-sourced entry carries. Exported so the toast rule
+// in App matches on the same string that writes it, rather than a copy that
+// can drift.
+export const SERVICE_LOG_SOURCE = 'service';
+
+export function isServiceSourced(source) {
+  return (
+    typeof source === 'string' &&
+    (source === SERVICE_LOG_SOURCE ||
+      source.startsWith(`${SERVICE_LOG_SOURCE} · `))
+  );
+}
+
+function describeServiceLogSource({ correlationId, operation }, sessionId) {
+  const context = [operation, sessionId && `session ${sessionId}`];
+
+  if (correlationId && correlationId !== 'system') {
+    context.push(correlationId);
+  }
+
+  return [SERVICE_LOG_SOURCE, ...context.filter(Boolean)].join(' · ');
+}
+
 export default function useRealtimeWebSocket({
   enabled,
   microserviceUrl,
@@ -38,6 +75,46 @@ export default function useRealtimeWebSocket({
 
   const backoffRef = useRef(1000);
   const reconnectTimerRef = useRef(null);
+  const serviceLogBudgetRef = useRef({ sessionId: null, remaining: 0 });
+
+  // Warnings and errors the service writes to its own log reached nobody: the
+  // activity log was fed only from lifecycle events, so a run that produced 16
+  // of 50 products said so in app.log alone (#761).
+  const ingestServiceLogEntry = useCallback((logEntry) => {
+    const type = SERVICE_LOG_TYPES.get(logEntry?.level);
+    if (!type || !logEntry.message) return;
+
+    const sessionId = logEntry.sessionId || activeSessionIdRef.current || null;
+    const budget = serviceLogBudgetRef.current;
+
+    if (budget.sessionId !== sessionId) {
+      serviceLogBudgetRef.current = {
+        sessionId,
+        remaining: SERVICE_LOG_ENTRIES_PER_RUN,
+      };
+    }
+
+    const runBudget = serviceLogBudgetRef.current;
+    if (runBudget.remaining <= 0) return;
+
+    const { onLog: currentOnLog } = callbacksRef.current;
+
+    currentOnLog?.(
+      logEntry.message,
+      type,
+      describeServiceLogSource(logEntry, sessionId)
+    );
+
+    runBudget.remaining -= 1;
+
+    if (runBudget.remaining === 0) {
+      currentOnLog?.(
+        `Reached ${SERVICE_LOG_ENTRIES_PER_RUN} service warnings for this run; further ones stay in the console log stream.`,
+        'warning',
+        'service'
+      );
+    }
+  }, []);
 
   const logInfo = useCallback(
     (...args) => {
@@ -312,6 +389,11 @@ export default function useRealtimeWebSocket({
       window.dispatchEvent(
         new CustomEvent('liferay-ai-ws-event', { detail: data })
       );
+
+      if (data.type === SERVICE_LOG_EVENT) {
+        ingestServiceLogEntry(data.logEntry);
+        return;
+      }
 
       const entityType = normalizeEntityType(data.entityType);
       const { scope, error, sessionId, details } = data;
@@ -647,6 +729,7 @@ export default function useRealtimeWebSocket({
     hydrateSessionStatus,
     logError,
     loggingLevel,
+    ingestServiceLogEntry,
   ]);
 
   // Final check to update the connectRef
