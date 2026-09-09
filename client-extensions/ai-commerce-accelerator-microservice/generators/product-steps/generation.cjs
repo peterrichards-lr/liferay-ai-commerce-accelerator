@@ -5,6 +5,9 @@ const {
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { markBackorderShare } = require('../../utils/backorderShare.cjs');
+const {
+  coverProductOptionValues,
+} = require('../../utils/optionValueCoverage.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -141,19 +144,17 @@ async function runProductDataGenerationStep(sessionId) {
   }
 }
 
-async function generateProductData(
-  config,
-  options,
-  _sessionId,
-  _correlationId
-) {
+async function generateProductData(config, options, sessionId, _correlationId) {
   const data = await this.ctx.generation.generateData(
     'product',
     options.productCount,
     config,
     options
   );
-  return data.map((p) => {
+
+  const coverage = { products: 0, values: 0, variants: 0 };
+
+  const products = data.map((p) => {
     // A run with specifications switched off skips ensure-specifications, so
     // nothing registers a definition for what the model returned here. Liferay
     // resolves a product's specifications by key at creation time and would
@@ -178,8 +179,33 @@ async function generateProductData(
         specificationKey: key,
       };
     });
+    // Both generators arrive here, so the mock is held to the same rule as the
+    // AI - and this is the last point before ensure-options, which registers
+    // the global option values a variant's link is later resolved against. A
+    // value added any later would have no global definition behind it. See
+    // #754. `_standardize` has already turned `skuVariants[].options` back from
+    // the wire format's pair array into the map every consumer below expects.
+    const covered =
+      options.generateSkuVariants === false
+        ? null
+        : coverProductOptionValues(p, { logger: this.logger, sessionId });
+
+    if (covered) {
+      coverage.values += covered.addedValues.length;
+      coverage.variants += covered.synthesisedVariants.length;
+      coverage.products +=
+        covered.addedValues.length || covered.synthesisedVariants.length
+          ? 1
+          : 0;
+    }
+
+    const skuVariants = covered ? covered.skuVariants : p.skuVariants || [];
+
     return {
       ...p,
+      ...(covered && (p.productOptions || p.options)
+        ? { options: covered.options }
+        : {}),
       externalReferenceCode: createERC(ERC_PREFIX.PRODUCT),
       specifications: normalizedSpecs,
       productSpecifications: normalizedSpecs,
@@ -189,12 +215,23 @@ async function generateProductData(
         ...s,
         externalReferenceCode: s.externalReferenceCode || s.sku,
       })),
-      skuVariants: (p.skuVariants || []).map((v) => ({
+      skuVariants: skuVariants.map((v) => ({
         ...v,
         externalReferenceCode: v.externalReferenceCode || v.sku,
       })),
     };
   });
+
+  // Named at a level the run shows: these corrections were previously invisible
+  // and the SKUs they would have saved were simply inactive (#761).
+  if (coverage.products > 0) {
+    this.logger.info(
+      `Option value coverage: declared ${coverage.values} value(s) a variant already used and built ${coverage.variants} variant(s) for values that had none, across ${coverage.products} product(s)`,
+      { sessionId }
+    );
+  }
+
+  return products;
 }
 
 module.exports = {
