@@ -777,18 +777,20 @@ class OrderGenerator extends BaseGenerator {
       this.logger.debug(
         'Fetching existing accounts from Liferay for order assignment...'
       );
-      // No channel filter: getAccounts takes an OData filter *string* and
-      // _fetchCollection coerces anything else to '', so the { channelId }
-      // object passed here previously was silently discarded. Accounts are not
-      // channel-scoped on this endpoint in any case - membership is a separate
-      // ChannelAccount resource - so do not reinstate it as a filter string.
-      // See #610.
-      const accountsRes = await this.liferay.getAccounts(config, null, [
-        'id',
-        'externalReferenceCode',
-        'name',
-        'type',
-      ]);
+      // getAccounts is (config, options) - the second parameter is an options
+      // object, not an OData filter string, and there is no third parameter.
+      // Passing `null` here threw: a `= {}` default only applies to
+      // `undefined`, so null reached the destructure. The field list passed
+      // positionally as a third argument was discarded entirely, which left
+      // `fields` on its default of 'id,externalReferenceCode,name' - with no
+      // `type`, the field eligibleOrderAccounts filters on below.
+      //
+      // No channel filter is requested, and that part of #610 stands: accounts
+      // are not channel-scoped on this endpoint - membership is a separate
+      // ChannelAccount resource - so do not reinstate one.
+      const accountsRes = await this.liferay.getAccounts(config, {
+        fields: 'id,externalReferenceCode,name,type',
+      });
       const existing = accountsRes.items || [];
       accounts = eligibleOrderAccounts(
         existing,
