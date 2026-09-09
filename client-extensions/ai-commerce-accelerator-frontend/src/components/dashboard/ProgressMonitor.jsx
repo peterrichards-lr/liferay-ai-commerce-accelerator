@@ -1,6 +1,8 @@
 import React from 'react';
 import ClayBadge from '@clayui/badge';
 
+import { hasOutstandingSteps } from '../../state/progressSelectors';
+
 function MiniProgressItem({
   title,
   completed,
@@ -8,13 +10,17 @@ function MiniProgressItem({
   errors,
   onErrorsClick,
   isDelete,
-  workflowStatus,
+  workflowFinished,
   explicitIsDone,
 }) {
   const hasErrors = errors && errors.length > 0;
 
-  // STRICT COMPLETION: Only mark as done if server explicitly confirmed or whole workflow is finished
-  const isDone = explicitIsDone || workflowStatus === 'completed';
+  // STRICT COMPLETION: Only mark as done if the server explicitly confirmed
+  // this entity, or the whole workflow is finished and its steps agree. A
+  // delete flow announced itself complete on submission, and this fallback
+  // then put "Done" on every bar - including the seven entities the run had
+  // not reached and the products still sitting at PREPARED 0 of 50 (#786).
+  const isDone = explicitIsDone || workflowFinished;
 
   // A step can be finished and still have done less than it was asked to do.
   // The count beside the badge already said 16 / 50; a plain "Done" beside it
@@ -93,6 +99,9 @@ function MiniProgressItem({
 function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
   if (!progress) return null;
 
+  const workflowFinished =
+    progress.workflowStatus === 'completed' && !hasOutstandingSteps(progress);
+
   return (
     <div className="progress-monitor-compact mt-2">
       <h6
@@ -108,7 +117,7 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.products.errors}
         onErrorsClick={() => onErrorsClick(0, 'products')}
         isDelete={isDelete}
-        workflowStatus={progress.workflowStatus}
+        workflowFinished={workflowFinished}
         explicitIsDone={progress.products.isDone}
       />
       <MiniProgressItem
@@ -118,7 +127,7 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.skus?.errors || []}
         onErrorsClick={() => onErrorsClick(0, 'skus')}
         isDelete={isDelete}
-        workflowStatus={progress.workflowStatus}
+        workflowFinished={workflowFinished}
         explicitIsDone={progress.skus?.isDone}
       />
       <MiniProgressItem
@@ -128,7 +137,7 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.accounts.errors}
         onErrorsClick={() => onErrorsClick(1, 'accounts')}
         isDelete={isDelete}
-        workflowStatus={progress.workflowStatus}
+        workflowFinished={workflowFinished}
         explicitIsDone={progress.accounts.isDone}
       />
       <MiniProgressItem
@@ -138,7 +147,7 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.orders.errors}
         onErrorsClick={() => onErrorsClick(2, 'orders')}
         isDelete={isDelete}
-        workflowStatus={progress.workflowStatus}
+        workflowFinished={workflowFinished}
         explicitIsDone={progress.orders.isDone}
       />
 
@@ -155,7 +164,7 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.warehouses.errors}
         onErrorsClick={() => onErrorsClick(5, 'warehouses')}
         isDelete={isDelete}
-        workflowStatus={progress.workflowStatus}
+        workflowFinished={workflowFinished}
         explicitIsDone={progress.warehouses.isDone}
       />
       <MiniProgressItem
@@ -165,7 +174,7 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.inventory?.errors || []}
         onErrorsClick={() => onErrorsClick(5, 'inventory')}
         isDelete={isDelete}
-        workflowStatus={progress.workflowStatus}
+        workflowFinished={workflowFinished}
         explicitIsDone={progress.inventory?.isDone}
       />
       <MiniProgressItem
@@ -175,7 +184,7 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.addresses?.errors || []}
         onErrorsClick={() => onErrorsClick(10, 'addresses')}
         isDelete={isDelete}
-        workflowStatus={progress.workflowStatus}
+        workflowFinished={workflowFinished}
         explicitIsDone={progress.addresses?.isDone}
       />
       <MiniProgressItem
@@ -185,7 +194,7 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.images?.errors || []}
         onErrorsClick={() => onErrorsClick(3, 'images')}
         isDelete={isDelete}
-        workflowStatus={progress.workflowStatus}
+        workflowFinished={workflowFinished}
         explicitIsDone={progress.images?.isDone}
       />
       <MiniProgressItem
@@ -195,7 +204,7 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         errors={progress.pdfs.errors}
         onErrorsClick={() => onErrorsClick(4, 'pdfs')}
         isDelete={isDelete}
-        workflowStatus={progress.workflowStatus}
+        workflowFinished={workflowFinished}
         explicitIsDone={progress.pdfs.isDone}
       />
       <MiniProgressItem
@@ -213,7 +222,7 @@ function ProgressMonitor({ progress, onErrorsClick, isDelete }) {
         ]}
         onErrorsClick={() => onErrorsClick(8, 'pricing')}
         isDelete={isDelete}
-        workflowStatus={progress.workflowStatus}
+        workflowFinished={workflowFinished}
         explicitIsDone={
           progress.priceLists?.isDone || progress.promotions?.isDone
         }

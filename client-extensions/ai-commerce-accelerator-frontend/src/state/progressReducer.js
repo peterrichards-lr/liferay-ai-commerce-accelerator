@@ -33,9 +33,22 @@ const seededEntity = (cur, total) => ({
   isDone: false,
 });
 
-/** Totals may rise above the request, never fall below it. */
+/**
+ * A total may rise above the request and may never fall - not below the
+ * request, and not below a figure already established.
+ *
+ * `cur.total` was left out of the maximum, so a later, smaller report lowered
+ * it whenever `requested` was 0. That is every delete: nothing is requested,
+ * so discovery's census is the only floor there is, and a step reporting a
+ * narrower figure afterwards took the denominator with it. A delete that
+ * removed 10 accounts read `10 / 2` (#786).
+ */
 const withRequestFloor = (cur, ...totals) =>
-  Math.max(cur.requested || 0, ...totals.map((t) => t || 0));
+  Math.max(cur.requested || 0, cur.total || 0, ...totals.map((t) => t || 0));
+
+/** What the step's own batch rows say happened - proof of work performed. */
+const sumBatches = (batches, field) =>
+  Object.values(batches || {}).reduce((sum, b) => sum + (b[field] || 0), 0);
 
 export const initialProgress = {
   activeSessionId: null,
@@ -251,23 +264,13 @@ export function progressReducer(state, action) {
         [batchKey(batchId)]: { completed, total },
       };
 
-      const summedCompleted = Object.values(nextBatches).reduce(
-        (sum, b) => sum + (b.completed || 0),
-        0
-      );
-
-      const summedBatchTotals = Object.values(nextBatches).reduce(
-        (sum, b) => sum + (b.total || 0),
-        0
-      );
-
       return {
         ...state,
         [entity]: {
           ...cur,
           batches: nextBatches,
-          completed: summedCompleted,
-          total: withRequestFloor(cur, cur.total, summedBatchTotals),
+          completed: sumBatches(nextBatches, 'completed'),
+          total: withRequestFloor(cur, sumBatches(nextBatches, 'total')),
         },
         lastUpdateTime: now,
       };

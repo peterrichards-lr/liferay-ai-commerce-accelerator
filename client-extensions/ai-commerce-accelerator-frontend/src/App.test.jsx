@@ -14,10 +14,23 @@ vi.mock('./components/dashboard/Dashboard', () => ({
   default: () => <div data-testid="dashboard">Dashboard</div>,
 }));
 
-vi.mock('./hooks/useRealtimeWebSocket', () => ({
+// Only the hook itself is replaced. `isServiceSourced` is a real named export
+// that App calls on every log entry to decide whether to raise a toast, and a
+// mock that omits it makes addLog throw. That throw was swallowed by
+// testConnection's catch, so the suite reported 242 passing while the path was
+// broken - the nightly E2E log was the only place it surfaced.
+// The replacement returns the hook's real shape. It previously returned an
+// `isConnected` key the hook has never had, so App read `wsConnected` as
+// undefined and the 'Disconnected' assertion below passed for the wrong
+// reason - a mock drifting from the module it stands in for is what broke
+// `isServiceSourced` in the first place.
+vi.mock('./hooks/useRealtimeWebSocket', async (importOriginal) => ({
+  ...(await importOriginal()),
   default: () => ({
-    isConnected: false,
+    wsRef: { current: null },
+    wsConnected: false,
     reconnect: vi.fn(),
+    ping: vi.fn(),
   }),
 }));
 
