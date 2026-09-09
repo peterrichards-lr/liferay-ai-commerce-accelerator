@@ -4,6 +4,7 @@ import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
+import ImportExportButtons from '../common/ImportExportButtons';
 import { useForm, useObjectStorage } from '../../hooks';
 import Ajv from 'ajv';
 import { Controlled as CodeMirror } from 'react-codemirror2';
@@ -125,6 +126,17 @@ export default function ExcludeListsPanel() {
     [setValue]
   );
 
+  // What the editor shows is what Export writes: a document mid-edit, invalid
+  // JSON and all, exports as the operator sees it rather than as a silently
+  // repaired version of it.
+  const editorText = useMemo(
+    () =>
+      typeof excludeLists === 'string'
+        ? excludeLists
+        : JSON.stringify(excludeLists, null, 2),
+    [excludeLists]
+  );
+
   const hasErrors = useMemo(
     () =>
       issues.length > 0 ||
@@ -138,11 +150,19 @@ export default function ExcludeListsPanel() {
 
   return (
     <ClayLayout.Sheet aria-busy={loading || saving} aria-live="polite">
-      <div className="sheet-header">
-        <h2 className="sheet-title">Exclude Lists Configuration</h2>
-        <div className="sheet-text">
-          Manages <code>{EXCLUDE_LISTS_CONFIG_KEY}</code>.
+      <div className="sheet-header d-flex justify-content-between align-items-center">
+        <div>
+          <h2 className="sheet-title">Exclude Lists Configuration</h2>
+          <div className="sheet-text">
+            Manages <code>{EXCLUDE_LISTS_CONFIG_KEY}</code>.
+          </div>
         </div>
+        <ImportExportButtons
+          filename={`${EXCLUDE_LISTS_CONFIG_KEY}.json`}
+          label="Exclude Lists Configuration"
+          onImport={onExcludeListsChange}
+          text={editorText}
+        />
       </div>
 
       {!!issues.length && (
@@ -161,11 +181,7 @@ export default function ExcludeListsPanel() {
             Exclude Lists (JSON Object)
           </label>
           <CodeMirror
-            value={
-              typeof excludeLists === 'string'
-                ? excludeLists
-                : JSON.stringify(excludeLists, null, 2)
-            }
+            value={editorText}
             options={{
               ...defaultEditorOptions,
               mode: { name: 'javascript', json: true },
