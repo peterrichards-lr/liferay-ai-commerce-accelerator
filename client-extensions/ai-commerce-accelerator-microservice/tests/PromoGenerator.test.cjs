@@ -151,6 +151,99 @@ describe('PromoGenerator', () => {
     );
   });
 
+  // Pricing v2.0 declares skuId required and int64, and the pricing step's own
+  // comment records the cost of getting it wrong: "Pricing V2.0 will crash the
+  // entire batch if one ID is invalid." This used to send product.id - a
+  // CProduct id, not a SKU id and not even the id product-scoped paths take
+  // (#748) - whenever a product had no resolved SKU (#778).
+  const runPromoFlow = async (sessionId, productDataList) => {
+    await persistence.createSession({
+      sessionId,
+      flowType: 'generate',
+      status: 'STARTED',
+      currentSteps: [],
+      context: {
+        config: { siteGroupId: 123 },
+        options: { generatePromotions: true, productCount: 1, accountCount: 1 },
+        accountDataList: [
+          {
+            name: 'Wholesale Inc',
+            externalReferenceCode: 'ACC-WHOLESALE',
+            id: 200,
+          },
+        ],
+        productDataList,
+      },
+    });
+
+    await generator._runPromoDataGenerationStep(sessionId);
+    await generator._runCreateUserSegmentsStep(sessionId);
+    await generator._runCreatePromotionsStep(sessionId);
+  };
+
+  it('writes no promotional price entry for a product with no resolved SKU', async () => {
+    await runPromoFlow('session-no-sku', [
+      {
+        name: 'Hammer',
+        sku: 'SKU-HAMMER',
+        externalReferenceCode: 'AICA-PRD-HAMMER',
+        cProductId: 100,
+      },
+    ]);
+
+    const entries = mockCtx.liferay.createPriceEntriesBatch.mock.calls.flatMap(
+      ([, batch]) => batch || []
+    );
+
+    expect(entries).toHaveLength(0);
+    expect(mockCtx.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('no SKU resolved to price'),
+      expect.anything()
+    );
+  });
+
+  it('never sends a product id in the skuId field', async () => {
+    await runPromoFlow('session-guard', [
+      {
+        name: 'Hammer',
+        sku: 'SKU-HAMMER',
+        externalReferenceCode: 'AICA-PRD-HAMMER',
+        cProductId: 100,
+        cpDefinitionId: 101,
+      },
+    ]);
+
+    const entries = mockCtx.liferay.createPriceEntriesBatch.mock.calls.flatMap(
+      ([, batch]) => batch || []
+    );
+
+    for (const entry of entries) {
+      expect(entry.skuId).not.toBe(100);
+      expect(entry.skuId).not.toBe(101);
+    }
+  });
+
+  it('prices a SKU that did resolve, using the SKU own id', async () => {
+    await runPromoFlow('session-with-sku', [
+      {
+        name: 'Hammer',
+        sku: 'SKU-HAMMER',
+        externalReferenceCode: 'AICA-PRD-HAMMER',
+        cProductId: 100,
+        skus: [{ id: 9001, sku: 'SKU-HAMMER', price: 20 }],
+      },
+    ]);
+
+    const entries = mockCtx.liferay.createPriceEntriesBatch.mock.calls.flatMap(
+      ([, batch]) => batch || []
+    );
+
+    expect(entries.length).toBeGreaterThan(0);
+    for (const entry of entries) {
+      expect(entry.skuId).toBe(9001);
+    }
+  });
+
   it('does not crash when the AI returns a segment/promotion with no name', async () => {
     mockCtx.generation.generateData.mockResolvedValue({
       userSegments: [

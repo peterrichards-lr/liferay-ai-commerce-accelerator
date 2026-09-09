@@ -471,7 +471,7 @@ class OrderGenerator extends BaseGenerator {
         productCount: products.length,
         firstProduct: products[0]
           ? {
-              id: products[0].id,
+              cProductId: products[0].cProductId,
               status: products[0].productStatus,
               skuCount: products[0].skus?.length,
             }

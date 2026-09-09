@@ -967,7 +967,6 @@ class AIService {
         .map((p) => ({
           name: p.name?.en_US || p.name,
           sku: p.sku,
-          id: p.id,
         }))
         .slice(0, 10);
 
@@ -1296,7 +1295,6 @@ class AIService {
       const productList = products.map((p) => ({
         name: p.name?.en_US || p.name,
         sku: p.sku,
-        id: p.id,
       }));
 
       const vars = {
@@ -1364,7 +1362,6 @@ class AIService {
       const productList = products.map((p) => ({
         name: p.name?.en_US || p.name,
         sku: p.sku || p.externalReferenceCode,
-        id: p.id,
       }));
 
       const accountList = accounts.map((a) => ({
