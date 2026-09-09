@@ -5,6 +5,7 @@ const {
   resolveErrorReference,
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
+const { coverPriceEntries } = require('../../utils/priceEntryCoverage.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -218,48 +219,25 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
 
   let totalEntries = 0;
   const seenPriceERCs = new Set();
+  const coverage = { dropped: 0, products: 0, synthesised: 0 };
 
   for (const product of productDataList) {
-    if (!Array.isArray(product.priceEntries)) product.priceEntries = [];
+    // Enforced here rather than trusted to the prompt: an entry naming a SKU
+    // Liferay will not create has no id to send, and Pricing v2.0 fails the
+    // whole batch on one bad id. See #787.
+    const covered = coverPriceEntries(product, {
+      tiers: Boolean(
+        options.generateBulkPricing || options.generateTierPricing
+      ),
+      variants: options.generateSkuVariants !== false,
+    });
 
-    // Auto-generate missing price entries for variants based on the base price entry
-    const baseEntry =
-      product.priceEntries.find(
-        (e) =>
-          e.skuExternalReferenceCode === product.baseSku ||
-          e.skuExternalReferenceCode === product.externalReferenceCode ||
-          e.skuExternalReferenceCode === product.skus?.[0]?.sku
-      ) || product.priceEntries[0]; // fallback to first entry
+    product.priceEntries = covered.priceEntries;
 
-    if (baseEntry && Array.isArray(product.skuVariants)) {
-      for (const variant of product.skuVariants) {
-        const variantSku = variant.externalReferenceCode || variant.sku;
-        const exists = product.priceEntries.some(
-          (e) => e.skuExternalReferenceCode === variantSku
-        );
-
-        if (!exists) {
-          // Synthesize price entry for variant
-          const modifier =
-            typeof variant.priceModifier === 'number'
-              ? variant.priceModifier
-              : 0;
-          const newPrice = Number(
-            (baseEntry.price * (1 + modifier)).toFixed(2)
-          );
-          const newPromo = baseEntry.promoPrice
-            ? Number((baseEntry.promoPrice * (1 + modifier)).toFixed(2))
-            : undefined;
-
-          product.priceEntries.push({
-            ...baseEntry,
-            skuExternalReferenceCode: variantSku,
-            price: newPrice > 0 ? newPrice : 0.01,
-            promoPrice: newPromo,
-            tierPrices: [],
-          });
-        }
-      }
+    if (covered.dropped.length > 0 || covered.synthesised.length > 0) {
+      coverage.dropped += covered.dropped.length;
+      coverage.products++;
+      coverage.synthesised += covered.synthesised.length;
     }
 
     for (const entry of product.priceEntries) {
@@ -362,6 +340,15 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
         }
       }
     }
+  }
+
+  // Named at a level the run shows: the derivation used to happen silently and
+  // the tiers it dropped were simply absent from the catalogue (#787).
+  if (coverage.products > 0) {
+    this.logger.info(
+      `Price entry coverage: dropped ${coverage.dropped} entr${coverage.dropped === 1 ? 'y' : 'ies'} naming a SKU Liferay does not create and derived ${coverage.synthesised} for orderable SKUs that had none, across ${coverage.products} product(s)`,
+      { sessionId }
+    );
   }
 
   for (const pl of priceListTemplates) {

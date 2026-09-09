@@ -289,7 +289,9 @@ describe('AIService (Multi-Provider)', () => {
     // call, so the top-up finds nothing new and stops rather than spending a
     // second attempt.
     expect(chatJsonSpy).toHaveBeenCalledTimes(4);
-    expect(result.length).toBe(6); // 2 items per mock call * 3 chunk calls
+    // Two, not six. Chunks two and three repeat chunk one's products, and the
+    // chunk loop now discards a repeat instead of accumulating it (#798).
+    expect(result.length).toBe(2);
   });
 
   it('tops up a short product run with the missing items', async () => {
