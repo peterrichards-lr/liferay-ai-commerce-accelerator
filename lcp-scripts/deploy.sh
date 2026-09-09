@@ -19,7 +19,7 @@
 
 	### Pin the release and the DXP line this environment runs: ###
 
-	RELEASE=v3.1.0
+	RELEASE=v3.2.0
 	EXPECTED_DXP_LINE=dxp-2026.q3.0
 
 	### Modules to deploy, by their short name in modules.json: ###
