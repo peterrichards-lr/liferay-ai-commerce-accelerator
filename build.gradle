@@ -114,6 +114,47 @@ downloadSharedOsgiModules {
 				"workspace runs, and would fail to resolve. Move both together.")
 		}
 
+		// ...and the check above still compares a declaration to a
+		// declaration. Both properties can agree while the portal actually
+		// installed under bundles/ is on another line entirely -- which was the
+		// state of this workspace the moment both were moved to q3.0, with a
+		// 2026.Q1.12 LTS bundle still in place. That stages Q3.0 bundles into a
+		// Q1.12 portal: the same resolution failure this pin exists to prevent,
+		// just on a laptop instead of Liferay Cloud.
+		//
+		// portal-impl.jar's own manifest is the only ground truth available
+		// here, and it needs no network. Skipped when no bundle is initialised,
+		// so a fresh clone is unaffected.
+		def portalImplJar = fileTree("$rootDir/bundles/tomcat/webapps/ROOT/WEB-INF") {
+			include "**/portal-impl.jar"
+		}.files.find()
+
+		if (portalImplJar) {
+			def installedLine = new java.util.zip.ZipFile(portalImplJar).withCloseable {
+				zip ->
+				def entry = zip.getEntry("META-INF/MANIFEST.MF")
+				entry ? new java.util.jar.Manifest(zip.getInputStream(entry))
+					.mainAttributes.getValue("Liferay-Portal-Version-Display-Name") : null
+			}
+
+			// "dxp-2026.q1.12-lts" and "2026.Q1.12 LTS" describe one line in
+			// two spellings; compare them with the punctuation and case removed
+			// rather than trying to reconstruct either format.
+			def normalise = {
+				String v ->
+				v?.toLowerCase()?.replaceFirst(/^dxp-/, "")?.replaceAll(/[^a-z0-9.]/, "")
+			}
+
+			if (installedLine && normalise(installedLine) != normalise(expectedDxpLine)) {
+				throw new GradleException(
+					"The Liferay bundle installed under bundles/ is ${installedLine}, but " +
+					"aica.shared.osgi.dxp.line is ${expectedDxpLine}. The shared bundles " +
+					"would be staged into a portal on a different line and would fail to " +
+					"resolve. Re-initialise the bundle for ${expectedDxpLine}, or move the " +
+					"pin back to match what is installed.")
+			}
+		}
+
 		def targetDir = file("$rootDir/bundles/osgi/modules")
 		targetDir.mkdirs()
 
