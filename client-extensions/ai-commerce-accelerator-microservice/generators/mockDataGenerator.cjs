@@ -7,6 +7,7 @@ const {
   randomPastDate,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { orderableSkusFor } = require('../utils/orderableSkus.cjs');
 
 /**
  * Stands in for `aiService`, not for Liferay.
@@ -335,10 +336,9 @@ class MockDataGenerator {
 
       if (generatePriceLists) {
         productData.priceEntries = this.generatePriceEntries(
-          sku,
+          productData,
           basePrice,
           i,
-          productData.skuVariants || [],
           options
         );
       }
@@ -349,14 +349,35 @@ class MockDataGenerator {
     return products;
   }
 
-  generatePriceEntries(
-    baseSku,
-    basePrice,
-    productIndex,
-    skuVariants = [],
-    options = {}
-  ) {
-    const entries = [];
+  /**
+   * One price entry per SKU Liferay will actually create, each carrying the
+   * whole of the product's pricing decoration.
+   *
+   * `orderableSkusFor` decides which SKUs those are, and it is consulted rather
+   * than re-derived here: a product with SKU-contributing options has no base
+   * SKU, because `skus.cjs` replaces `lp.skus` with the variants, so an entry
+   * naming it has no id for `pricing.cjs` to resolve and is refused - one
+   * skipped-entry warning per product on every run.
+   *
+   * Bulk and tier prices used to ride on that one entry. `pricing.cjs` selects
+   * tier candidates by `tierPrices` being non-empty, so its only candidate was
+   * the entry it then refused, and ticking Bulk or Tier Pricing generated the
+   * tiers and discarded them for every product with variants - which in demo
+   * mode is every product. The option is asked for against a *product*, not a
+   * SKU, so every purchasable SKU of that product carries it. Same for the
+   * promotional price: the base entry was its only carrier, so it never landed
+   * either.
+   *
+   * Tier external reference codes are keyed on the SKU for a harder reason than
+   * tidiness. `addOrUpdateCommerceTierPriceEntry`, in
+   * `CommerceTierPriceEntryLocalServiceImpl`, resolves an incoming tier by
+   * `fetchByERC_C(erc, companyId)` - company-wide, not within the price entry -
+   * and updates the row it finds without moving it to the price entry it
+   * arrived under. Nine variants sharing one ERC would leave a single tier row
+   * hanging off whichever variant reached Liferay first, holding the last price
+   * written, and report no error at all. See #782.
+   */
+  generatePriceEntries(product, basePrice, productIndex, options = {}) {
     const catalogId = options.catalogId;
     const generalListERC =
       options.priceListERC ||
@@ -364,78 +385,54 @@ class MockDataGenerator {
         ? buildStableERC(ERC_PREFIX.PRICE_LIST, ['GENERAL', catalogId])
         : 'AICA-PL-GENERAL');
 
-    const mainEntry = {
-      price: basePrice,
-      promoPrice: productIndex % 5 === 0 ? basePrice * 0.8 : null,
-      skuExternalReferenceCode: baseSku,
-      priceListExternalReferenceCode: generalListERC,
-      externalReferenceCode: buildStableERC('PE', [baseSku, generalListERC]),
-      discountDiscovery: false,
-    };
+    const onPromotion = productIndex % 5 === 0;
 
-    if (options.generateBulkPricing) {
-      mainEntry.bulkPricing = true;
-      mainEntry.tierPrices = [
-        {
-          minimumQuantity: 10,
-          price: basePrice * 0.9,
-          externalReferenceCode: buildStableERC('TP', [
-            baseSku,
-            generalListERC,
-            '10',
-          ]),
-        },
-        {
-          minimumQuantity: 50,
-          price: basePrice * 0.8,
-          externalReferenceCode: buildStableERC('TP', [
-            baseSku,
-            generalListERC,
-            '50',
-          ]),
-        },
-      ];
-    } else if (options.generateTierPricing) {
-      mainEntry.bulkPricing = false;
-      mainEntry.tierPrices = [
-        {
-          minimumQuantity: 5,
-          price: basePrice * 0.95,
-          externalReferenceCode: buildStableERC('TP', [
-            baseSku,
-            generalListERC,
-            '5',
-          ]),
-        },
-        {
-          minimumQuantity: 20,
-          price: basePrice * 0.85,
-          externalReferenceCode: buildStableERC('TP', [
-            baseSku,
-            generalListERC,
-            '20',
-          ]),
-        },
-      ];
-    }
+    // Bulk and tier pricing are the same two-tier shape with different
+    // thresholds; `bulkPricing` is what tells Liferay - and the step filters in
+    // `pricing.cjs` - which of the two was asked for.
+    const tiers = options.generateBulkPricing
+      ? [
+          { factor: 0.9, minimumQuantity: 10 },
+          { factor: 0.8, minimumQuantity: 50 },
+        ]
+      : options.generateTierPricing
+        ? [
+            { factor: 0.95, minimumQuantity: 5 },
+            { factor: 0.85, minimumQuantity: 20 },
+          ]
+        : [];
 
-    entries.push(mainEntry);
+    return orderableSkusFor(product).map((sku) => {
+      const skuERC = sku.externalReferenceCode || sku.sku;
+      const price =
+        typeof sku.price === 'number'
+          ? sku.price
+          : basePrice * (1 + (sku.priceModifier || 0));
 
-    for (const variant of skuVariants) {
-      const vEntry = {
-        price: variant.price || basePrice * (1 + (variant.priceModifier || 0)),
-        skuExternalReferenceCode: variant.sku,
+      const entry = {
+        price,
+        promoPrice: onPromotion ? price * 0.8 : null,
+        skuExternalReferenceCode: skuERC,
         priceListExternalReferenceCode: generalListERC,
-        externalReferenceCode: buildStableERC('PE', [
-          variant.sku,
-          generalListERC,
-        ]),
+        externalReferenceCode: buildStableERC('PE', [skuERC, generalListERC]),
         discountDiscovery: false,
       };
-      entries.push(vEntry);
-    }
 
-    return entries;
+      if (tiers.length > 0) {
+        entry.bulkPricing = Boolean(options.generateBulkPricing);
+        entry.tierPrices = tiers.map((tier) => ({
+          minimumQuantity: tier.minimumQuantity,
+          price: price * tier.factor,
+          externalReferenceCode: buildStableERC('TP', [
+            skuERC,
+            generalListERC,
+            String(tier.minimumQuantity),
+          ]),
+        }));
+      }
+
+      return entry;
+    });
   }
 
   async generateAccounts(config, options) {
