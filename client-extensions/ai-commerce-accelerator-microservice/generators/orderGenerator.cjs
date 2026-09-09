@@ -721,9 +721,19 @@ class OrderGenerator extends BaseGenerator {
       );
 
       for (const cp of contextProducts) {
+        // `cp.skus || cp.skuVariants` took the base SKU whenever there was
+        // one, because a non-empty array short-circuits the ||. Liferay does
+        // not create a base SKU for a product with SKU-contributing options,
+        // so that injected a name nothing would resolve - and it landed on a
+        // product object carrying none of the option data, so the orderable
+        // filter downstream could not tell it should go. Orders then named
+        // SKU-ELE-037 and the run died at create-orders with
+        // CPInstanceSkuException (#747 fixed the pool; this poisoned it
+        // upstream).
+        const fallbackSkus = orderableSkus([cp], { logger: this.logger });
+
         if (existingMap.has(cp.externalReferenceCode)) {
           const ep = existingMap.get(cp.externalReferenceCode);
-          const fallbackSkus = cp.skus || cp.skuVariants || [];
 
           // If the Liferay version is missing SKUs but context has them, merge
           if ((!ep.skus || ep.skus.length === 0) && fallbackSkus.length > 0) {
@@ -738,7 +748,7 @@ class OrderGenerator extends BaseGenerator {
             `Injecting product ${cp.externalReferenceCode} from context (missing in API).`
           );
           // Standardize sku property before injecting
-          const cpWithSkus = { ...cp, skus: cp.skus || cp.skuVariants || [] };
+          const cpWithSkus = { ...cp, skus: fallbackSkus };
           products.push(cpWithSkus);
         }
       }

@@ -148,3 +148,45 @@ describe('orderableSkus', () => {
     expect(orderableSkus(undefined)).toEqual([]);
   });
 });
+
+describe('the order step merges context products by the same rule', () => {
+  const { orderableSkus } = require('../utils/orderableSkus.cjs');
+
+  // `cp.skus || cp.skuVariants` took the base SKU whenever one existed,
+  // because a non-empty array short-circuits the ||. Liferay creates no base
+  // SKU for a product with SKU-contributing options, so orders named one that
+  // did not exist and create-orders died with CPInstanceSkuException. The pool
+  // filter could not save it: the merge put the base SKU on an object that
+  // carried no option data, so nothing downstream could tell it should go.
+  const productWithVariants = {
+    externalReferenceCode: 'AICA-PRD-1',
+    productOptions: [{ name: 'Color', skuContributor: true }],
+    skus: [{ sku: 'SKU-ELE-037' }],
+    skuVariants: [{ sku: 'SKU-ELE-037-RED' }, { sku: 'SKU-ELE-037-BLUE' }],
+  };
+
+  it('never offers the base SKU of a product whose options make variants', () => {
+    const merged = orderableSkus([productWithVariants]);
+    const names = merged.map((s) => s.sku);
+
+    expect(names).not.toContain('SKU-ELE-037');
+    expect(names).toEqual(['SKU-ELE-037-RED', 'SKU-ELE-037-BLUE']);
+  });
+
+  it('is not fooled by the base array simply being non-empty', () => {
+    // The shape the old `||` expression got wrong: both arrays populated.
+    expect(productWithVariants.skus.length).toBeGreaterThan(0);
+    expect(orderableSkus([productWithVariants])).toHaveLength(2);
+  });
+
+  it('still offers the base SKU when nothing contributes variants', () => {
+    const plain = {
+      externalReferenceCode: 'AICA-PRD-2',
+      productOptions: [{ name: 'Gift wrap', skuContributor: false }],
+      skus: [{ sku: 'SKU-ELE-100' }],
+      skuVariants: [],
+    };
+
+    expect(orderableSkus([plain]).map((s) => s.sku)).toEqual(['SKU-ELE-100']);
+  });
+});
