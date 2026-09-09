@@ -171,7 +171,7 @@ function buildConfigAndOptions(req) {
     warehouseCount,
   } = req.body || {};
 
-  logger.info('req.body in buildConfigAndOptions:', req.body);
+  logger.info('req.body in buildConfigAndOptions:', sanitizedObject(req.body));
 
   const correlationId =
     req.correlationId || req.headers['x-correlation-id'] || crypto.randomUUID();
@@ -340,7 +340,12 @@ function buildConfigAndOptions(req) {
     logger,
   });
 
-  logger.info('options after switch in buildConfigAndOptions:', options);
+  // Sanitized: by this point options carries customImageFile/customPdfFile,
+  // whose buffers would otherwise be written to the log verbatim.
+  logger.info(
+    'options after switch in buildConfigAndOptions:',
+    sanitizedObject(options)
+  );
 
   return { config, options };
 }
