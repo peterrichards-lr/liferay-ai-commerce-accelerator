@@ -3,12 +3,12 @@ const { deepCleanIds } = require('../utils/payload-cleaner.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS, ENV } = require('../utils/constants.cjs');
 const {
   createERC,
-  randomString,
   toTitleCase,
   delay,
   resolveErrorReference,
   fromI18n,
 } = require('../utils/misc.cjs');
+const { streetLine } = require('../utils/streetAddress.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -748,17 +748,16 @@ class AccountGenerator extends BaseGenerator {
     sessionId,
     geographicContext = null
   ) {
-    const streetNumber = Math.floor(Math.random() * 999) + 1;
-    const streetName = randomString(8);
-    const streetType = ['Street', 'Avenue', 'Road', 'Lane'][
-      Math.floor(Math.random() * 4)
-    ];
+    // The model returns a street with the city and postcode it chose, and this
+    // used to overwrite it with eight random letters - "822 fiiqbmgf Road" -
+    // on the live path as much as in demo mode (#826).
+    const streetAddressLine1 = streetLine(address);
 
     // 0. Use pre-selected geographic context if available
     if (geographicContext) {
       return {
         name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
-        streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
+        streetAddressLine1,
         addressLocality: address.addressLocality || 'Los Angeles',
         addressRegion:
           geographicContext.regionTitle || geographicContext.regionName || '',
@@ -780,7 +779,7 @@ class AccountGenerator extends BaseGenerator {
       );
       return {
         name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
-        streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
+        streetAddressLine1,
         addressLocality: address.addressLocality,
         postalCode: address.postalCode,
         addressType,
@@ -817,7 +816,7 @@ class AccountGenerator extends BaseGenerator {
       // Should not happen given the check above, but for safety
       return {
         name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
-        streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
+        streetAddressLine1,
         addressLocality: address.addressLocality,
         addressRegion: '',
         postalCode: address.postalCode,
@@ -864,7 +863,7 @@ class AccountGenerator extends BaseGenerator {
 
     return {
       name: `${toTitleCase(addressType).replace(/-/g, ' ')} Address`,
-      streetAddressLine1: `${streetNumber} ${streetName} ${streetType}`,
+      streetAddressLine1,
       addressLocality: address.addressLocality,
       addressRegion: finalRegion,
       postalCode: address.postalCode,

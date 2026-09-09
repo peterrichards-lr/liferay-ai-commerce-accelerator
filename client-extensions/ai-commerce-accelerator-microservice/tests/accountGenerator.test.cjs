@@ -183,6 +183,43 @@ describe('AccountGenerator', () => {
     expect(address.addressLocality).toBe('Bangkok');
   });
 
+  // The model returns a street with the city and postcode it chose, and it was
+  // discarded in favour of randomString(8) - so a demo account showed
+  // "822 fiiqbmgf Road, London, W1D 3QJ" (#826).
+  it('should keep the street the model supplied in _generateAddress', async () => {
+    const rawAddress = {
+      streetAddressLine1: '399 Camden High Street',
+      addressLocality: 'London',
+      postalCode: 'W1D 3QJ',
+    };
+
+    const address = await generator._generateAddress(
+      'billing',
+      { localeCode: 'en-US' },
+      rawAddress,
+      [],
+      'test-session',
+      { countryTitle: 'United Kingdom', regionTitle: 'Greater London' }
+    );
+
+    expect(address.streetAddressLine1).toBe('399 Camden High Street');
+  });
+
+  it('should generate a plausible street when the model named none', async () => {
+    const address = await generator._generateAddress(
+      'shipping',
+      { localeCode: 'en-US' },
+      { addressLocality: 'London', postalCode: 'W1D 3QJ' },
+      [],
+      'test-session',
+      { countryTitle: 'United Kingdom', regionTitle: 'Greater London' }
+    );
+
+    expect(address.streetAddressLine1).toMatch(
+      /^\d{1,3} [A-Z][a-z]+ (Street|Avenue|Road|Lane)$/
+    );
+  });
+
   it('should use country title from title_i18n in _runAccountDataGenerationStep', async () => {
     const sessionId = `acc-test-session-${Date.now()}`;
     const countries = [
