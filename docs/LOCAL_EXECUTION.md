@@ -115,23 +115,57 @@ the new one with both registering the same endpoints. Only predecessors of
 bundles listed in `sharedOsgiBundles` are pruned; another adopter's rename is
 not this workspace's business.
 
-The published artifacts are built against `dxp-2026.q1.12-lts`, which is the
-line this workspace now pins. The two were apart for a while - the workspace on
-`dxp-2026.q1.7-lts` - and that was expected to hold, because these modules
-import only `com.liferay.portal.kernel.*`, whose package majors are stable
-across those lines, and `commerce-site-type` was verified to resolve and
-register on a `q1.7` instance.
+The published artifacts and this workspace must be on the **same** DXP line.
+`aica.shared.osgi.dxp.line` is asserted against the release manifest, and the
+build additionally refuses to run when it diverges from
+`liferay.workspace.product`, so the two cannot drift apart unnoticed.
 
-They are together now, and keeping them together is worth preferring even
-though the gap was survivable. An unresolved bundle 404s silently rather than
-failing, so a version mismatch is invisible until something probes for it, and
-a future module importing application packages would not have the kernel-only
-guarantee to fall back on. `aica.shared.osgi.dxp.line` is asserted against the
-manifest, so a release built against a different line fails the build instead
-of failing to resolve at runtime.
+That enforcement replaced an earlier rule that let them differ, on the grounds
+that these modules import only `com.liferay.portal.kernel.*`, whose package
+majors were held to be stable across lines. **That reasoning is wrong.** It
+survived `q1.7-lts` to `q1.12-lts` by luck and then failed outright: between
+`dxp-2026.q1.12-lts` and `2026.Q3.0` the kernel exports moved
 
-A bundle that fails to resolve does so **silently** — the endpoint simply
-returns 404 rather than logging an error. To check one is live:
+| package                             | declared range | Q3.0 exports |
+| ----------------------------------- | -------------- | ------------ |
+| `com.liferay.portal.kernel.model`   | `[48.0,49.0)`  | `51.0.0`     |
+| `com.liferay.portal.kernel.search`  | `[22.0,23.0)`  | `24.2.0`     |
+| `com.liferay.portal.kernel.service` | `[52.0,53.0)`  | `54.1.0`     |
+| `com.liferay.portal.kernel.util`    | `[96.0,97.0)`  | `100.0.0`    |
+
+and every consumed bundle failed to resolve on a Q3.0 portal. Two lessons are
+worth carrying:
+
+- **The ranges are hardcoded** in each module's `bnd.bnd` upstream. Retargeting
+  a build does not recompute them; they have to be edited, so "rebuild against
+  the new line" is not on its own a fix.
+- **The OSGi resolver reports only the first unsatisfied requirement** and
+  stops. One package named in a `Could not resolve module` error is not
+  evidence that only one range is stale — read `Export-Package` from the target
+  line's kernel JAR instead of inferring scope from the log.
+- **An import with no version range at all is worse than a stale one.** It
+  satisfies any exported version, so it resolves, the bundle starts, and the
+  endpoint registers — the probe below returns `403`, exactly as a healthy
+  module does. Nothing is wrong until the first call that touches a changed
+  signature, which then fails as a **linkage error** (`NoSuchMethodError`,
+  `NoClassDefFoundError`) rather than a resolution error. The symptom is
+  deferred, not absent, which is why neither the boot log nor the probe can
+  substitute for the upstream check. That check is now per package; it
+  previously grepped the whole `Import-Package` blob, so one versioned import
+  vouched for every unversioned one beside it.
+
+A bundle that fails to resolve is quiet at request time — the endpoint simply
+returns 404 — but it is **not** silent at install time. Every boot logs
+
+```text
+ERROR [DirectoryWatcher:989] Unable to start bundle: .../<bundle>.jar
+org.osgi.framework.BundleException: Could not resolve module: <bsn>
+  Unresolved requirement: Import-Package: ...
+```
+
+so for a range mismatch the boot log is the cheapest place to check, ahead of
+probing an endpoint. A clean boot log rules out a mismatch, not an unversioned
+import — that failure is invisible at both places. To confirm one is live:
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/o/commerce-site-type/status
@@ -150,12 +184,13 @@ that is only correct on the instance it was copied from. Without the module the
 Configuration Doctor says so and the button falls back to the Client Extensions
 listing, so nothing breaks — the reader just needs one more click. See #660.
 
-Unlike `commerce-site-type`, this module imports
-`com.liferay.client.extension.*` application packages rather than only
-`com.liferay.portal.kernel.*`, so its package version ranges are not
-line-agnostic. It is published against `dxp-2026.q1.12-lts`; on a different
-line, confirm the probe returns `403` rather than `404` before assuming it
-resolved.
+This module also imports `com.liferay.client.extension.*` application packages,
+not only `com.liferay.portal.kernel.*`, which was long assumed to make it the
+line-sensitive one of the set. It isn't: on `2026.Q3.0` every
+`com.liferay.client.extension.*` range it declares still satisfies, and it
+failed there for the same kernel-package reason as the other two. No module in
+this set is line-agnostic, so the line has to match regardless of which
+packages a module imports.
 
 ## 4. Step 2: Build & Deploy Client Extensions to DXP
 

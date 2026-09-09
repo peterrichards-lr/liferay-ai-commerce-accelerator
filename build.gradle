@@ -97,6 +97,23 @@ downloadSharedOsgiModules {
 				"aica.shared.osgi.{repo,release,dxp.line} must all be set in gradle.properties")
 		}
 
+		// The manifest check below compares the release against
+		// aica.shared.osgi.dxp.line, a declared value. That catches a bad
+		// release but not a bad declaration: if dxp.line drifts from
+		// liferay.workspace.product, bundles built for one line land in a
+		// portal running another, resolve nowhere, and the endpoints 404. That
+		// is exactly how q1.12-lts bundles reached a 2026.Q3.0 portal on
+		// 2026-09-09. Tie the two together so the hazard cannot recur silently.
+		def workspaceProduct = project.findProperty("liferay.workspace.product")
+
+		if (workspaceProduct && workspaceProduct != expectedDxpLine) {
+			throw new GradleException(
+				"aica.shared.osgi.dxp.line is ${expectedDxpLine} but " +
+				"liferay.workspace.product is ${workspaceProduct}. The shared bundles " +
+				"would be built for a different Liferay line than the one this " +
+				"workspace runs, and would fail to resolve. Move both together.")
+		}
+
 		def targetDir = file("$rootDir/bundles/osgi/modules")
 		targetDir.mkdirs()
 
