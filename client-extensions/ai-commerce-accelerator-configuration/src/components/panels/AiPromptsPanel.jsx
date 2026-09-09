@@ -1,8 +1,9 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import PromptEditor from './PromptEditor';
 import { useForm, useObjectStorage } from '../../hooks';
+import { ensureLiferayCodeMirrorCss } from '../../utils/editor';
 
 // Exported so a test can hold this list against the microservice's
 // prompts/ directory. The batch and the microservice both derive their
@@ -52,6 +53,12 @@ export default function AiPromptsPanel() {
   });
 
   useForm({ dirty, onSave });
+
+  // This panel hosts CodeMirror editors and, unlike the schema panels, never
+  // asked for the stylesheet that styles them (#833).
+  useEffect(() => {
+    ensureLiferayCodeMirrorCss();
+  }, []);
 
   const fileInputRef = useRef(null);
   const [copied, setCopied] = useState(false);

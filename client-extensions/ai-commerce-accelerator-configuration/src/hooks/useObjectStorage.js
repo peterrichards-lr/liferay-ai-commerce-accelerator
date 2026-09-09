@@ -68,9 +68,14 @@ export const useObjectStorage = ({ keys, defaults = {}, json = true }) => {
           type: 'danger',
         });
       } finally {
-        if (alive) {
-          setLoading(false);
-        }
+        // Deliberately not guarded by `alive`. The guard above is a staleness
+        // guard - an old response must not overwrite newer values - but this
+        // flag is this hook's own, and skipping it leaves a panel that gates
+        // on `loading` stranded with neither content nor an error. React 18+
+        // treats a setState after unmount as a no-op, so the unguarded call
+        // costs nothing; at worst the effect merely re-ran and the content
+        // flickers instead of freezing.
+        setLoading(false);
       }
     })();
     return () => {

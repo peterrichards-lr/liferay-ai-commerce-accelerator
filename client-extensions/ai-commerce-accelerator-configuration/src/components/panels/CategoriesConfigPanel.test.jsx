@@ -5,6 +5,7 @@ import CategoriesConfigPanel from './CategoriesConfigPanel';
 const setValue = vi.fn();
 
 vi.mock('../../hooks', () => ({
+  useCodeMirrorRefresh: vi.fn(() => vi.fn()),
   useForm: vi.fn(),
   useObjectStorage: vi.fn(() => ({
     loading: false,

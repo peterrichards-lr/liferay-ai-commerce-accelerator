@@ -3,6 +3,7 @@ import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import SchemaEditor from './SchemaEditor';
 import { useForm, useObjectStorage } from '../../hooks';
+import { ensureLiferayCodeMirrorCss } from '../../utils/editor';
 
 const ENTITY_CONFIGS = [
   { id: 'batch-sizes', title: 'Batch Sizes', configKey: 'batch-sizes' },
@@ -21,28 +22,6 @@ const EMPTY_ERRORS = ENTITY_CONFIGS.reduce((acc, { id }) => {
   acc[id] = [];
   return acc;
 }, {});
-
-const CODEMIRROR_LIFERAY_CSS_ID = 'liferay-codemirror-vendors-css';
-
-function ensureLiferayCodeMirrorCss() {
-  if (document.getElementById(CODEMIRROR_LIFERAY_CSS_ID)) {
-    return;
-  }
-
-  const link = document.createElement('link');
-
-  link.id = CODEMIRROR_LIFERAY_CSS_ID;
-  link.rel = 'stylesheet';
-  link.type = 'text/css';
-
-  const contextPath = window.Liferay?.ThemeDisplay?.getPathContext
-    ? window.Liferay.ThemeDisplay.getPathContext()
-    : '';
-
-  link.href = `${contextPath}/o/frontend-editor-ckeditor-web/ckeditor/plugins/codemirror/vendors/vendors.css`;
-
-  document.head.appendChild(link);
-}
 
 export default function BatchSizesPanel() {
   const [errors, setErrors] = useState(EMPTY_ERRORS);

@@ -1,11 +1,11 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ClayForm from '@clayui/form';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
 import ImportExportButtons from '../common/ImportExportButtons';
-import { useForm, useObjectStorage } from '../../hooks';
+import { useCodeMirrorRefresh, useForm, useObjectStorage } from '../../hooks';
 import Ajv from 'ajv';
 import { Controlled as CodeMirror } from 'react-codemirror2';
 import 'codemirror/mode/javascript/javascript';
@@ -13,7 +13,10 @@ import 'codemirror/addon/fold/foldgutter.css';
 import 'codemirror/addon/fold/foldgutter';
 import 'codemirror/addon/fold/brace-fold';
 import 'codemirror/theme/material.css';
-import { defaultEditorOptions } from '../../utils/editor';
+import {
+  defaultEditorOptions,
+  ensureLiferayCodeMirrorCss,
+} from '../../utils/editor';
 
 const EXCLUDE_LISTS_CONFIG_KEY = 'ai-exclude-lists';
 const DEFAULTS = {
@@ -104,6 +107,12 @@ export default function ExcludeListsPanel() {
 
   useForm({ dirty, onSave });
 
+  const refreshOnLayout = useCodeMirrorRefresh();
+
+  useEffect(() => {
+    ensureLiferayCodeMirrorCss();
+  }, []);
+
   const onExcludeListsChange = useCallback(
     (rawValue) => {
       try {
@@ -181,6 +190,7 @@ export default function ExcludeListsPanel() {
             Exclude Lists (JSON Object)
           </label>
           <CodeMirror
+            editorDidMount={refreshOnLayout}
             value={editorText}
             options={{
               ...defaultEditorOptions,

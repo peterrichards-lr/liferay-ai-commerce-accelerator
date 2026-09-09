@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import ClayLayout from '@clayui/layout';
 import { Controlled as CodeMirror } from 'react-codemirror2';
 import 'codemirror/mode/javascript/javascript';
@@ -7,6 +7,7 @@ import 'codemirror/addon/fold/foldgutter';
 import 'codemirror/addon/fold/brace-fold';
 import ClayAlert from '@clayui/alert';
 import ImportExportButtons from '../common/ImportExportButtons';
+import { useCodeMirrorRefresh } from '../../hooks';
 import { defaultEditorOptions } from '../../utils/editor';
 
 export default function SchemaEditor({
@@ -17,6 +18,16 @@ export default function SchemaEditor({
   editorDidMount,
   errors = [],
 }) {
+  const refreshOnLayout = useCodeMirrorRefresh();
+
+  const onEditorDidMount = useCallback(
+    (editor, editorValue, next) => {
+      refreshOnLayout(editor);
+      editorDidMount?.(editor, editorValue, next);
+    },
+    [editorDidMount, refreshOnLayout]
+  );
+
   return (
     <ClayLayout.Sheet>
       <div className="sheet-header d-flex justify-content-between align-items-center">
@@ -44,7 +55,7 @@ export default function SchemaEditor({
           </ClayAlert>
         )}
         <CodeMirror
-          editorDidMount={editorDidMount}
+          editorDidMount={onEditorDidMount}
           value={value}
           options={{
             ...defaultEditorOptions,
