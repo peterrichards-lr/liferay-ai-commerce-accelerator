@@ -63,6 +63,32 @@ export const initialProgress = {
   promotions: emptyEntity(),
 };
 
+/**
+ * One key per batch, whatever shape its id arrives in.
+ *
+ * Liferay's batch id reaches us as both `536` and `536.0` - the submit records
+ * one form and the callback the other - so keying on the raw value filed a
+ * single batch under two entries and counted its items twice. It went unseen
+ * while a completed step forced its bar to the total: the doubling was
+ * clamped away and read as a tidy 50/50. With the bar reporting what actually
+ * happened it surfaced as 70 of 50 (#776).
+ *
+ * A numeric id is canonicalised through Number, so 536 and '536.0' agree.
+ * Anything else - the 'simulated-batch-...' ids, an ERC - is its own key
+ * unchanged.
+ */
+function batchKey(batchId) {
+  // Only a value that is already a number or a numeric string canonicalises.
+  // Number(null) is 0 and Number('') is 0, so a missing id would otherwise
+  // collide with batch zero.
+  const canBeNumeric =
+    typeof batchId === 'number' ||
+    (typeof batchId === 'string' && batchId.trim() !== '');
+  const asNumber = canBeNumeric ? Number(batchId) : NaN;
+
+  return Number.isFinite(asNumber) ? String(asNumber) : String(batchId);
+}
+
 export function progressReducer(state, action) {
   const now = Date.now();
 
@@ -222,7 +248,7 @@ export function progressReducer(state, action) {
 
       const nextBatches = {
         ...cur.batches,
-        [batchId]: { completed, total },
+        [batchKey(batchId)]: { completed, total },
       };
 
       const summedCompleted = Object.values(nextBatches).reduce(

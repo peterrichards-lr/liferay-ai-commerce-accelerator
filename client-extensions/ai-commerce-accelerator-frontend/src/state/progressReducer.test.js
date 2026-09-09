@@ -223,3 +223,68 @@ describe('the SKU bar ends on SKUs, not on products (#756)', () => {
     expect(state.skus.isDone).toBe(true);
   });
 });
+
+describe('one batch, one key (#776 follow-up)', () => {
+  // Liferay's batch id arrives as both 536 and '536.0' - the submit records
+  // one form and the callback the other. Keying on the raw value filed one
+  // batch under two entries and counted its items twice. A live run showed
+  // Products 70 / 50.
+  it('does not count a batch twice when its id arrives in two forms', () => {
+    let state = initialProgress;
+
+    state = progressReducer(state, ACTIONS.setTotal('products', 50));
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('products', 536, 10, 10)
+    );
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('products', '536.0', 10, 10)
+    );
+
+    expect(state.products.completed).toBe(10);
+    expect(state.products.total).toBe(50);
+  });
+
+  it('still counts genuinely different batches separately', () => {
+    let state = initialProgress;
+
+    state = progressReducer(state, ACTIONS.setTotal('products', 50));
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('products', 536, 10, 10)
+    );
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('products', 537, 10, 10)
+    );
+
+    expect(state.products.completed).toBe(20);
+  });
+
+  // The simulated batches carry ids like 'simulated-inventory-batch-1788...'
+  // which must not be flattened into each other.
+  it('leaves a non-numeric batch id as its own key', () => {
+    let state = initialProgress;
+
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('inventory', 'simulated-batch-1', 5, 5)
+    );
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('inventory', 'simulated-batch-2', 5, 5)
+    );
+
+    expect(state.inventory.completed).toBe(10);
+  });
+
+  it('does not let a missing id collide with batch zero', () => {
+    let state = initialProgress;
+
+    state = progressReducer(state, ACTIONS.updateBatch('products', 0, 3, 3));
+    state = progressReducer(state, ACTIONS.updateBatch('products', null, 4, 4));
+
+    expect(state.products.completed).toBe(7);
+  });
+});
