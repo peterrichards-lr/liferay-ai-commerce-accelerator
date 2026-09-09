@@ -1,5 +1,5 @@
 const BaseGenerator = require('./baseGenerator.cjs');
-const { createERC, delay } = require('../utils/misc.cjs');
+const { buildStableERC, createERC, delay } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 const S = WORKFLOW_STEPS;
@@ -416,7 +416,18 @@ class PromoGenerator extends BaseGenerator {
                   priceListId: liferayPriceList.id,
                   skuId,
                   skuExternalReferenceCode: skuERC,
-                  externalReferenceCode: `${promo.externalReferenceCode}-PE-${skuERC}`,
+                  // Concatenating two full reference codes overruns the 75
+                  // characters Liferay stores, and the tail that gets cut is
+                  // the SKU code - the only part that distinguishes one entry
+                  // from another. Two variants then arrive as the same code and
+                  // the second violates the unique index. buildStableERC caps
+                  // the whole thing and carries a hash of the full input, so
+                  // uniqueness survives the truncation; pricing.cjs:270 keys
+                  // the catalogue's entries the same way (#801).
+                  externalReferenceCode: buildStableERC('PE', [
+                    skuERC,
+                    promo.externalReferenceCode,
+                  ]),
                   active: true,
                 });
               }

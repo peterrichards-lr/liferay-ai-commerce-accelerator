@@ -340,4 +340,72 @@ describe('PromoGenerator', () => {
     expect(session.context.userSegmentsDataList.length).toBeGreaterThan(0);
     expect(session.context.promotionsDataList.length).toBeGreaterThan(0);
   });
+
+  // prompts/promo.md:23 asks the model for the promotion's own reference code,
+  // and PromoGenerator caps it at 50 characters. Concatenating that with a SKU
+  // code produced up to 90, overrunning the 75 Liferay stores - and the part
+  // cut was the SKU tail, the only part telling two entries apart. Two
+  // variants then arrived as one code and the second hit the unique index.
+  // Liferay reported it and the step still completed. #801.
+  it('keeps promotional price entry codes distinct when the promotion code is long', async () => {
+    mockCtx.generation.generateData = vi.fn().mockResolvedValue({
+      userSegments: [
+        {
+          name: 'Gold B2B Customers',
+          description: 'High volume wholesale buyers',
+          externalReferenceCode: 'SEG-GOLD-BUYERS',
+        },
+      ],
+      promotions: [
+        {
+          name: 'Summer Adventure Touring Clearance',
+          description: 'Long descriptive code, as the model tends to produce',
+          discountPercentage: 15,
+          targetSegmentName: 'Gold B2B Customers',
+          // 50 characters: what the cap allows through.
+          externalReferenceCode:
+            'SUMMER-ADVENTURE-TOURING-CLEARANCE-EVENT-2026-Q3-A',
+        },
+      ],
+    });
+
+    await runPromoFlow('session-long-promo-erc', [
+      {
+        name: 'Trailmaster Top Case',
+        sku: 'TR500-TC',
+        externalReferenceCode: 'AICA-PRD-TC',
+        cProductId: 100,
+        // Variant codes that differ only in the tail, which is what the old
+        // scheme truncated away.
+        skuVariants: [
+          {
+            id: 9001,
+            sku: 'TR500-TRAILMASTER-TOP-BLK-LOCK',
+            externalReferenceCode: 'TR500-TRAILMASTER-TOP-BLK-LOCK',
+            price: 20,
+          },
+          {
+            id: 9002,
+            sku: 'TR500-TRAILMASTER-TOP-RAWSILVER-LOCK',
+            externalReferenceCode: 'TR500-TRAILMASTER-TOP-RAWSILVER-LOCK',
+            price: 20,
+          },
+        ],
+      },
+    ]);
+
+    const entries = mockCtx.liferay.createPriceEntriesBatch.mock.calls.flatMap(
+      ([, batch]) => batch || []
+    );
+
+    // Not vacuous: both variants must actually be priced.
+    expect(entries.map((e) => e.skuId).sort()).toEqual([9001, 9002]);
+
+    const codes = entries.map((e) => e.externalReferenceCode);
+    expect(new Set(codes).size).toBe(2);
+
+    for (const code of codes) {
+      expect(code.length).toBeLessThanOrEqual(75);
+    }
+  });
 });
