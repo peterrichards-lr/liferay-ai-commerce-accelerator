@@ -197,6 +197,7 @@ describe('ProgressService', () => {
       step: 'Step 1',
       entityType: 'product',
       operation: 'generate',
+      processedCount: 10,
       totalCount: 10,
       correlationId: 'cid-123',
     });
@@ -222,6 +223,43 @@ describe('ProgressService', () => {
         message: "Step 'Step 1' completed.",
       })
     );
+  });
+
+  it('reports what a step processed, not what it was asked to process', () => {
+    service.stepCompleted({
+      sessionId: 'session-123',
+      step: 'generate-product-data',
+      entityType: 'product',
+      operation: 'generate',
+      processedCount: 16,
+      totalCount: 50,
+      correlationId: 'cid-123',
+    });
+
+    expect(mockWs.emitProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: WEB_SOCKET_EVENTS.COMPLETED,
+        scope: WS_SCOPE.STEP,
+        processedCount: 16,
+        totalCount: 50,
+      }),
+      { correlationId: 'cid-123' }
+    );
+  });
+
+  it('sends no processed count when the caller reports none', () => {
+    service.stepCompleted({
+      sessionId: 'session-123',
+      step: 'create-products',
+      entityType: 'product',
+      operation: 'generate',
+      totalCount: 50,
+      correlationId: 'cid-123',
+    });
+
+    const [payload] = mockWs.emitProgress.mock.calls[0];
+    expect(payload.totalCount).toBe(50);
+    expect(payload.processedCount).toBeUndefined();
   });
 
   it('should handle stepFailed correctly', () => {

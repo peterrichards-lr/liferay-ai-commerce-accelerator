@@ -151,10 +151,16 @@ class ProgressService {
     step,
     entityType,
     operation,
+    processedCount,
     totalCount,
     correlationId,
   }) {
     const cid = correlationId;
+    // The processed count is the caller's to report. Filling it from
+    // `totalCount` made every completion claim it had done all it was asked
+    // to, whatever it did (#773). A caller with no count to give sends none,
+    // and the client keeps the figure it summed from the step's own batches
+    // rather than being handed a total it has no way to check.
     this.ws.emitProgress(
       {
         sessionId,
@@ -164,7 +170,7 @@ class ProgressService {
         entityType,
         operation,
         totalCount,
-        processedCount: totalCount,
+        processedCount,
         message: `Step '${step}' completed.`,
       },
       { correlationId: cid }
