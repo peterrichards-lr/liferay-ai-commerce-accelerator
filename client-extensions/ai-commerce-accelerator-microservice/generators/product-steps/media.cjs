@@ -4,6 +4,11 @@ const {
   resolveErrorReference,
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
+const {
+  SELECTION_KEYS,
+  selectShare,
+  toPercentage,
+} = require('../../utils/shareSelection.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -16,6 +21,8 @@ const MEDIA_STEPS = new Map([
     {
       entityType: 'images',
       contextKey: 'createdImages',
+      selectionKey: SELECTION_KEYS.IMAGES,
+      ratioOf: (options) => toPercentage(options?.imageRatio),
       scopedProducts: (context) => context.imageProductDataList,
       attach: (media, config, products, options) =>
         media.createImages(config, products, options),
@@ -26,6 +33,8 @@ const MEDIA_STEPS = new Map([
     {
       entityType: 'pdfs',
       contextKey: 'createdPdfs',
+      selectionKey: SELECTION_KEYS.PDFS,
+      ratioOf: (options) => toPercentage(options?.pdfRatio),
       scopedProducts: (context) => context.pdfProductDataList,
       attach: (media, config, products, options) =>
         media.createPdfs(config, products, options),
@@ -41,9 +50,37 @@ const MEDIA_STEPS = new Map([
  * BYPASSED - a terminal state the orchestrator does not treat as a failure -
  * rather than failing the whole session.
  */
+/**
+ * How many products this step set out to cover, and how many it did.
+ *
+ * The step used to call completeSyncStep with no counts at all, so the SDK's
+ * default of 1 was broadcast and the bar read "1 / 50, Done, short" for a run
+ * that had illustrated every product. It looked right before #776 only because
+ * a completed step was clamped to its total (#790).
+ *
+ * The denominator is the selected share re-derived from the same deterministic
+ * selector the generator uses - same list, ratio and key give the same set, by
+ * design (#729) - rather than a second rule that could disagree with it. The
+ * numerator counts *products* with media, not files: a product may carry three
+ * images, and the bar counts products.
+ */
+function mediaCounts(step, products, options, created) {
+  const covered = new Set(
+    (created || []).map((item) => item?.productERC).filter(Boolean)
+  ).size;
+
+  const ratio = step.ratioOf(options);
+  const selected =
+    ratio === undefined
+      ? products.length
+      : selectShare(products, ratio, step.selectionKey).length;
+
+  return { selected, covered };
+}
+
 async function runMediaStep(sessionId, stepKey) {
-  const { entityType, contextKey, scopedProducts, attach } =
-    MEDIA_STEPS.get(stepKey);
+  const step = MEDIA_STEPS.get(stepKey);
+  const { entityType, contextKey, scopedProducts, attach } = step;
   const session = await this.persistence.getSession(sessionId);
   const { config, options, productDataList } = session.context;
   const products = scopedProducts(session.context) || productDataList || [];
@@ -58,7 +95,22 @@ async function runMediaStep(sessionId, stepKey) {
       [contextKey]: created || [],
     });
 
-    return await this.completeSyncStep(sessionId, stepKey);
+    const { selected, covered } = mediaCounts(step, products, options, created);
+
+    if (covered < selected) {
+      this.logger.warn(
+        `Attached ${entityType} to ${covered} of ${selected} selected products`,
+        { sessionId, covered, selected }
+      );
+    }
+
+    return await this.completeSyncStep(
+      sessionId,
+      stepKey,
+      'SYNCHRONOUS',
+      covered,
+      selected
+    );
   } catch (error) {
     const errorReference =
       resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);

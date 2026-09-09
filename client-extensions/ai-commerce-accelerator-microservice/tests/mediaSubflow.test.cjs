@@ -126,6 +126,7 @@ describe('Media step failure handling', () => {
   let mockPersistence;
   let mockProgress;
   let mockMedia;
+  let mockLogger;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -157,15 +158,30 @@ describe('Media step failure handling', () => {
       createPdfs: vi.fn().mockResolvedValue([{ productERC: 'ERC1' }]),
     };
 
+    mockLogger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
+
     productGenerator = new ProductGenerator({
       persistence: mockPersistence,
       progress: mockProgress,
-      logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+      logger: mockLogger,
       media: mockMedia,
     });
 
     productGenerator.completeSyncStep = vi.fn().mockResolvedValue(true);
   });
+
+  const withSession = (productDataList, options) =>
+    mockPersistence.getSession.mockResolvedValue({
+      session_id: 'sess-1',
+      flow_type: 'generate',
+      correlationId: 'corr-1',
+      context: { config: {}, options, productDataList },
+    });
 
   it.each([
     [S.ATTACH_IMAGES, 'createImages', 'createdImages'],
@@ -180,11 +196,114 @@ describe('Media step failure handling', () => {
         'sess-1',
         { [contextKey]: [{ productERC: 'ERC1' }] }
       );
+      // The counts travel with the completion. Called without them, the SDK
+      // broadcasts its default of 1, and the bar read "1 / 50, Done, short"
+      // for a run that had illustrated every product (#790). This assertion
+      // previously named no counts at all, which is what let that ship.
       expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
         'sess-1',
-        stepKey
+        stepKey,
+        'SYNCHRONOUS',
+        1,
+        1
       );
       expect(mockProgress.stepWarning).not.toHaveBeenCalled();
+    }
+  );
+
+  // The live run that surfaced #790: fifty products, placeholder media at
+  // 100%, media attached to every one of them - and the bar read 1 / 50.
+  it.each([
+    [S.ATTACH_IMAGES, 'createImages', 'imageRatio'],
+    [S.ATTACH_PDFS, 'createPdfs', 'pdfRatio'],
+  ])(
+    '%s reports the products it covered, not the SDK default',
+    async (stepKey, mediaMethod, ratioKey) => {
+      const products = Array.from({ length: 50 }, (_unused, i) => ({
+        externalReferenceCode: `ERC-${i}`,
+      }));
+
+      withSession(products, { [ratioKey]: 100 });
+      // One entry per file, and a product can carry three - the bar counts
+      // products, so the numerator must not be the file count.
+      mockMedia[mediaMethod].mockResolvedValue(
+        products.flatMap((p) => [
+          { productERC: p.externalReferenceCode, title: 'main' },
+          { productERC: p.externalReferenceCode, title: 'thumb' },
+        ])
+      );
+
+      await productGenerator.steps[stepKey]('sess-1');
+
+      expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
+        'sess-1',
+        stepKey,
+        'SYNCHRONOUS',
+        50,
+        50
+      );
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    [S.ATTACH_IMAGES, 'createImages', 'imageRatio'],
+    [S.ATTACH_PDFS, 'createPdfs', 'pdfRatio'],
+  ])(
+    '%s reports a genuine shortfall against the share it selected',
+    async (stepKey, mediaMethod, ratioKey) => {
+      const products = Array.from({ length: 10 }, (_unused, i) => ({
+        externalReferenceCode: `ERC-${i}`,
+      }));
+
+      withSession(products, { [ratioKey]: 100 });
+      mockMedia[mediaMethod].mockResolvedValue([
+        { productERC: 'ERC-0' },
+        { productERC: 'ERC-1' },
+      ]);
+
+      await productGenerator.steps[stepKey]('sess-1');
+
+      expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
+        'sess-1',
+        stepKey,
+        'SYNCHRONOUS',
+        2,
+        10
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('2 of 10 selected products'),
+        expect.anything()
+      );
+    }
+  );
+
+  // A ratio below 100 means fewer products were ever meant to be covered, so
+  // the denominator is the selected share and not the whole catalogue.
+  it.each([
+    [S.ATTACH_IMAGES, 'createImages', 'imageRatio'],
+    [S.ATTACH_PDFS, 'createPdfs', 'pdfRatio'],
+  ])(
+    '%s measures against the selected share, not every product',
+    async (stepKey, mediaMethod, ratioKey) => {
+      const products = Array.from({ length: 10 }, (_unused, i) => ({
+        externalReferenceCode: `ERC-${i}`,
+      }));
+
+      withSession(products, { [ratioKey]: 50 });
+      mockMedia[mediaMethod].mockResolvedValue(
+        products
+          .slice(0, 5)
+          .map((p) => ({ productERC: p.externalReferenceCode }))
+      );
+
+      await productGenerator.steps[stepKey]('sess-1');
+
+      const [, , , covered, selected] =
+        productGenerator.completeSyncStep.mock.calls.at(-1);
+
+      expect(selected).toBe(5);
+      expect(covered).toBeLessThanOrEqual(selected);
     }
   );
 
