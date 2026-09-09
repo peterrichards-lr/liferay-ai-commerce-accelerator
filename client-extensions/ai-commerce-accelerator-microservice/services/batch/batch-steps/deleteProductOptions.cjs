@@ -1,4 +1,5 @@
 const { asItems } = require('../../../utils/liferayUtils.cjs');
+const { deletionTargetIdOf } = require('../../../utils/productIdentity.cjs');
 
 module.exports = async function deleteProductOptions(
   { liferay, logger, persistence },
@@ -30,31 +31,34 @@ module.exports = async function deleteProductOptions(
   let clearedCount = 0;
 
   for (const product of products) {
-    const productId = product.productId || product.id;
-    if (!productId) continue;
+    const definitionId = deletionTargetIdOf(product);
+    if (!definitionId) continue;
 
     try {
-      const productOptions = await liferay.getProductOptions(config, productId);
+      const productOptions = await liferay.getProductOptions(
+        config,
+        definitionId
+      );
 
       if (productOptions && productOptions.length > 0) {
         logger.debug(
-          `Clearing ${productOptions.length} options from product ${productId}`
+          `Clearing ${productOptions.length} options from product with definition id ${definitionId}`
         );
 
         for (const po of productOptions) {
           if (!po.id) {
             logger.debug(
-              `Skipping product option association removal: missing ID for product ${productId}`
+              `Skipping product option association removal: missing ID for product with definition id ${definitionId}`
             );
             continue;
           }
-          await liferay.deleteProductOption(config, productId, po.id);
+          await liferay.deleteProductOption(config, definitionId, po.id);
           clearedCount++;
         }
       }
     } catch (err) {
       logger.warn(
-        `Failed to clear options for product ${productId}: ${err.message}`
+        `Failed to clear options for product with definition id ${definitionId}: ${err.message}`
       );
     }
   }

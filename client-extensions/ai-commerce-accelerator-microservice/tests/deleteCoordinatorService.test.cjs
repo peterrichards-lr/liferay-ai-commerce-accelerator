@@ -39,6 +39,13 @@ describe('DeleteCoordinatorService', () => {
           .fn()
           .mockResolvedValue({ items: [], totalCount: 0 }),
         getCatalogs: vi.fn().mockResolvedValue([]),
+        // Without these the association sweeps fail on a missing function,
+        // are caught by their own warn, and every assertion about the ids
+        // they addressed passes vacuously.
+        getProductOptions: vi.fn().mockResolvedValue([]),
+        getProductSpecifications: vi.fn().mockResolvedValue([]),
+        deleteProductOption: vi.fn().mockResolvedValue({}),
+        deleteProductSpecification: vi.fn().mockResolvedValue({}),
         getChannels: vi.fn().mockResolvedValue([]),
         _collectAllItems: vi.fn().mockResolvedValue({ items: [] }),
         deleteOrdersBatch: vi.fn().mockResolvedValue({ success: true }),
@@ -227,6 +234,35 @@ describe('DeleteCoordinatorService', () => {
         expect(ids).toEqual(expect.arrayContaining([5001, 5002]));
         expect(ids).not.toEqual(expect.arrayContaining([44504]));
       }
+    });
+
+    it('addresses the definition id when the DTO carries both', async () => {
+      // Manifest products are crawled Liferay DTOs: `id` is the CProduct and
+      // `productId` the CPDefinition. Only the definition id resolves a
+      // product-scoped path (#757).
+      await persistence.createSession({
+        sessionId: 'sess-both',
+        flowType: 'delete',
+        status: 'STARTED',
+        currentSteps: ['delete-product-options'],
+        context: {
+          config: {},
+          options: {},
+          steps: [{ name: 'delete-product-options' }],
+          manifest: { products: [{ id: 41289, productId: 41290 }] },
+        },
+      });
+
+      await coordinator._runGenericDeletionStep(
+        'deleteProductOptions',
+        'sess-both'
+      );
+
+      const ids = mockCtx.liferay.getProductOptions.mock.calls.map(
+        ([, id]) => id
+      );
+
+      expect(ids).toEqual([41290]);
     });
   });
 

@@ -283,7 +283,7 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
           `Skipping price entry for SKU ${skuERC}: Real physical ID not resolved yet.`,
           {
             sessionId,
-            productId: product.id,
+            cProductId: product.cProductId,
           }
         );
         continue;

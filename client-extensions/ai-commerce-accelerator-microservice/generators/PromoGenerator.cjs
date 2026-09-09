@@ -385,16 +385,28 @@ class PromoGenerator extends BaseGenerator {
             );
 
             if (activeSkus.length === 0) {
-              const skuId = product.id;
-              const skuERC = product.sku || product.externalReferenceCode;
-              promoEntries.push({
-                price: discountedPrice,
-                priceListId: liferayPriceList.id,
-                skuId,
-                skuExternalReferenceCode: skuERC,
-                externalReferenceCode: `${promo.externalReferenceCode}-PE-${skuERC}`,
-                active: true,
-              });
+              // A product with no resolved SKU has nothing to discount, so no
+              // entry is written for it.
+              //
+              // This used to send `product.id` as the skuId. That is the
+              // CProduct id - not a SKU id, and not even the product id every
+              // product-scoped path takes (#748). Pricing v2.0 declares skuId
+              // required and int64, and the pricing step's own comment records
+              // what an invalid one costs: "Pricing V2.0 will crash the entire
+              // batch if one ID is invalid." A fabricated id risks taking the
+              // whole promotion batch down, or pricing an unrelated SKU (#778).
+              //
+              // skuExternalReferenceCode travelling alongside does not rescue
+              // it: v2.0 requires skuId, so the entry cannot be resolved by
+              // reference alone.
+              this.logger.warn(
+                `Skipping promotional price entry for ${product.externalReferenceCode}: no SKU resolved to price`,
+                {
+                  cProductId: product.cProductId,
+                  externalReferenceCode: product.externalReferenceCode,
+                  promotion: promo.externalReferenceCode,
+                }
+              );
             } else {
               for (const sku of activeSkus) {
                 const skuId = sku.id;

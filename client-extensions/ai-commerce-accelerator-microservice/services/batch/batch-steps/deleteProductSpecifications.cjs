@@ -1,4 +1,5 @@
 const { asItems } = require('../../../utils/liferayUtils.cjs');
+const { deletionTargetIdOf } = require('../../../utils/productIdentity.cjs');
 
 module.exports = async function deleteProductSpecifications(
   { liferay, logger, persistence },
@@ -32,34 +33,34 @@ module.exports = async function deleteProductSpecifications(
   let clearedCount = 0;
 
   for (const product of products) {
-    const productId = product.productId || product.id;
-    if (!productId) continue;
+    const definitionId = deletionTargetIdOf(product);
+    if (!definitionId) continue;
 
     try {
       const productSpecifications = await liferay.getProductSpecifications(
         config,
-        productId
+        definitionId
       );
 
       if (productSpecifications && productSpecifications.length > 0) {
         logger.debug(
-          `Clearing ${productSpecifications.length} specifications from product ${productId}`
+          `Clearing ${productSpecifications.length} specifications from product with definition id ${definitionId}`
         );
 
         for (const ps of productSpecifications) {
           if (!ps.id) {
             logger.debug(
-              `Skipping product specification association removal: missing ID for product ${productId}`
+              `Skipping product specification association removal: missing ID for product with definition id ${definitionId}`
             );
             continue;
           }
-          await liferay.deleteProductSpecification(config, productId, ps.id);
+          await liferay.deleteProductSpecification(config, definitionId, ps.id);
           clearedCount++;
         }
       }
     } catch (err) {
       logger.warn(
-        `Failed to clear specifications for product ${productId}: ${err.message}`
+        `Failed to clear specifications for product with definition id ${definitionId}: ${err.message}`
       );
     }
   }
