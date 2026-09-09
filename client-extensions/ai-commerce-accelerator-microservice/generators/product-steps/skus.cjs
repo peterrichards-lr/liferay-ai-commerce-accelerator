@@ -15,6 +15,7 @@ const {
   LINKED_OPTION_ID,
   LINKED_OPTION_VALUES,
   findLinkedOption,
+  findProductOption,
   readLinkedOption,
   resolveSkuOptionLink,
 } = require('../../utils/productOptionLinks.cjs');
@@ -471,7 +472,8 @@ async function runProductSkusStep(sessionId) {
 
             if (v.options) {
               const productOptions = pd.productOptions || pd.options || [];
-              const unresolved = [];
+              const contributing = [];
+              const nonContributing = [];
 
               // The ids come from the product definition's option and value
               // relationships, which only link-product-options can supply. A
@@ -480,20 +482,40 @@ async function runProductSkusStep(sessionId) {
               // ConstraintViolationException, discarding the whole batch of
               // SKUs. A SKU missing one option link is worth more than no SKU.
               for (const [optName, valName] of Object.entries(v.options)) {
-                const { optionId, optionValueId, reason } =
+                const { optionId, optionValueId, reason, skipped } =
                   resolveSkuOptionLink(productOptions, optName, valName);
 
                 if (optionId && optionValueId) {
                   sku.skuOptions.push({ optionId, optionValueId });
-                } else {
-                  unresolved.push(`${optName}=${String(valName)} (${reason})`);
+                } else if (!skipped) {
+                  const option = findProductOption(productOptions, optName);
+                  const bucket =
+                    option && option.skuContributor !== true
+                      ? nonContributing
+                      : contributing;
+
+                  bucket.push(`${optName}=${String(valName)} (${reason})`);
                 }
               }
 
-              if (unresolved.length > 0) {
+              // Liferay activates a SKU only when it carries a value for every
+              // SKU-contributing option, so these are not the same event and
+              // one message for both is what #797 cost: twelve harmless
+              // warnings, byte-identical to the one that accompanied the 22
+              // unsellable SKUs of #754, read as that fix having regressed. An
+              // option the product never declared counts as contributing -
+              // nothing here can rule out that it was meant to.
+              if (contributing.length > 0) {
                 this.logger.warn(
-                  `SKU ${v.sku}: dropped ${unresolved.length} option link${unresolved.length === 1 ? '' : 's'} that did not resolve to a Liferay option value`,
-                  { sessionId, sku: v.sku, unresolved }
+                  `SKU ${v.sku}: dropped ${contributing.length} option link${contributing.length === 1 ? '' : 's'} on SKU-contributing option${contributing.length === 1 ? '' : 's'}; Liferay will mark this SKU inactive`,
+                  { sessionId, sku: v.sku, unresolved: contributing }
+                );
+              }
+
+              if (nonContributing.length > 0) {
+                this.logger.warn(
+                  `SKU ${v.sku}: dropped ${nonContributing.length} option link${nonContributing.length === 1 ? '' : 's'} on non-contributing option${nonContributing.length === 1 ? '' : 's'}; the SKU stays active`,
+                  { sessionId, sku: v.sku, unresolved: nonContributing }
                 );
               }
             }
