@@ -149,7 +149,10 @@ async function generateProductData(config, options, sessionId, _correlationId) {
     'product',
     options.productCount,
     config,
-    options
+    // sessionId rides in on options so chunked generation can report progress.
+    // The AI service has no session context of its own, and this is plain data
+    // rather than a callback so it survives a queue boundary.
+    { ...options, sessionId }
   );
 
   const coverage = { products: 0, values: 0, variants: 0 };

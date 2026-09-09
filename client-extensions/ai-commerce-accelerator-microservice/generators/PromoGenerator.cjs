@@ -104,6 +104,7 @@ class PromoGenerator extends BaseGenerator {
           accounts,
           correlationId: sessionId,
           products,
+          sessionId,
         }
       );
 

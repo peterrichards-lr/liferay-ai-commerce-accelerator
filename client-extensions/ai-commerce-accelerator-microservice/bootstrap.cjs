@@ -95,6 +95,11 @@ module.exports = async (ws) => {
   ctx.ai = new AIService({
     config: ctx.config,
     logger,
+    // Chunked generation reports progress through this. It is the service, not
+    // a callback threaded through options, because generation can cross a queue
+    // boundary where job data is serialised and a function would be dropped.
+    // ctx.progress is constructed above, so the ordering holds.
+    progress: ctx.progress,
     prompt: ctx.prompt,
     ENV,
   });
