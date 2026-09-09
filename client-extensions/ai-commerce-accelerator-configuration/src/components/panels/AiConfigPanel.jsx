@@ -39,8 +39,14 @@ const DEFAULTS = {
       order: 'gpt-4o',
       pricing: 'gpt-4o-mini',
     },
+    // `default` is the only key the microservice reads, and it mirrors
+    // DEFAULT_MAX_TOKENS in its utils/aiRequestOptions.cjs. It showed 4000
+    // while every request went out at 16384, because the microservice treated
+    // a configured 4000 as "unset" and substituted its own cap (#823). The
+    // per-task keys below are not read by anything yet; wiring or removing
+    // them is the open half of that issue.
     maxTokens: {
-      default: 4000,
+      default: 16384,
       pdf: 4000,
       product: 4000,
       account: 4000,
@@ -93,6 +99,15 @@ function ensureLiferayCodeMirrorCss() {
 function toInt(v, fallback) {
   const n = typeof v === 'string' ? parseInt(v, 10) : v;
   return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * Read from DEFAULTS rather than repeated at each input, so a row cannot show
+ * or write back a cap the shipped configuration does not name.
+ */
+function maxTokenDefault(key) {
+  const { maxTokens } = DEFAULTS[AI_CONFIG_KEY];
+  return maxTokens[key] ?? maxTokens.default;
 }
 
 export default function AiConfigPanel() {
@@ -483,7 +498,7 @@ export default function AiConfigPanel() {
                       type="number"
                       min={500}
                       step={100}
-                      value={aiConfig.maxTokens[key] ?? 4000}
+                      value={aiConfig.maxTokens[key] ?? maxTokenDefault(key)}
                       onChange={(e) =>
                         setAiValue(AI_CONFIG_KEY, {
                           ...aiConfig,
@@ -491,7 +506,7 @@ export default function AiConfigPanel() {
                           maxTokens: {
                             ...aiConfig.maxTokens,
 
-                            [key]: toInt(e.target.value, 4000),
+                            [key]: toInt(e.target.value, maxTokenDefault(key)),
                           },
                         })
                       }

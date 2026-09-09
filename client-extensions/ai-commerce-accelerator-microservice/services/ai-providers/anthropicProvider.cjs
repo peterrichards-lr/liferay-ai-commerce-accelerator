@@ -2,7 +2,10 @@ const crypto = require('crypto');
 const Anthropic = require('@anthropic-ai/sdk');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
-const { requestOptions } = require('../../utils/aiRequestOptions.cjs');
+const {
+  requestOptions,
+  resolveMaxTokens,
+} = require('../../utils/aiRequestOptions.cjs');
 const {
   expandOpenMapsForPrompt,
   looksLikeSchemaRejection,
@@ -10,7 +13,6 @@ const {
 } = require('../../utils/schemaProjection.cjs');
 
 const DEFAULT_MODEL = 'claude-opus-5';
-const DEFAULT_MAX_TOKENS = 16384;
 const MAX_CLIENTS = 10;
 
 const IMAGE_UNSUPPORTED_MESSAGE =
@@ -177,7 +179,7 @@ class AnthropicProvider extends BaseAIProvider {
 
     const request = {
       model,
-      max_tokens: options.maxTokens || DEFAULT_MAX_TOKENS,
+      max_tokens: resolveMaxTokens(options.maxTokens),
       system,
       // Sampling parameters are rejected on this model family, so temperature
       // from the shared options is deliberately not forwarded.

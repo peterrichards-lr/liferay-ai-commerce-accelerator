@@ -1,4 +1,5 @@
 const { AIService } = require('../services/aiService.cjs');
+const { DEFAULT_MAX_TOKENS } = require('../utils/aiRequestOptions.cjs');
 
 describe('AIService (Multi-Provider)', () => {
   let aiService;
@@ -140,6 +141,59 @@ describe('AIService (Multi-Provider)', () => {
 
     const runtime = await aiService.getRuntimeAIConfig({});
     expect(runtime.credentials.apiKey).toBe('my-gateway-token');
+  });
+
+  // A configured 4000 was compared against the value the product shipped with
+  // and replaced by 16384, so the panel showed one cap and the request carried
+  // another - and raising the panel to 8000 halved the real cap (#823).
+  it('honours a configured token cap that equals the shipped default', async () => {
+    mockCtx.config.getAIConfig.mockResolvedValue({
+      provider: 'openai',
+      defaultModel: 'gpt-4o-mini',
+      maxTokens: { default: 4000 },
+    });
+
+    const runtime = await aiService.getRuntimeAIConfig({});
+    expect(runtime.maxTokens).toBe(4000);
+  });
+
+  it('resolves the default cap once, when none is configured', async () => {
+    const runtime = await aiService.getRuntimeAIConfig({});
+    expect(runtime.maxTokens).toBe(DEFAULT_MAX_TOKENS);
+  });
+
+  // Configuration written before the per-task map existed is a bare number.
+  it('accepts a cap stored as a bare number', async () => {
+    mockCtx.config.getAIConfig.mockResolvedValue({
+      provider: 'openai',
+      defaultModel: 'gpt-4o-mini',
+      maxTokens: 8000,
+    });
+
+    const runtime = await aiService.getRuntimeAIConfig({});
+    expect(runtime.maxTokens).toBe(8000);
+  });
+
+  it('sends the resolved cap to the provider without adjusting it', async () => {
+    mockCtx.config.getAIConfig.mockResolvedValue({
+      provider: 'openai',
+      defaultModel: 'gpt-4o-mini',
+      maxTokens: { default: 4000 },
+    });
+
+    const provider = {
+      generateJSON: vi.fn().mockResolvedValue({ ok: true }),
+    };
+    vi.spyOn(aiService, 'getAIProvider').mockResolvedValue(provider);
+
+    await aiService._chatJson('test', 'a short prompt', {});
+
+    expect(provider.generateJSON).toHaveBeenCalledWith(
+      'test',
+      'a short prompt',
+      expect.objectContaining({ maxTokens: 4000 }),
+      null
+    );
   });
 
   it('should extract actual data from different response shapes', () => {
