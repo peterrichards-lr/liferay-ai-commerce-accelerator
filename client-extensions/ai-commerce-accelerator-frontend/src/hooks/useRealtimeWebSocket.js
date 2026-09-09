@@ -182,24 +182,25 @@ export default function useRealtimeWebSocket({
               flowType: res.flowType,
             });
             activeFlowTypeRef.current = res.flowType;
+          }
 
-            // Restore step-based progress if available
-            if (typeof res.totalSteps === 'number' && res.totalSteps > 0) {
-              currentOnProgress?.({
-                type: 'SET_TOTAL_STEPS',
-                total: res.totalSteps,
-              });
-            }
+          // Restore step-based progress if available. Taken whatever the
+          // session's status, because an outstanding step is now read as
+          // proof a run has not finished (#786): a finished session whose
+          // step counters were left at the last figure polling saw would
+          // hold its own aggregate below 100% forever.
+          if (typeof res.totalSteps === 'number' && res.totalSteps > 0) {
+            currentOnProgress?.({
+              type: 'SET_TOTAL_STEPS',
+              total: res.totalSteps,
+            });
+          }
 
-            if (typeof res.completedSteps === 'number') {
-              // We need a SET_COMPLETED_STEPS or similar, but since we
-              // only have INCREMENT, let's add a reset and then apply
-              // For now, let's just dispatch a new action type we'll add
-              currentOnProgress?.({
-                type: 'HYDRATE_STEPS',
-                completed: res.completedSteps,
-              });
-            }
+          if (typeof res.completedSteps === 'number') {
+            currentOnProgress?.({
+              type: 'HYDRATE_STEPS',
+              completed: res.completedSteps,
+            });
           }
 
           // Update each entity's progress

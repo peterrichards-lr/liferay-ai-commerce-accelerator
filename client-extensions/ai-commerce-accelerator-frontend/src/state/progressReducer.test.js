@@ -288,3 +288,124 @@ describe('one batch, one key (#776 follow-up)', () => {
     expect(state.products.completed).toBe(7);
   });
 });
+
+// The 2026-09-09 run placed 139 inventory items over five batches and reported
+// "Inventory 1 / 139, Done, short". Prices reported 1 / 89. Both numerators
+// were the count a sync marker defaults to, believed over a figure the batch
+// rows had already proved.
+describe('a marker cannot lower what the batches proved (#799)', () => {
+  const placeInventoryOverFiveBatches = () =>
+    [28, 31, 26, 24, 30].reduce(
+      (state, size, index) =>
+        progressReducer(
+          state,
+          ACTIONS.updateBatch('inventory', `inv-batch-${index}`, size, size)
+        ),
+      initialProgress
+    );
+
+  it('keeps the 139 items five batches recorded when four markers report one', () => {
+    let state = placeInventoryOverFiveBatches();
+
+    expect(state.inventory.completed).toBe(139);
+
+    for (let marker = 0; marker < 4; marker++) {
+      state = progressReducer(state, ACTIONS.markDone('inventory', 1));
+    }
+
+    expect(state.inventory.completed).toBe(139);
+    expect(state.inventory.total).toBe(139);
+    expect(state.inventory.isDone).toBe(true);
+  });
+
+  // The same run's "Products 49 / 50, Done, short" was correct: the AI
+  // delivered 49, create-products batched 49 and the step reported 49. Nothing
+  // contradicted anything, and the shortfall must still be visible.
+  it('still shows a genuine shortfall of 49 delivered against 50 requested', () => {
+    let state = progressReducer(
+      initialProgress,
+      ACTIONS.resetAll({ products: 50 })
+    );
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('products', 'prod-batch', 49, 49)
+    );
+    state = progressReducer(state, ACTIONS.markDone('products', 49));
+
+    expect(state.products.completed).toBe(49);
+    expect(state.products.total).toBe(50);
+    expect(state.products.isDone).toBe(true);
+  });
+
+  it('lets a step with no batches of its own report more than nothing', () => {
+    // generate-product-data produces the records create-products then batches;
+    // it submits nothing itself, so its own report is all there is.
+    let state = progressReducer(
+      initialProgress,
+      ACTIONS.resetAll({ products: 50 })
+    );
+    state = progressReducer(state, ACTIONS.markDone('products', 49));
+
+    expect(state.products.completed).toBe(49);
+  });
+});
+
+// A delete run showed "Products 1 Deleted, Done" while delete-products was
+// still PREPARED at 0 of 50, and the final export read "accounts: 10 / 2".
+describe('a delete reports what it removed, over what it found (#786)', () => {
+  it('does not claim an item was deleted from an entity nothing was found for', () => {
+    // Discovery found nothing, and the bypassed step still broadcast a
+    // completion carrying the count the SDK defaults to.
+    const state = progressReducer(initialProgress, ACTIONS.markDone('pdfs', 1));
+
+    expect(state.pdfs.completed).toBe(0);
+    expect(state.pdfs.isDone).toBe(true);
+  });
+
+  it('does not claim an item was deleted from a step that removed none', () => {
+    let state = progressReducer(initialProgress, ACTIONS.setTotal('skus', 90));
+    state = progressReducer(state, ACTIONS.markDone('skus', 0));
+
+    expect(state.skus.completed).toBe(0);
+  });
+
+  // A delete requests nothing, so discovery's census is the only floor the
+  // denominator has. Without it a narrower later report took the total with
+  // it and the bar read more removed than there was to remove.
+  it('does not let a later step narrow the total discovery established', () => {
+    let state = progressReducer(
+      initialProgress,
+      ACTIONS.setTotal('accounts', 10)
+    );
+    state = progressReducer(state, ACTIONS.setTotal('accounts', 2));
+    state = progressReducer(state, ACTIONS.markDone('accounts', 10));
+
+    expect(state.accounts.completed).toBe(10);
+    expect(state.accounts.total).toBe(10);
+  });
+
+  it('does not let a batch total narrow the total discovery established', () => {
+    let state = progressReducer(
+      initialProgress,
+      ACTIONS.setTotal('orders', 32)
+    );
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('orders', 'order-batch', 12, 12)
+    );
+
+    expect(state.orders.total).toBe(32);
+    expect(state.orders.completed).toBe(12);
+  });
+
+  it('still seeds a fresh run rather than inheriting the last one', () => {
+    let state = progressReducer(
+      initialProgress,
+      ACTIONS.setTotal('products', 500)
+    );
+    state = progressReducer(state, ACTIONS.resetAll({ products: 50 }));
+
+    expect(state.products.total).toBe(50);
+    expect(state.products.requested).toBe(50);
+  });
+});

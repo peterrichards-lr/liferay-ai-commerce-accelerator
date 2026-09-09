@@ -3,55 +3,90 @@ export const getProgressPercentage = (completed = 0, total = 0) => {
   return 0;
 };
 
+/** The 8 UI milestones that match the Workflow Status display. */
+const MILESTONES = [
+  { id: 'products', keys: ['products'] },
+  { id: 'accounts', keys: ['accounts'] },
+  { id: 'orders', keys: ['orders'] },
+  { id: 'warehouses', keys: ['warehouses'] },
+  { id: 'addresses', keys: ['addresses'] },
+  { id: 'images', keys: ['images'] },
+  { id: 'pdfs', keys: ['pdfs'] },
+  { id: 'pricing', keys: ['priceLists', 'promotions'] },
+];
+
+/**
+ * A step still outstanding is proof the run has not finished, whatever
+ * anything else claims.
+ *
+ * The step total is not discovered as the run goes: every flow declares it
+ * when the session starts, from the length of the step list it is about to
+ * execute. So `completedSteps < totalSteps` is trustworthy from the first
+ * event onwards, and it is the one signal that contradicted a delete run
+ * reporting COMPLETED at 6 steps of 15 (#786).
+ */
+export const hasOutstandingSteps = (progress) =>
+  (progress?.totalSteps || 0) > 0 &&
+  (progress?.completedSteps || 0) < progress.totalSteps;
+
+/**
+ * A milestone with nothing in play and nothing done is vacuously done.
+ *
+ * A step that had no work still broadcasts a completion, so a delete run with
+ * no images, PDFs, addresses, SKUs or prices to remove marked five of the
+ * eight milestones done before doing anything. Counting those made the gauge
+ * read 100% for a run two thirds of the way through (#786). Showing "Done, 0
+ * Deleted" on such a bar is honest enough; letting it carry the aggregate is
+ * not, so the aggregate is taken over the milestones that had work.
+ */
+const hadWork = (progress, milestone) =>
+  milestone.keys.some(
+    (key) =>
+      (progress[key]?.total || 0) > 0 || (progress[key]?.completed || 0) > 0
+  );
+
 export const getTotalProgress = (progress) => {
   if (!progress) return { total: 100, completed: 0, percentage: 0 };
 
-  // If the whole workflow is marked as completed, overall progress is 100%
-  if (progress.workflowStatus === 'completed') {
+  const stepsOutstanding = hasOutstandingSteps(progress);
+
+  // The workflow being finished settles every bar at once - but only once the
+  // steps agree it is finished. The delete flow declared itself complete the
+  // moment the request was accepted, and this shortcut turned that into
+  // "COMPLETED, 100% Total Removal" over a run still deleting (#786).
+  if (progress.workflowStatus === 'completed' && !stepsOutstanding) {
     return {
       total: 100,
       completed: 100,
       percentage: 100,
-      entityCount: 8,
-      doneCount: 8,
+      entityCount: MILESTONES.length,
+      doneCount: MILESTONES.length,
     };
   }
 
-  // Define the 8 UI Milestones that match the Workflow Status display
-  const milestones = [
-    { id: 'products', keys: ['products'] },
-    { id: 'accounts', keys: ['accounts'] },
-    { id: 'orders', keys: ['orders'] },
-    { id: 'warehouses', keys: ['warehouses'] },
-    { id: 'addresses', keys: ['addresses'] },
-    { id: 'images', keys: ['images'] },
-    { id: 'pdfs', keys: ['pdfs'] },
-    { id: 'pricing', keys: ['priceLists', 'promotions'] },
-  ];
+  const inPlay = MILESTONES.filter((milestone) => hadWork(progress, milestone));
+  const doneCount = inPlay.filter((milestone) =>
+    milestone.keys.every((key) => progress[key]?.isDone)
+  ).length;
 
-  let doneMilestones = 0;
+  const milestonePercentage =
+    inPlay.length > 0 ? (doneCount / inPlay.length) * 100 : 0;
 
-  milestones.forEach((milestone) => {
-    // A milestone is 'done' if all its associated state keys are marked as isDone
-    const isMilestoneDone = milestone.keys.every(
-      (key) => progress[key]?.isDone
-    );
+  // Two independent measures of the same run, so the lesser of them governs:
+  // neither an aggregate of entity bars nor a count of steps may declare a
+  // run finished while the other still has work outstanding.
+  const stepPercentage = progress.totalSteps
+    ? ((progress.completedSteps || 0) / progress.totalSteps) * 100
+    : 100;
 
-    if (isMilestoneDone) {
-      doneMilestones += 1;
-    }
-  });
-
-  // Calculate percentage based on 8 milestones (12.5% each)
-  const totalMilestones = milestones.length;
-  const percentage = (doneMilestones / totalMilestones) * 100;
+  const percentage = Math.min(100, milestonePercentage, stepPercentage);
 
   return {
     total: 100,
     completed: Math.round(percentage),
-    percentage: Math.min(100, percentage),
-    entityCount: totalMilestones,
-    doneCount: doneMilestones,
+    percentage,
+    entityCount: inPlay.length,
+    doneCount,
   };
 };
 

@@ -401,21 +401,53 @@ export default function useCommerceData({
     [addLog]
   );
 
+  /**
+   * The delete endpoints create the session and return; the run itself takes
+   * minutes. Declaring the workflow complete on the response put "COMPLETED,
+   * 100% Total Removal" on screen at the instant a delete was accepted, and
+   * the run it described was reported clear while products, accounts, options
+   * and specifications were still being removed - three bug reports raised
+   * against steps that had not run yet (#786).
+   *
+   * Handing the session to the monitor is what the response is for, and it is
+   * what the generate flow does with its own. The status it earns comes from
+   * the run: the session-completed event, or the status hydration behind it.
+   */
+  const startDeletionSession = useCallback(
+    (res) => {
+      if (!res?.sessionId) return;
+      if (addLog) {
+        addLog(
+          `Deletion session started. Session ID: ${res.sessionId}`,
+          'info'
+        );
+      }
+      if (setProgress) {
+        setProgress({
+          type: 'SET_ACTIVE_SESSION',
+          sessionId: res.sessionId,
+          flowType: 'delete',
+        });
+      }
+    },
+    [addLog, setProgress]
+  );
+
   const handleDeleteAllCommerceData = useCallback(async () => {
     if (setProgress) setProgress({ type: 'RESET_ALL' });
     const payload = buildPayload();
     const res = await api.post(DELETE_COMMERCE_DATA, payload);
     if (res?.summary) {
       logDeletionSummary(res.summary);
-      if (addLog) addLog('Deletion session completed successfully.', 'success');
-      if (setProgress) {
-        setProgress({
-          type: 'SET_WORKFLOW_STATUS',
-          status: 'completed',
-        });
-      }
+      startDeletionSession(res);
     }
-  }, [api, buildPayload, logDeletionSummary, addLog, setProgress]);
+  }, [
+    api,
+    buildPayload,
+    logDeletionSummary,
+    startDeletionSession,
+    setProgress,
+  ]);
 
   const handleDeleteSelectedCommerceData = useCallback(
     async (scope) => {
@@ -424,17 +456,10 @@ export default function useCommerceData({
       const res = await api.post(DELETE_SELECTED_COMMERCE_DATA, payload);
       if (res?.summary) {
         logDeletionSummary(res.summary);
-        if (addLog)
-          addLog('Deletion session completed successfully.', 'success');
-        if (setProgress) {
-          setProgress({
-            type: 'SET_WORKFLOW_STATUS',
-            status: 'completed',
-          });
-        }
+        startDeletionSession(res);
       }
     },
-    [api, buildPayload, logDeletionSummary, addLog, setProgress]
+    [api, buildPayload, logDeletionSummary, startDeletionSession, setProgress]
   );
 
   return {
