@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import useRealtimeWebSocket from './useRealtimeWebSocket';
+import useRealtimeWebSocket, { isServiceSourced } from './useRealtimeWebSocket';
 import { useApp } from '../context/AppContext';
 import { WEB_SOCKET_EVENTS as E, WS_SCOPE } from '../utils/sharedConstants';
 
@@ -180,6 +180,121 @@ describe('useRealtimeWebSocket', () => {
       });
     });
   });
+
+  describe('service log entries', () => {
+    const sendServiceLog = (logEntry) => {
+      act(() => {
+        lastSocket.onmessage({
+          data: JSON.stringify({ type: 'LOG_ENTRY', scope: 'log', logEntry }),
+        });
+      });
+    };
+
+    beforeEach(() => {
+      renderHook(() =>
+        useRealtimeWebSocket({
+          enabled: true,
+          microserviceUrl: 'http://localhost:3001',
+          activeSessionId: 'S-1',
+          onLog: mockOnLog,
+          onProgress: mockOnProgress,
+        })
+      );
+
+      act(() => {
+        lastSocket.onopen();
+      });
+
+      mockOnLog.mockClear();
+    });
+
+    it('promotes a WARN to the activity log with its run context', () => {
+      sendServiceLog({
+        level: 'WARN',
+        message: 'Product generation delivered 16 of 50 requested products',
+        correlationId: 'ERC-1',
+        sessionId: 'SESS-1',
+        operation: 'generate-product-data',
+      });
+
+      expect(mockOnLog).toHaveBeenCalledWith(
+        'Product generation delivered 16 of 50 requested products',
+        'warning',
+        'service · generate-product-data · session SESS-1 · ERC-1'
+      );
+    });
+
+    it('promotes an ERROR and falls back to the active session', () => {
+      sendServiceLog({
+        level: 'ERROR',
+        message: 'AI generated data for product violates internal schema',
+        correlationId: 'system',
+      });
+
+      expect(mockOnLog).toHaveBeenCalledWith(
+        'AI generated data for product violates internal schema',
+        'error',
+        'service · session S-1'
+      );
+    });
+
+    it('leaves INFO, SUCCESS and DEBUG entries out of the activity log', () => {
+      ['INFO', 'SUCCESS', 'DEBUG', 'TRACE'].forEach((level) => {
+        sendServiceLog({ level, message: `a ${level} line` });
+      });
+
+      expect(mockOnLog).not.toHaveBeenCalled();
+    });
+
+    it('stops after a run has spent its entry budget, saying so once', () => {
+      for (let i = 0; i < 250; i++) {
+        sendServiceLog({
+          level: 'WARN',
+          message: `SKU S-${i}: dropped 1 option link`,
+          sessionId: 'SESS-1',
+        });
+      }
+
+      const budgetNotices = mockOnLog.mock.calls.filter(([message]) =>
+        message.startsWith('Reached 200 service warnings')
+      );
+
+      expect(budgetNotices).toHaveLength(1);
+      expect(mockOnLog).toHaveBeenCalledTimes(201);
+    });
+
+    it('gives the next run its own budget', () => {
+      for (let i = 0; i < 250; i++) {
+        sendServiceLog({
+          level: 'WARN',
+          message: `SKU S-${i}: dropped 1 option link`,
+          sessionId: 'SESS-1',
+        });
+      }
+
+      mockOnLog.mockClear();
+
+      sendServiceLog({
+        level: 'WARN',
+        message: 'a warning from the next run',
+        sessionId: 'SESS-2',
+      });
+
+      expect(mockOnLog).toHaveBeenCalledWith(
+        'a warning from the next run',
+        'warning',
+        'service · session SESS-2'
+      );
+    });
+
+    it('does not dispatch progress for a log entry', () => {
+      mockOnProgress.mockClear();
+
+      sendServiceLog({ level: 'WARN', message: 'a warning', sessionId: 'S-1' });
+
+      expect(mockOnProgress).not.toHaveBeenCalled();
+    });
+  });
 });
 
 async function waitFor(callback, { timeout = 2000 } = {}) {
@@ -194,3 +309,30 @@ async function waitFor(callback, { timeout = 2000 } = {}) {
   }
   callback();
 }
+
+describe('isServiceSourced', () => {
+  // App suppresses the toast for these. A run emits around thirty service
+  // warnings, twenty-two of them near-identical per-SKU lines, and thirty
+  // toasts is an obstruction rather than a report. The match has to agree
+  // with describeServiceLogSource, which is why both use one constant.
+  it('recognises an entry the service logger produced', () => {
+    expect(isServiceSourced('service')).toBe(true);
+    expect(isServiceSourced('service \u00b7 generate-product-data')).toBe(true);
+    expect(
+      isServiceSourced('service \u00b7 create-skus \u00b7 session SESS-1')
+    ).toBe(true);
+  });
+
+  it('leaves the hook\u2019s own lifecycle entries alone', () => {
+    expect(isServiceSourced('workflow')).toBe(false);
+    expect(isServiceSourced('batch')).toBe(false);
+    expect(isServiceSourced(undefined)).toBe(false);
+  });
+
+  // "services" is not "service ·" - a prefix test without the separator would
+  // silence an unrelated source that merely starts the same way.
+  it('does not match a source that merely begins with the same letters', () => {
+    expect(isServiceSourced('services')).toBe(false);
+    expect(isServiceSourced('service-worker')).toBe(false);
+  });
+});
