@@ -67,7 +67,12 @@ class Logger extends EventEmitter {
     return spacer === '\n' ? spacer + normalized : normalized;
   }
 
-  _asJsonLine(level, message, timestamp, meta = {}) {
+  _asJsonLine(level, message, timestamp, incomingMeta = {}) {
+    // Reserved keys are hoisted to top-level fields and dropped from the tail,
+    // so work on a copy: deleting them from the caller's object stripped the
+    // correlationId from every later use of a reused meta object, and from the
+    // event this line's caller emits afterwards (#761).
+    const meta = { ...incomingMeta };
     const correlationId = meta.correlationId || 'system';
     const userId = meta.userId || null;
     const operation = meta.operation || null;
@@ -153,12 +158,19 @@ class Logger extends EventEmitter {
     this._writeToFile(jsonLine);
 
     try {
-      this.emit('log', {
+      const event = {
         level: level.toUpperCase(),
         message: typeof message === 'string' ? message : util.inspect(message),
         timestamp,
         correlationId: meta.correlationId || 'system',
-      });
+      };
+
+      // Subscribers surface these lines to the operator, where an entry that
+      // cannot be tied to a run is of little use.
+      if (meta.sessionId) event.sessionId = meta.sessionId;
+      if (meta.operation) event.operation = meta.operation;
+
+      this.emit('log', event);
     } catch (emitError) {
       console.error('Failed to emit log event:', emitError.message);
     }

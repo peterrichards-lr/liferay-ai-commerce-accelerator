@@ -15,6 +15,7 @@ import { progressReducer, initialProgress } from './state/progressReducer';
 
 import useActivityLog from './hooks/useActivityLog';
 import useRealtimeWebSocket from './hooks/useRealtimeWebSocket';
+import { isServiceSourced } from './hooks/useRealtimeWebSocket';
 import useValidation from './hooks/useValidation';
 import useCommerceData from './hooks/useCommerceData';
 import useGeneration from './hooks/useGeneration';
@@ -135,6 +136,16 @@ function AppUI() {
   const addLog = useCallback(
     (message, type = 'info', source) => {
       baseAddLog(message, type, source);
+
+      // Entries the service logger produced go to the activity log without a
+      // toast. A run emits around thirty of them - twenty-two near-identical
+      // per-SKU warnings among them - and thirty toasts is not a report, it is
+      // an obstruction. They are on screen and in the export either way; the
+      // toast is for something the operator must act on now.
+      if (isServiceSourced(source)) {
+        return;
+      }
+
       if (type === 'error' || type === 'danger') {
         notifyUser(message, 'danger');
       } else if (type === 'warning' || type === 'warn') {
