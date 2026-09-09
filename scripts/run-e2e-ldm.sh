@@ -57,9 +57,15 @@ fi
 # against a remote node, so it stays - and it is fatal. As `|| true` it hid a
 # credentials failure for weeks: the suite then spent two hours testing a host
 # that may as well have been switched off, and reported anything but that (#718).
+#
+# 3h, not 2h: the nightly has been finishing in 1h48m-1h58m against a 2h TTL,
+# so shard 2 on 2026-09-09 had five minutes to spare and the 2026-09-03/04 runs
+# had two. Every one of those runs also stopped at the auth setup and ran none
+# of the 30 specs. Once they do run the window closes, and a node powering off
+# mid-suite reports as a connectivity failure that names nothing.
 if [ -n "$LDM_NODE_TARGET" ] && [ "$LDM_NODE_TARGET" != "local" ] && [ -f "./scripts/node_power.sh" ]; then
-    echo "⚡ Waking remote target node '$LDM_NODE_TARGET' for 2-hour E2E execution window..."
-    if ! ./scripts/node_power.sh wake "$LDM_NODE_TARGET" 2h; then
+    echo "⚡ Waking remote target node '$LDM_NODE_TARGET' for 3-hour E2E execution window..."
+    if ! ./scripts/node_power.sh wake "$LDM_NODE_TARGET" 3h; then
         echo "❌ ERROR: Could not power on target node '$LDM_NODE_TARGET'."
         echo "   Refusing to run the suite against a host that may be powered off."
         exit 1
@@ -751,6 +757,56 @@ fi
 
 echo -e "\n✅ Liferay Core is UP! Proceeding to deploy client extensions..."
 
+# A DXP instance with no valid activation key answers every request with its
+# "Liferay DXP Activation" page. Nothing downstream survives that: the fragment
+# override PUTs get 302'd to /c/portal/license and retry for 38 minutes, the
+# microservice's OAuth handshake fails, and Playwright's auth setup times out
+# waiting for a login form that is never served. The suite still spent the full
+# 1h55m per shard reaching that point, three shards a night, and reported it as
+# a locator timeout. Check it once, here, while the run has cost two minutes.
+assert_instance_is_activated() {
+    local response status body
+    # -L because an unregistered portal reaches its activation page by 302,
+    # which is also how the fragment-override PUTs were being turned away.
+    response=$(curl -sSkL --max-time 30 -w $'\n%{http_code}' "$TARGET_URL/c/portal/login" 2>/dev/null || echo "")
+    status="${response##*$'\n'}"
+    body="${response%$'\n'*}"
+
+    if [ -z "$status" ] || [ "$status" = "000" ]; then
+        echo "⚠️  WARNING: Could not read $TARGET_URL/c/portal/login to confirm the"
+        echo "   instance is activated. Continuing; a later step will report the"
+        echo "   consequences if it is not."
+        return 0
+    fi
+
+    case "$body" in
+        *"This instance is not registered"*|*"Liferay DXP Activation"*)
+            write_signal "UNACTIVATED"
+            kill $LOG_PID 2>/dev/null || true
+            echo -e "\n❌ ERROR: Liferay DXP is not activated."
+            echo "   $TARGET_URL is serving the 'Liferay DXP Activation' page in place"
+            echo "   of the login form, so no test can sign in and no API call can"
+            echo "   authenticate."
+            echo
+            echo "   The docker image's built-in trial licence expires 30 days after"
+            echo "   the release it was built from. gradle.properties pins"
+            echo "   liferay.workspace.product=${LIFERAY_TAG:-$(grep 'liferay.workspace.product=' "$GRADLE_PROPS" | cut -d'=' -f2 | xargs)},"
+            echo "   and this script deploys no activation key of its own, so the"
+            echo "   environment has no way to become registered."
+            echo
+            echo "   Fix by making an activation key available to the run - a repository"
+            echo "   secret written into '$PROJECT_NAME/files/data/license/' before"
+            echo "   'ldm run' - rather than by moving the pinned tag, which is pinned to"
+            echo "   match the shared OSGi modules (#738)."
+            exit 1
+            ;;
+    esac
+
+    echo "✅ Liferay instance is activated (HTTP $status on /c/portal/login)."
+}
+
+assert_instance_is_activated
+
 # Now deploy the artifacts
 ARTIFACTS=$(find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) 2>/dev/null)
 
@@ -785,13 +841,26 @@ export LDM_FRAGMENT_PATCH_TIMEOUT="${LDM_FRAGMENT_PATCH_TIMEOUT:-900}"
 
 # Finally wait for deployables to be processed (Custom Objects, OAuth apps, Site Initializer, etc)
 echo "⏳ Waiting for Liferay Client Extensions (deployables) to be processed..."
+DEPLOYABLES_READY=1
 if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 180; then
+    DEPLOYABLES_READY=0
     echo -e "\n⚠️  WARNING: Liferay deployables probe did not complete within 3 minutes; continuing to test execution."
 fi
 
 kill $LOG_PID 2>/dev/null || true
-echo -e "\n✅ Liferay is UP and responding!"
-write_signal "HEALTHY"
+
+# This line used to be unconditional, so a run whose probe had just printed
+# "Project is running but HTTP ... is not responding correctly" followed it
+# immediately with "Liferay is UP and responding!". Anyone scanning the log for
+# the first sign of trouble read the reassurance and moved on, which is a large
+# part of why the nightly went unexplained for a month.
+if [ $DEPLOYABLES_READY -eq 1 ]; then
+    echo -e "\n✅ Liferay is UP and its deployables are processed."
+    write_signal "HEALTHY"
+else
+    echo -e "\n⚠️  Continuing with Liferay UP but its deployables unconfirmed."
+    write_signal "DEGRADED"
+fi
 
 # Give Liferay's embedded Elasticsearch 45s of idle CPU time to finish startup indexing on cold boots
 if [ $EXISTING_PROJECT -eq 0 ]; then

@@ -6,6 +6,7 @@ import 'codemirror/addon/fold/foldgutter.css';
 import 'codemirror/addon/fold/foldgutter';
 import 'codemirror/addon/fold/brace-fold';
 import ClayAlert from '@clayui/alert';
+import ImportExportButtons from '../common/ImportExportButtons';
 import { defaultEditorOptions } from '../../utils/editor';
 
 export default function SchemaEditor({
@@ -18,11 +19,19 @@ export default function SchemaEditor({
 }) {
   return (
     <ClayLayout.Sheet>
-      <div className="sheet-header">
-        <h2 className="sheet-title">{title}</h2>
-        <div className="sheet-text">
-          Configuration Key: <code>{configKey}</code>
+      <div className="sheet-header d-flex justify-content-between align-items-center">
+        <div>
+          <h2 className="sheet-title">{title}</h2>
+          <div className="sheet-text">
+            Configuration Key: <code>{configKey}</code>
+          </div>
         </div>
+        <ImportExportButtons
+          filename={`${configKey || 'schema'}.json`}
+          label={title}
+          onImport={onChange}
+          text={value}
+        />
       </div>
       <div className="sheet-section">
         {errors.length > 0 && (
