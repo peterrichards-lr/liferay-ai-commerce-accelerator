@@ -662,9 +662,9 @@ class AIService {
           options.generatePriceLists ||
           options.generateBulkPricing ||
           options.generateTierPricing
-            ? `- priceEntries: array of price list entry objects. Each object must have:
+            ? `- priceEntries: array of price list entry objects, one per object in "skuVariants" — see the Price Coverage rule below. Each object must have:
             - price (number): The unit price.
-            - skuExternalReferenceCode (string): This MUST be the same as the SKU's "sku" code (e.g., "PRODUCT-001-BLK-L").
+            - skuExternalReferenceCode (string): This MUST be the same as the SKU's "sku" code (e.g., "PRODUCT-001-BLK-L"), and every variant's code MUST appear on exactly one entry.
             - priceListExternalReferenceCode (string): Always use "AICA-PL-GENERAL".
             - externalReferenceCode (string): Unique identifier for this entry.
             - discountDiscovery (boolean): Always set to false.
@@ -673,7 +673,7 @@ class AIService {
               options.generateBulkPricing || options.generateTierPricing
                 ? `
             - bulkPricing (boolean): ${options.generateBulkPricing ? 'Set to true for Bulk Pricing (same price for all items if threshold reached).' : 'Set to false for Tiered Pricing (different prices for quantity ranges).'}
-            - tierPrices (array): List of objects with "minimumQuantity" (number), "price" (number), and "externalReferenceCode" (string). Generate at least two tiers (e.g., 5+ and 10+).`
+            - tierPrices (array): List of objects with "minimumQuantity" (number), "price" (number), and "externalReferenceCode" (string). Generate at least two tiers (e.g., 5+ and 10+). Every entry gets its own tiers, with external reference codes unique to that entry — see the Price Tiers rule below.`
                 : ''
             }`
             : '',
