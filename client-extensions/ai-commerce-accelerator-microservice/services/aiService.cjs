@@ -11,6 +11,7 @@ const {
 const { createERC } = require('../utils/misc.cjs');
 const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { apiKeyIssue } = require('../utils/apiKeys.cjs');
+const { resolveMaxTokens } = require('../utils/aiRequestOptions.cjs');
 const {
   dropNullTypeViolations,
   expandOpenMapsForPrompt,
@@ -276,8 +277,16 @@ class AIService {
     }
     const temperature =
       typeof aiCfg.temperature === 'number' ? aiCfg.temperature : 0.7;
-    const maxTokens =
-      (aiCfg.maxTokens && aiCfg.maxTokens.default) || aiCfg.maxTokens || 4000;
+    // The only place the configured cap is resolved, so a value set in the
+    // panel is the value sent. `maxTokens` is a per-task map whose `default`
+    // key is the one read; configuration written before that map existed is a
+    // bare number, which is why both shapes are accepted.
+    const maxTokens = resolveMaxTokens(
+      aiCfg.maxTokens && typeof aiCfg.maxTokens === 'object'
+        ? aiCfg.maxTokens.default
+        : aiCfg.maxTokens
+    );
+
     // A positive number or null, so "not configured" is distinguishable from
     // "configured as zero" and cannot silently win a ?? chain.
     const positive = (value) => {
@@ -400,16 +409,25 @@ class AIService {
         throw tokenErr;
       }
 
-      const effectiveMaxTokens =
-        runtime.maxTokens === 4000 ? 16384 : runtime.maxTokens || 16384;
+      // Logged because the cap is otherwise invisible until a response comes
+      // back: a request that times out or is refused never reaches the token
+      // usage the providers log, and the panel's number was for a long time
+      // not the number sent (#823).
+      logger?.debug?.(`AIService: max_tokens for ${task}`, {
+        maxTokens: runtime.maxTokens,
+        task,
+      });
 
+      // No substitution here. The cap arrives resolved on `runtime` and is
+      // spread through as configured; it used to be compared against 4000 -
+      // the value the product shipped with - and replaced with 16384 whenever
+      // it matched, so tuning the panel moved the real cap the other way.
       const parsed = await provider.generateJSON(
         task,
         effectivePrompt,
         {
           ...runtime,
           languages,
-          maxTokens: effectiveMaxTokens,
           model: model || runtime.model,
         },
         schema

@@ -5,11 +5,39 @@ const {
   listPromptNames,
   listSchemaNames,
 } = require('../utils/configurationAssets.cjs');
+const { DEFAULT_MAX_TOKENS } = require('../utils/aiRequestOptions.cjs');
 
 const BATCH_DIR = path.join(
   __dirname,
   '../../ai-commerce-accelerator-batch/batch'
 );
+
+const AI_CONFIG_PANEL = path.join(
+  __dirname,
+  '../../ai-commerce-accelerator-configuration/src/components/panels/AiConfigPanel.jsx'
+);
+
+/**
+ * The `ai-config` entry from the hand-maintained core seed. It is not one of
+ * the files build.gradle regenerates, so nothing else keeps it in step with
+ * the microservice.
+ */
+function seededAiConfig() {
+  const batch = JSON.parse(
+    fs.readFileSync(
+      path.join(BATCH_DIR, '03-object-entry.batch-engine-data.json'),
+      'utf8'
+    )
+  );
+  const entry = batch.items.find((item) => item.configKey === 'ai-config');
+
+  expect(
+    entry,
+    'The core seed no longer carries an ai-config entry'
+  ).toBeDefined();
+
+  return JSON.parse(entry.configValue);
+}
 
 function seededConfigKeys(infix) {
   return fs
@@ -88,6 +116,27 @@ describe('Microservice Configuration Integrity', () => {
     expect(seededConfigKeys('ai-prompt')).toEqual(
       promptNames.map((name) => `ai-prompt-${name}`)
     );
+  });
+
+  // The output cap lives in three artifacts that no build step relates to one
+  // another: DEFAULT_MAX_TOKENS here, the `ai-config` seed Liferay installs,
+  // and the panel's own fallback. They disagreed - 4000 seeded, 16384 sent -
+  // and the microservice papered over it by treating a configured 4000 as
+  // "unset", which is what made tuning the panel move the cap backwards
+  // (#823). Drift is a defect, so it fails the build.
+  it('should seed the same default token cap the microservice resolves', () => {
+    expect(seededAiConfig().maxTokens.default).toBe(DEFAULT_MAX_TOKENS);
+  });
+
+  it('should offer the same default token cap in the configuration panel', () => {
+    const source = fs.readFileSync(AI_CONFIG_PANEL, 'utf8');
+    const declared = source.match(/maxTokens: \{\s*default: (\d+)/);
+
+    expect(
+      declared,
+      'The panel no longer declares a default maxTokens; this guard needs updating'
+    ).not.toBeNull();
+    expect(Number(declared[1])).toBe(DEFAULT_MAX_TOKENS);
   });
 
   it('should seed one ai-schema config entry per generation schema file', () => {

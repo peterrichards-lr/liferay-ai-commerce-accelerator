@@ -9,6 +9,7 @@ const {
   defaultModelForProvider,
 } = require('../utils/modelCatalog.cjs');
 const { providerEnvVar, resolveCoreKey } = require('../utils/apiKeys.cjs');
+const { DEFAULT_MAX_TOKENS } = require('../utils/aiRequestOptions.cjs');
 const {
   listPromptNames,
   listSchemaNames,
@@ -1010,7 +1011,7 @@ class ConfigService {
               detectedProvider
             ),
             temperature: 0.7,
-            maxTokens: 4000,
+            maxTokens: DEFAULT_MAX_TOKENS,
             requestTimeoutMs: 60000,
           };
 
