@@ -335,10 +335,16 @@ describe('OrderGenerator', () => {
 
       await generator.getProductsAndAccounts(config, { options: {} });
 
-      const [, filter, fields] = mockCtx.liferay.getAccounts.mock.calls[0];
-      expect(fields).toContain('type');
-      // The old { channelId } object was silently coerced to an empty filter.
-      expect(filter).toBeNull();
+      // getAccounts is (config, options). Asserting on a third positional
+      // argument is what let the real defect through: the field list was
+      // passed there, discarded, and `fields` fell back to a default with no
+      // `type` - the very field the filter below acts on. A `null` second
+      // argument then threw outright, because a `= {}` parameter default
+      // applies to `undefined` and not to `null`.
+      const [, options] = mockCtx.liferay.getAccounts.mock.calls[0];
+      expect(options).toBeTypeOf('object');
+      expect(options).not.toBeNull();
+      expect(options.fields).toContain('type');
     });
 
     it('fails with a 400 naming the type when none are eligible', async () => {
