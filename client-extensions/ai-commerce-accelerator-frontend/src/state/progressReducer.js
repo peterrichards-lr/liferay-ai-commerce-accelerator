@@ -248,9 +248,20 @@ export function progressReducer(state, action) {
       const reported =
         Number.isFinite(completed) && cur.total > 0 ? completed : cur.completed;
 
+      // A step report may raise the count above what the batches show - a
+      // step with no batches at all is the only thing that can speak for
+      // itself - but it may not lower it. Batch rows are evidence of work
+      // performed, so a completion contradicting them downward is not
+      // credible: five inventory batches summed 139 items and the sync
+      // markers that followed each reported the SDK's default of 1, which
+      // #776 had taught this reducer to believe. The bar read 1 / 139 (#799).
       return {
         ...state,
-        [entity]: { ...cur, completed: reported, isDone: true },
+        [entity]: {
+          ...cur,
+          completed: Math.max(reported, sumBatches(cur.batches, 'completed')),
+          isDone: true,
+        },
         lastUpdateTime: now,
       };
     }

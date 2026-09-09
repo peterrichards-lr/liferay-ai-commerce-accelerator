@@ -289,6 +289,67 @@ describe('one batch, one key (#776 follow-up)', () => {
   });
 });
 
+// The 2026-09-09 run placed 139 inventory items over five batches and reported
+// "Inventory 1 / 139, Done, short". Prices reported 1 / 89. Both numerators
+// were the count a sync marker defaults to, believed over a figure the batch
+// rows had already proved.
+describe('a marker cannot lower what the batches proved (#799)', () => {
+  const placeInventoryOverFiveBatches = () =>
+    [28, 31, 26, 24, 30].reduce(
+      (state, size, index) =>
+        progressReducer(
+          state,
+          ACTIONS.updateBatch('inventory', `inv-batch-${index}`, size, size)
+        ),
+      initialProgress
+    );
+
+  it('keeps the 139 items five batches recorded when four markers report one', () => {
+    let state = placeInventoryOverFiveBatches();
+
+    expect(state.inventory.completed).toBe(139);
+
+    for (let marker = 0; marker < 4; marker++) {
+      state = progressReducer(state, ACTIONS.markDone('inventory', 1));
+    }
+
+    expect(state.inventory.completed).toBe(139);
+    expect(state.inventory.total).toBe(139);
+    expect(state.inventory.isDone).toBe(true);
+  });
+
+  // The same run's "Products 49 / 50, Done, short" was correct: the AI
+  // delivered 49, create-products batched 49 and the step reported 49. Nothing
+  // contradicted anything, and the shortfall must still be visible.
+  it('still shows a genuine shortfall of 49 delivered against 50 requested', () => {
+    let state = progressReducer(
+      initialProgress,
+      ACTIONS.resetAll({ products: 50 })
+    );
+    state = progressReducer(
+      state,
+      ACTIONS.updateBatch('products', 'prod-batch', 49, 49)
+    );
+    state = progressReducer(state, ACTIONS.markDone('products', 49));
+
+    expect(state.products.completed).toBe(49);
+    expect(state.products.total).toBe(50);
+    expect(state.products.isDone).toBe(true);
+  });
+
+  it('lets a step with no batches of its own report more than nothing', () => {
+    // generate-product-data produces the records create-products then batches;
+    // it submits nothing itself, so its own report is all there is.
+    let state = progressReducer(
+      initialProgress,
+      ACTIONS.resetAll({ products: 50 })
+    );
+    state = progressReducer(state, ACTIONS.markDone('products', 49));
+
+    expect(state.products.completed).toBe(49);
+  });
+});
+
 // A delete run showed "Products 1 Deleted, Done" while delete-products was
 // still PREPARED at 0 of 50, and the final export read "accounts: 10 / 2".
 describe('a delete reports what it removed, over what it found (#786)', () => {
