@@ -7,6 +7,7 @@ import ClayLayout from '@clayui/layout';
 import ClayTable from '@clayui/table';
 import SchemaEditor from './SchemaEditor';
 import { useForm, useObjectStorage } from '../../hooks';
+import { ensureLiferayCodeMirrorCss } from '../../utils/editor';
 import MillisecondsInput from '../common/MillisecondsInput';
 import AiSettingsPanel from './AiSettingsPanel';
 import {
@@ -73,28 +74,6 @@ const EMPTY_ERRORS = ENTITY_CONFIGS.reduce((acc, { id }) => {
   acc[id] = [];
   return acc;
 }, {});
-
-const CODEMIRROR_LIFERAY_CSS_ID = 'liferay-codemirror-vendors-css';
-
-function ensureLiferayCodeMirrorCss() {
-  if (document.getElementById(CODEMIRROR_LIFERAY_CSS_ID)) {
-    return;
-  }
-
-  const link = document.createElement('link');
-
-  link.id = CODEMIRROR_LIFERAY_CSS_ID;
-  link.rel = 'stylesheet';
-  link.type = 'text/css';
-
-  const contextPath = window.Liferay?.ThemeDisplay?.getPathContext
-    ? window.Liferay.ThemeDisplay.getPathContext()
-    : '';
-
-  link.href = `${contextPath}/o/frontend-editor-ckeditor-web/ckeditor/plugins/codemirror/vendors/vendors.css`;
-
-  document.head.appendChild(link);
-}
 
 function toInt(v, fallback) {
   const n = typeof v === 'string' ? parseInt(v, 10) : v;

@@ -1,14 +1,31 @@
 import ClayLayout from '@clayui/layout';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Controlled as CodeMirror } from 'react-codemirror2';
 import 'codemirror/mode/markdown/markdown';
 import 'codemirror/addon/fold/foldgutter.css';
 import 'codemirror/addon/fold/foldgutter';
 import 'codemirror/addon/fold/brace-fold';
 import ImportExportButtons from '../common/ImportExportButtons';
+import { useCodeMirrorRefresh } from '../../hooks';
 import { defaultEditorOptions } from '../../utils/editor';
 
-export default function PromptEditor({ title, configKey, value, onChange }) {
+export default function PromptEditor({
+  title,
+  configKey,
+  value,
+  onChange,
+  editorDidMount,
+}) {
+  const refreshOnLayout = useCodeMirrorRefresh();
+
+  const onEditorDidMount = useCallback(
+    (editor, editorValue, next) => {
+      refreshOnLayout(editor);
+      editorDidMount?.(editor, editorValue, next);
+    },
+    [editorDidMount, refreshOnLayout]
+  );
+
   return (
     <ClayLayout.Sheet>
       <div className="sheet-header d-flex justify-content-between align-items-center">
@@ -29,6 +46,7 @@ export default function PromptEditor({ title, configKey, value, onChange }) {
       </div>
       <div className="sheet-section">
         <CodeMirror
+          editorDidMount={onEditorDidMount}
           value={value}
           options={{
             ...defaultEditorOptions,
