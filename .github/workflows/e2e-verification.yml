@@ -191,7 +191,11 @@ jobs:
 
           echo "⚡ Waking remote target node '$E2E_TARGET_NODE'..."
 
-          if ! ./scripts/node_power.sh wake "$E2E_TARGET_NODE" 2h; then
+          # 3h matches run-e2e-ldm.sh. The nightly finishes in 1h48m-1h58m and
+          # has been doing so without running a single spec; a 2h TTL leaves no
+          # room for the ~30 specs it is supposed to run, and the node powering
+          # off mid-suite reports as a connectivity failure that names nothing.
+          if ! ./scripts/node_power.sh wake "$E2E_TARGET_NODE" 3h; then
             echo "::error::Could not power on target node '$E2E_TARGET_NODE'. Failing now rather than running the suite against an unreachable host."
             exit 1
           fi
