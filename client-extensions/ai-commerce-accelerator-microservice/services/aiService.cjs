@@ -344,9 +344,24 @@ class AIService {
       if (resolved !== null) chunkSizes[task] = resolved;
     }
 
+    // The configuration panel has offered these three since it was written -
+    // "Number of retry attempts for transient failures", a base delay and a
+    // ceiling - and nothing has ever read them (#822). Resolved here so the
+    // setting an operator changes is the setting that applies.
+    const retry = {
+      baseDelayMs: positive(aiCfg.retry?.baseDelayMs) ?? 1000,
+      maxDelayMs: positive(aiCfg.retry?.maxDelayMs) ?? 8000,
+      // Zero is a legitimate choice - "do not retry" - so it is read with a
+      // Number check rather than `positive`, which would treat it as absence.
+      maxRetries: Number.isInteger(aiCfg.retry?.maxRetries)
+        ? Math.max(0, Math.min(10, aiCfg.retry.maxRetries))
+        : 2,
+    };
+
     return {
       provider,
       mediaProvider: effectiveMediaProvider,
+      retry,
       credentials: { apiKey },
       mediaCredentials: { apiKey: mediaApiKey },
       model,
@@ -536,6 +551,96 @@ class AIService {
    *   no-op, not an error. The AI service has no session context of its own,
    *   and `stepProgress` cannot address an event without one.
    */
+  /**
+   * Whether an AI provider failure is worth another attempt.
+   *
+   * Neither existing classifier in this codebase fits this path:
+   *
+   * - `PromoGenerator._runWithRetry` counts 400 and 404 as transient. That is
+   *   right for a Liferay read racing eventual consistency, and wrong here - a
+   *   malformed request or an unknown model does not heal, and retrying it
+   *   three times just spends the wall clock before the same failure.
+   * - `ErrorHandler.isRetryableError` returns true whenever `error.response` is
+   *   absent. The AI SDKs put the code on `error.status`, so every 400 from
+   *   OpenAI would read as retryable.
+   *
+   * Unknown failures are treated as permanent. A transient error we fail to
+   * recognise costs us nothing beyond today's behaviour, whereas retrying our
+   * own bugs burns tokens and delays the report.
+   */
+  static _isTransientAIError(error) {
+    if (!error) return false;
+
+    const status = error.status ?? error.response?.status;
+
+    if (typeof status === 'number') {
+      return (
+        status === 408 || status === 409 || status === 429 || status >= 500
+      );
+    }
+
+    // Timeouts and dropped connections carry no status. Both SDKs name them.
+    const name = String(error.name || '');
+    const message = String(error.message || '');
+
+    return (
+      name === 'APIConnectionTimeoutError' ||
+      name === 'APIConnectionError' ||
+      name === 'AbortError' ||
+      /timed out|timeout|ECONNRESET|ECONNREFUSED|ETIMEDOUT|socket hang up|network/i.test(
+        message
+      )
+    );
+  }
+
+  /**
+   * Runs one chunk, retrying a transient failure with bounded exponential
+   * backoff.
+   *
+   * The retry exists because a single transient timeout used to cost an entire
+   * run: the chunk loops had no error handling, so the throw escaped before
+   * `allProducts` was returned and every chunk that had already succeeded was
+   * discarded with it (#822).
+   */
+  async _withChunkRetry(runtime, meta, run) {
+    const { baseDelayMs, maxDelayMs, maxRetries } = runtime?.retry || {
+      baseDelayMs: 1000,
+      maxDelayMs: 8000,
+      maxRetries: 2,
+    };
+
+    let attempt = 0;
+
+    for (;;) {
+      try {
+        return await run();
+      } catch (error) {
+        const transient = AIService._isTransientAIError(error);
+
+        if (!transient || attempt >= maxRetries) {
+          throw error;
+        }
+
+        attempt += 1;
+
+        const wait = Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1));
+
+        this.ctx?.logger?.warn?.(
+          `[AIService] ${meta.entityType} chunk ${meta.index}/${meta.total} failed transiently, retrying in ${wait}ms (attempt ${attempt} of ${maxRetries})`,
+          {
+            attempt,
+            entityType: meta.entityType,
+            maxRetries,
+            message: error?.message,
+            status: error?.status,
+          }
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, wait));
+      }
+    }
+  }
+
   async _withChunkProgress(options, meta, run) {
     const progress = this.ctx?.progress;
     const sessionId = options?.sessionId;
@@ -639,23 +744,49 @@ class AIService {
             }
           );
 
-          const chunkResult = await this._withChunkProgress(
-            options,
-            { entityType: 'products', index: i + 1, total: chunks.length },
-            () =>
-              this.generateProductData(
-                chunkCategory,
-                chunkCount,
-                requestConfig,
-                model,
-                selectedLanguages,
-                {
-                  ...options,
-                  avoidProducts: ledger.avoid(),
-                  categories: [chunkCategory],
-                }
-              )
-          );
+          const chunkMeta = {
+            entityType: 'products',
+            index: i + 1,
+            total: chunks.length,
+          };
+
+          let chunkResult;
+
+          try {
+            chunkResult = await this._withChunkProgress(
+              options,
+              chunkMeta,
+              () =>
+                this._withChunkRetry(runtime, chunkMeta, () =>
+                  this.generateProductData(
+                    chunkCategory,
+                    chunkCount,
+                    requestConfig,
+                    model,
+                    selectedLanguages,
+                    {
+                      ...options,
+                      avoidProducts: ledger.avoid(),
+                      categories: [chunkCategory],
+                    }
+                  )
+                )
+            );
+          } catch (error) {
+            // A chunk that cannot be recovered costs its own items and nothing
+            // else. Before this, the throw escaped the loop and discarded every
+            // chunk that had already succeeded (#822).
+            logger?.error?.(
+              `[AIService] Products chunk ${i + 1}/${chunks.length} failed and was skipped: ${error?.message}`,
+              {
+                chunkIndex: i + 1,
+                correlationId,
+                status: error?.status,
+                totalChunks: chunks.length,
+              }
+            );
+            continue;
+          }
 
           const chunkItems = Array.isArray(chunkResult)
             ? chunkResult
@@ -967,19 +1098,45 @@ class AIService {
             }
           );
 
-          const chunkResult = await this._withChunkProgress(
-            options,
-            { entityType: 'accounts', index: i + 1, total: chunks.length },
-            () =>
-              this.generateAccountData(
-                chunkCount,
-                requestConfig,
-                model,
-                categories,
-                selectedLanguages,
-                options
-              )
-          );
+          const chunkMeta = {
+            entityType: 'accounts',
+            index: i + 1,
+            total: chunks.length,
+          };
+
+          let chunkResult;
+
+          try {
+            chunkResult = await this._withChunkProgress(
+              options,
+              chunkMeta,
+              () =>
+                this._withChunkRetry(runtime, chunkMeta, () =>
+                  this.generateAccountData(
+                    chunkCount,
+                    requestConfig,
+                    model,
+                    categories,
+                    selectedLanguages,
+                    options
+                  )
+                )
+            );
+          } catch (error) {
+            // A chunk that cannot be recovered costs its own items and nothing
+            // else. Before this, the throw escaped the loop and discarded every
+            // chunk that had already succeeded (#822).
+            logger?.error?.(
+              `[AIService] Accounts chunk ${i + 1}/${chunks.length} failed and was skipped: ${error?.message}`,
+              {
+                chunkIndex: i + 1,
+                correlationId,
+                status: error?.status,
+                totalChunks: chunks.length,
+              }
+            );
+            continue;
+          }
 
           const items = Array.isArray(chunkResult)
             ? chunkResult
@@ -1097,20 +1254,46 @@ class AIService {
             }
           );
 
-          const chunkResult = await this._withChunkProgress(
-            options,
-            { entityType: 'orders', index: i + 1, total: chunks.length },
-            () =>
-              this.generateOrderData(
-                products,
-                accounts,
-                chunkCount,
-                requestConfig,
-                model,
-                selectedLanguages,
-                options
-              )
-          );
+          const chunkMeta = {
+            entityType: 'orders',
+            index: i + 1,
+            total: chunks.length,
+          };
+
+          let chunkResult;
+
+          try {
+            chunkResult = await this._withChunkProgress(
+              options,
+              chunkMeta,
+              () =>
+                this._withChunkRetry(runtime, chunkMeta, () =>
+                  this.generateOrderData(
+                    products,
+                    accounts,
+                    chunkCount,
+                    requestConfig,
+                    model,
+                    selectedLanguages,
+                    options
+                  )
+                )
+            );
+          } catch (error) {
+            // A chunk that cannot be recovered costs its own items and nothing
+            // else. Before this, the throw escaped the loop and discarded every
+            // chunk that had already succeeded (#822).
+            logger?.error?.(
+              `[AIService] Orders chunk ${i + 1}/${chunks.length} failed and was skipped: ${error?.message}`,
+              {
+                chunkIndex: i + 1,
+                correlationId,
+                status: error?.status,
+                totalChunks: chunks.length,
+              }
+            );
+            continue;
+          }
 
           const items = Array.isArray(chunkResult)
             ? chunkResult
@@ -1231,18 +1414,44 @@ class AIService {
             }
           );
 
-          const chunkResult = await this._withChunkProgress(
-            options,
-            { entityType: 'warehouses', index: i + 1, total: chunks.length },
-            () =>
-              this.generateWarehouseData(
-                chunkCount,
-                requestConfig,
-                model,
-                selectedLanguages,
-                options
-              )
-          );
+          const chunkMeta = {
+            entityType: 'warehouses',
+            index: i + 1,
+            total: chunks.length,
+          };
+
+          let chunkResult;
+
+          try {
+            chunkResult = await this._withChunkProgress(
+              options,
+              chunkMeta,
+              () =>
+                this._withChunkRetry(runtime, chunkMeta, () =>
+                  this.generateWarehouseData(
+                    chunkCount,
+                    requestConfig,
+                    model,
+                    selectedLanguages,
+                    options
+                  )
+                )
+            );
+          } catch (error) {
+            // A chunk that cannot be recovered costs its own items and nothing
+            // else. Before this, the throw escaped the loop and discarded every
+            // chunk that had already succeeded (#822).
+            logger?.error?.(
+              `[AIService] Warehouses chunk ${i + 1}/${chunks.length} failed and was skipped: ${error?.message}`,
+              {
+                chunkIndex: i + 1,
+                correlationId,
+                status: error?.status,
+                totalChunks: chunks.length,
+              }
+            );
+            continue;
+          }
 
           const items = Array.isArray(chunkResult)
             ? chunkResult
@@ -1430,19 +1639,45 @@ class AIService {
             }
           );
 
-          const chunkResult = await this._withChunkProgress(
-            options,
-            { entityType: 'pricing', index: i + 1, total: batches.length },
-            () =>
-              this.generatePricingData(
-                batches[i],
-                pricingType,
-                requestConfig,
-                model,
-                _selectedLanguages,
-                options
-              )
-          );
+          const chunkMeta = {
+            entityType: 'pricing',
+            index: i + 1,
+            total: batches.length,
+          };
+
+          let chunkResult;
+
+          try {
+            chunkResult = await this._withChunkProgress(
+              options,
+              chunkMeta,
+              () =>
+                this._withChunkRetry(runtime, chunkMeta, () =>
+                  this.generatePricingData(
+                    batches[i],
+                    pricingType,
+                    requestConfig,
+                    model,
+                    _selectedLanguages,
+                    options
+                  )
+                )
+            );
+          } catch (error) {
+            // A chunk that cannot be recovered costs its own items and nothing
+            // else. Before this, the throw escaped the loop and discarded every
+            // chunk that had already succeeded (#822).
+            logger?.error?.(
+              `[AIService] Pricing chunk ${i + 1}/${batches.length} failed and was skipped: ${error?.message}`,
+              {
+                chunkIndex: i + 1,
+                correlationId,
+                status: error?.status,
+                totalChunks: batches.length,
+              }
+            );
+            continue;
+          }
 
           const entries = Array.isArray(chunkResult)
             ? chunkResult
