@@ -126,6 +126,7 @@ function buildConfigAndOptions(req) {
     categories,
     channelId,
     channelIds,
+    chunkSizes,
     clientId,
     clientSecret,
     backorderAssignmentRatio,
@@ -134,6 +135,7 @@ function buildConfigAndOptions(req) {
     reuseExistingWarehouses,
     currencyCode,
     demoMode,
+    requestTimeoutMs,
     businessAccountRatio,
     generateBulkPricing,
     generatePriceLists,
@@ -248,6 +250,12 @@ function buildConfigAndOptions(req) {
   const config = {
     ...rawConfig,
     aiModel,
+    // Top layer of the AI settings chain in aiService.getRuntimeAIConfig. A
+    // per-run value is the only one that is safe on a shared deployment, where
+    // ENV is a single value for every user of the server. Passed through
+    // unvalidated: the consumer treats anything non-positive as absent.
+    chunkSizes,
+    requestTimeoutMs,
     liferayUrl: effectiveUrl,
     clientId: effectiveClientId,
     clientSecret: effectiveClientSecret,

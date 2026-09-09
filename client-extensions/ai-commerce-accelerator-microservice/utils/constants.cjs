@@ -137,6 +137,22 @@ const ENV = {
   ),
   BATCH_CACHE_TTL_MS: num('BATCH_CACHE_TTL_MS', 3600000, 0), // 1 hour
   API_REQUEST_TIMEOUT_MS: num('API_REQUEST_TIMEOUT_MS', 15000, 0), // 15 seconds
+
+  // AI request settings, as the ENV layer of a four-step chain resolved in
+  // aiService.getRuntimeAIConfig: request body, then the target's ai-config
+  // object, then these, then a hardcoded default.
+  //
+  // The ENV layer exists because the ai-config object lives in the Liferay the
+  // client extensions are deployed to, while a run may target a different
+  // instance entirely - in which case aiCfg is empty and every AI setting
+  // silently fell back to its hardcoded default. Null here means "not set", so
+  // it does not shadow the target's own configuration when there is one.
+  AI_REQUEST_TIMEOUT_MS: num('AI_REQUEST_TIMEOUT_MS', null, 1000),
+  AI_CHUNK_SIZE_PRODUCT: num('AI_CHUNK_SIZE_PRODUCT', null, 1),
+  AI_CHUNK_SIZE_ORDER: num('AI_CHUNK_SIZE_ORDER', null, 1),
+  AI_CHUNK_SIZE_ACCOUNT: num('AI_CHUNK_SIZE_ACCOUNT', null, 1),
+  AI_CHUNK_SIZE_WAREHOUSE: num('AI_CHUNK_SIZE_WAREHOUSE', null, 1),
+  AI_CHUNK_SIZE_PRICING: num('AI_CHUNK_SIZE_PRICING', null, 1),
   WS_HEARTBEAT_MS: num(
     'WS_HEARTBEAT_INTERVAL_MS',
     30000,
