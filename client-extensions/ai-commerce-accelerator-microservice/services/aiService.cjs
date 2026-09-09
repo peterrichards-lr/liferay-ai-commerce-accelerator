@@ -55,9 +55,11 @@ const { resolveMediaProvider } = require('../utils/providerCapabilities.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
 const { shareCount } = require('../utils/shareSelection.cjs');
+const { createProductLedger } = require('../utils/productLedger.cjs');
 const {
   accountGeography,
   accountTypeGuidance,
+  avoidProductsGuidance,
   brandGuidance,
   currencyGuidance,
   languageGuidance,
@@ -492,6 +494,10 @@ class AIService {
         );
 
         const allProducts = [];
+        // The chunk loop used to accumulate blind, so only the top-up rounds
+        // deduplicated and a repeat between two chunks went straight through.
+        // One ledger for both loops makes its rule the run's only rule (#798).
+        const ledger = createProductLedger();
         const categoriesList =
           Array.isArray(options.categories) && options.categories.length > 0
             ? options.categories
@@ -516,7 +522,11 @@ class AIService {
             requestConfig,
             model,
             selectedLanguages,
-            { ...options, categories: [chunkCategory] }
+            {
+              ...options,
+              avoidProducts: ledger.avoid(),
+              categories: [chunkCategory],
+            }
           );
 
           const chunkItems = Array.isArray(chunkResult)
@@ -544,26 +554,33 @@ class AIService {
             );
           }
 
-          allProducts.push(...chunkItems);
+          let kept = 0;
+
+          for (const product of chunkItems) {
+            if (ledger.add(product)) {
+              allProducts.push(product);
+              kept++;
+            }
+          }
+
+          if (kept < chunkItems.length) {
+            logger?.info?.(
+              `[AIService] Product chunk ${i + 1}/${chunks.length} repeated ${chunkItems.length - kept} product(s) an earlier chunk already generated; they were discarded`,
+              {
+                chunkIndex: i + 1,
+                discarded: chunkItems.length - kept,
+                kept,
+                correlationId,
+              }
+            );
+          }
         }
 
         // The model routinely returns nine when asked for ten, so a chunked
-        // run lands short however firmly the prompt insists. Ask again for
-        // just the shortfall rather than accepting it: a request for fifty
-        // products should produce fifty.
-        const productKey = (product) =>
-          String(
-            product?.baseSku ||
-              product?.externalReferenceCode ||
-              product?.name?.en_US ||
-              product?.name ||
-              ''
-          )
-            .trim()
-            .toLowerCase();
-
-        const seenProducts = new Set(allProducts.map(productKey));
-
+        // run lands short however firmly the prompt insists - and discarding a
+        // chunk's repeats widens the same gap. Ask again for just the
+        // shortfall rather than accepting it: a request for fifty products
+        // should produce fifty.
         const topUpAttempts = topUpBudget(chunks.length);
 
         for (
@@ -588,25 +605,27 @@ class AIService {
             requestConfig,
             model,
             selectedLanguages,
-            { ...options, categories: [topUpCategory] }
+            {
+              ...options,
+              avoidProducts: ledger.avoid(),
+              categories: [topUpCategory],
+            }
           );
 
           const topUpItems = Array.isArray(topUpResult)
             ? topUpResult
             : topUpResult?.products || [];
 
-          // A repeat of something already generated is worse than a shortfall:
-          // duplicate names and base SKUs collide on import.
+          // A repeat of something already generated is no progress at all: the
+          // shortfall stands and the catalogue gains a second product with the
+          // same name. `createProductLedger` holds that rule for both loops.
           let added = 0;
 
           for (const product of topUpItems) {
             if (allProducts.length >= count) break;
 
-            const key = productKey(product);
+            if (!ledger.add(product)) continue;
 
-            if (!key || seenProducts.has(key)) continue;
-
-            seenProducts.add(key);
             allProducts.push(product);
             added++;
           }
@@ -635,6 +654,7 @@ class AIService {
       }
 
       const vars = {
+        avoidProductsGuidance: avoidProductsGuidance(options.avoidProducts),
         brandName: options.brandName || '',
         category,
         count,

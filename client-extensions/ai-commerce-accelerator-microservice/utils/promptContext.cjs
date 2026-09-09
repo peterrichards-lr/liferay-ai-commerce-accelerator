@@ -286,9 +286,72 @@ function orderDateGuidance(orderDateRangeDays, now = new Date()) {
   ].join('\n');
 }
 
+/**
+ * What a later chunk of a chunked product run must not invent again.
+ *
+ * Each chunk is an independent model call, so without this it is asked the same
+ * question the earlier chunks were asked and answers it the same way - nine
+ * duplicated names in a 50-product run (#798). `createProductLedger` discards
+ * the repeats regardless; this is what turns a discard into variety instead of
+ * a shortfall the top-up rounds have to close, and #759 shows that mechanism is
+ * not free.
+ *
+ * Names and base SKUs only. Sending the descriptions would grow the prompt by
+ * the size of the catalogue generated so far for nothing: those two are what
+ * uniqueness is judged on.
+ */
+
+/**
+ * How many of each the instruction may list.
+ *
+ * `generation-limits` allows 10000 products, and `_chatJson` aborts a prompt
+ * estimated above 15000 tokens - which the product prompt and its schema
+ * already spend 4000 of. An uncapped list would abort the very large run it was
+ * meant to improve.
+ *
+ * The earliest are kept rather than the most recent. The repeats a run produces
+ * are the obvious products - five "Keyed-Alike Lock System", four "BMW R1250GS
+ * Mounting Kit" - and those are what the first chunks invent, so they are the
+ * names later chunks most need to be steered off. Trimming the instruction does
+ * not weaken enforcement: `createProductLedger` still holds every product and
+ * still discards a repeat of any of them.
+ */
+const AVOID_LIST_LIMIT = 100;
+
+function avoidProductsGuidance(avoid) {
+  const names = (avoid?.names || []).filter(Boolean).slice(0, AVOID_LIST_LIMIT);
+  const baseSkus = (avoid?.baseSkus || [])
+    .filter(Boolean)
+    .slice(0, AVOID_LIST_LIMIT);
+
+  if (names.length === 0 && baseSkus.length === 0) {
+    return '';
+  }
+
+  const lines = [
+    '- Product Variety: This request is one part of a larger catalogue, and ' +
+      'the products below have already been generated for it. Every product ' +
+      'you return must be a different product from all of them - not a ' +
+      'rewording, a re-abbreviation or a near-duplicate - with a name and a ' +
+      '"baseSku" that appear nowhere in these lists. A repeat is discarded ' +
+      'rather than added to the catalogue, so it costs the run a product.',
+  ];
+
+  if (names.length > 0) {
+    lines.push(`  - Names already used: ${names.join('; ')}`);
+  }
+
+  if (baseSkus.length > 0) {
+    lines.push(`  - Base SKUs already used: ${baseSkus.join('; ')}`);
+  }
+
+  return lines.join('\n');
+}
+
 module.exports = {
   accountGeography,
   accountTypeGuidance,
+  avoidProductsGuidance,
   brandGuidance,
   currencyGuidance,
   languageGuidance,
