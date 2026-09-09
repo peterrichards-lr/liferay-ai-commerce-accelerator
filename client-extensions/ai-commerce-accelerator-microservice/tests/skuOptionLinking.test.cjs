@@ -168,14 +168,16 @@ describe('SKU option links', () => {
     );
   });
 
-  it('says so, loudly, when there is no definition id to read back with', async () => {
+  it('says so, loudly, and writes nothing without a definition id', async () => {
     // An unresolved definition id guarantees inactive SKUs and a failure three
-    // steps later at create-orders. The run has to show that here.
+    // steps later at create-orders. Nothing can verify a write made without
+    // one, so the step reports it instead of sending it.
     liferay.addProductOptions.mockResolvedValue({ items: [linkedColour()] });
     session.context.productDataList[0].cpDefinitionId = undefined;
 
     await runToSkus();
 
+    expect(liferay.addProductOptions).not.toHaveBeenCalled();
     expect(liferay.getProductOptions).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('No definition id for product ERC1'),
@@ -185,6 +187,23 @@ describe('SKU option links', () => {
       expect.stringContaining('Option linking incomplete'),
       expect.anything()
     );
+  });
+
+  it('links on the definition id alone, without the CProduct id', async () => {
+    // The guard used to test the ambiguous `id`. A product that resolved a
+    // definition id has everything this step needs; one that resolved only a
+    // CProduct id has nothing it can use.
+    delete session.context.productDataList[0].id;
+
+    await runToSkus();
+
+    expect(liferay.addProductOptions).toHaveBeenCalledWith(
+      session.context.config,
+      71552,
+      expect.anything(),
+      'ERC1'
+    );
+    expect(skuOptionsOf()).toEqual([{ optionId: 71565, optionValueId: 71566 }]);
   });
 
   it('never seeds the SKU ids from ensure-options', async () => {

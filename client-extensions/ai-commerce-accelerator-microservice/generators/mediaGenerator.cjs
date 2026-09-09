@@ -454,7 +454,7 @@ class MediaGenerator {
         completedCount++;
       } catch (error) {
         logger.error(
-          `Failed to create images for product ${product.id || 'unknown'}`,
+          `Failed to create images for product ${product.externalReferenceCode || 'unknown'}`,
           {
             sessionId,
             correlationId,
@@ -589,11 +589,14 @@ class MediaGenerator {
 
         completedCount++;
       } catch (error) {
-        logger.error(`Failed to create PDF for product ${product.id}`, {
-          sessionId,
-          correlationId,
-          error: error.message,
-        });
+        logger.error(
+          `Failed to create PDF for product ${product.externalReferenceCode}`,
+          {
+            sessionId,
+            correlationId,
+            error: error.message,
+          }
+        );
       }
       progress.batchProgress({
         batchId,

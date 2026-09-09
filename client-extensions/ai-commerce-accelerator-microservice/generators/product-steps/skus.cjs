@@ -154,7 +154,7 @@ async function runLinkProductOptionsStep(sessionId) {
   try {
     const productsWithOpts = (productDataList || []).filter((p) => {
       const opts = p.productOptions || p.options;
-      return p.id && Array.isArray(opts) && opts.length > 0;
+      return Array.isArray(opts) && opts.length > 0;
     });
 
     // Accumulated across products so the step can report once, at a level the
@@ -164,9 +164,27 @@ async function runLinkProductOptionsStep(sessionId) {
     const readBackFailures = [];
     const productsWithoutValues = [];
 
-    for (const product of productsWithOpts) {
+    // A product resolved without a definition id cannot have its options read
+    // back, and unverified links are what left every SKU inactive (#748), so
+    // it is reported as a failure here rather than written to and hoped for.
+    const unresolvedProducts = productsWithOpts.filter(
+      (p) => !definitionIdOf(p)
+    );
+    const linkableProducts = productsWithOpts.filter((p) => definitionIdOf(p));
+
+    for (const product of unresolvedProducts) {
+      readBackFailures.push(product.externalReferenceCode);
+      this.logger.warn(
+        `No definition id for product ${product.externalReferenceCode}; its options cannot be linked, so its SKU variants will lose them`,
+        { sessionId }
+      );
+    }
+
+    for (const product of linkableProducts) {
+      const definitionId = definitionIdOf(product);
+
       this.logger.debug(
-        `Linking options for product ${product.externalReferenceCode} (ID: ${product.id})`,
+        `Linking options for product ${product.externalReferenceCode} (CPDefinition ${definitionId})`,
         { sessionId }
       );
       const sourceOptions = product.productOptions || product.options;
@@ -233,7 +251,7 @@ async function runLinkProductOptionsStep(sessionId) {
 
       const createdOptions = await this.liferay.addProductOptions(
         config,
-        product.id,
+        definitionId,
         cleanedOptions,
         product.externalReferenceCode // HARDENING: Pass ERC to bypass indexing race condition
       );
@@ -280,31 +298,21 @@ async function runLinkProductOptionsStep(sessionId) {
         needsReadBack &&
         typeof this.liferay.getProductOptions === 'function'
       ) {
-        // The definition id, not product.id. Every product-scoped path takes
-        // it, and this call was passing the CProduct id: it 404ed for every
-        // product, the values were never read, and all 90 SKUs came out
+        // The definition id, not the CProduct id. Every product-scoped path
+        // takes it, and this call was passing the CProduct id: it 404ed for
+        // every product, the values were never read, and all 90 SKUs came out
         // inactive (#748). The write above survives on the ERC path instead.
-        const definitionId = definitionIdOf(product);
-
-        if (!definitionId) {
+        try {
+          linkedOptions = asLinkedOptions(
+            await this.liferay.getProductOptions(config, definitionId)
+          );
+          linkedIds = readLinkedIds();
+        } catch (readBackError) {
           readBackFailures.push(product.externalReferenceCode);
           this.logger.warn(
-            `No definition id for product ${product.externalReferenceCode}; cannot read back its linked options, so its SKU variants will lose their options`,
-            { sessionId }
+            `Could not read back the linked options for product ${product.externalReferenceCode}; SKU variants may lose their options`,
+            { sessionId, error: readBackError.message }
           );
-        } else {
-          try {
-            linkedOptions = asLinkedOptions(
-              await this.liferay.getProductOptions(config, definitionId)
-            );
-            linkedIds = readLinkedIds();
-          } catch (readBackError) {
-            readBackFailures.push(product.externalReferenceCode);
-            this.logger.warn(
-              `Could not read back the linked options for product ${product.externalReferenceCode}; SKU variants may lose their options`,
-              { sessionId, error: readBackError.message }
-            );
-          }
         }
       }
 

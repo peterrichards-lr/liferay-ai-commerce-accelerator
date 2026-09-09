@@ -249,7 +249,6 @@ async function runResolveProductIdsStep(sessionId) {
         .filter((item) => item?.externalReferenceCode)
         .map((item) => [item.externalReferenceCode, item])
     );
-    const ercToIdMap = new Map(normalized.map((item) => [item.erc, item.id]));
 
     const updatedList = productDataList.map((p) => {
       const resolved = byErc.get(p.externalReferenceCode);
@@ -257,12 +256,11 @@ async function runResolveProductIdsStep(sessionId) {
       return {
         ...p,
         ...productIdentity(resolved),
-        id: ercToIdMap.get(p.externalReferenceCode),
       };
     });
 
     const missingDefinition = updatedList.filter(
-      (p) => p.id && !p.cpDefinitionId
+      (p) => p.cProductId && !p.cpDefinitionId
     );
 
     if (missingDefinition.length > 0) {

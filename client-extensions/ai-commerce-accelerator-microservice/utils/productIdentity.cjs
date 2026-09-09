@@ -29,8 +29,9 @@
  * definition id was never fetched, the option read-back 404ed, every SKU lost
  * its option links and Liferay marked all 90 SKUs inactive (#748).
  *
- * `id` is retained as the CProduct id because the delete manifest and its
- * consumers already read it. New callers should name the one they mean.
+ * `productDataList[].id` is retained as the CProduct id because
+ * PromoGenerator still reads it (#757). New callers should name the one they
+ * mean.
  */
 
 const CPRODUCT_ID = 'cProductId';
@@ -64,9 +65,29 @@ function definitionIdOf(product) {
   return positiveId(product?.[CP_DEFINITION_ID]);
 }
 
+/**
+ * The id the deletion path addresses a crawled product by.
+ *
+ * Its manifest is not `productDataList`: deleteCoordinatorService crawls
+ * `getProducts` and keeps the `Product` DTOs as Liferay returned them, so
+ * `productId` here is the CPDefinition and `id` the CProduct, exactly as
+ * documented above. The SDK reads the same shape the same way - product
+ * discovery requests `productId` alone, pages by `productId eq {x}` and
+ * deletes by `productId || id`.
+ *
+ * The fallback to the CProduct id is what the delete path has always done and
+ * is kept deliberately. It cannot reach another product's entities: the paths
+ * it feeds (`/products/{x}`, `.../productOptions`, `.../productSpecifications`)
+ * answer 404 to a CProduct id, so a fallback that is wrong clears nothing.
+ */
+function deletionTargetIdOf(product) {
+  return positiveId(product?.productId) ?? positiveId(product?.id);
+}
+
 module.exports = {
   CPRODUCT_ID,
   CP_DEFINITION_ID,
   definitionIdOf,
+  deletionTargetIdOf,
   productIdentity,
 };
