@@ -294,6 +294,7 @@ const gracefulShutdown = async (signal) => {
   require('./routes/import.cjs')(apiV1Router, {
     ...routeCtx,
     batchCallbackService,
+    cacheService,
     ws: ws,
     configService,
     workflowCoordinator,

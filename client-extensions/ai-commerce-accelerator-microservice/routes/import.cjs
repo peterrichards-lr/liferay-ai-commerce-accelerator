@@ -8,6 +8,7 @@ const {
   logCommerceSelection,
   resolveRunCommerceSelection,
 } = require('../utils/commerceSelection.cjs');
+const { looksLikeZip, readMediaBundle } = require('../utils/mediaBundle.cjs');
 
 const S = WORKFLOW_STEPS;
 const upload = multer({ storage: multer.memoryStorage() });
@@ -15,6 +16,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 module.exports = (
   app,
   {
+    cacheService,
     logger,
     persistenceService,
     progressService,
@@ -57,6 +59,12 @@ module.exports = (
       }
 
       let importData;
+      // Media travels alongside the dataset, never inside it. Kept out of the
+      // session context because that is JSON-serialised into SQLite and no
+      // file content belongs in the database (#814).
+      let bundledMedia = [];
+      let bundleManifest = null;
+      let bundleMissing = [];
 
       try {
         if (!req.file) {
@@ -70,13 +78,22 @@ module.exports = (
               .status(400)
               .json({ success: false, error: 'No file uploaded' });
           }
+        } else if (looksLikeZip(req.file.buffer)) {
+          // Recognised by the zip header rather than the file name, because a
+          // name is whatever the browser happened to send.
+          const bundle = await readMediaBundle(req.file.buffer);
+
+          importData = bundle.dataset;
+          bundledMedia = bundle.media;
+          bundleManifest = bundle.manifest;
+          bundleMissing = bundle.missing;
         } else {
           importData = JSON.parse(req.file.buffer.toString());
         }
       } catch (e) {
         return res.status(400).json({
           success: false,
-          error: `Invalid JSON dataset: ${e.message}`,
+          error: `Invalid dataset: ${e.message}`,
         });
       }
 
@@ -206,12 +223,57 @@ module.exports = (
 
         const sessionId = createERC(ERC_PREFIX.BATCH_SESSION);
 
+        // The binaries go in the cache, which is memory only; the context gets
+        // the key. #676 recorded that media is absent from the import *flow*,
+        // not merely from the file - these two steps are what closes that, and
+        // they run only when a bundle actually brought something.
+        let mediaBundleKey = null;
+
+        if (bundledMedia.length > 0) {
+          mediaBundleKey = `media-bundle:${sessionId}`;
+          cacheService.set(mediaBundleKey, bundledMedia);
+
+          productSteps.push({ name: S.ATTACH_IMAGES, type: 'sync' });
+          productSteps.push({ name: S.ATTACH_PDFS, type: 'sync' });
+
+          logger.info(
+            `Import carries a media bundle: ${bundleManifest?.counts?.images ?? 0} image(s), ${bundleManifest?.counts?.pdfs ?? 0} PDF(s)`,
+            {
+              correlationId,
+              operation: 'import-commerce-data',
+              missing: bundleMissing.length,
+              unresolvedAtExport: bundleManifest?.counts?.unresolved ?? 0,
+            }
+          );
+
+          // Said at import time as well as at export time. An operator running
+          // the import is usually not the person who built the bundle, and a
+          // promotion that lands fewer pictures than the source must not have
+          // to be discovered by looking at the catalogue.
+          if (bundleMissing.length > 0 || bundleManifest?.counts?.unresolved) {
+            logger.warn(
+              `The bundle is incomplete: ${bundleManifest?.counts?.unresolved ?? 0} could not be resolved when it was exported, ${bundleMissing.length} named a file the archive does not contain`,
+              { correlationId, operation: 'import-commerce-data' }
+            );
+          }
+        }
+
         // Map data to context keys that generators expect
         const context = {
           config,
           options: {
             ...baseOptions,
             importMode: true,
+            // 'bundle' makes the media steps attach what the package carried
+            // rather than call a model. Without a bundle the keys are absent
+            // and the steps are not scheduled at all.
+            ...(mediaBundleKey
+              ? {
+                  imageMode: 'bundle',
+                  mediaBundleKey,
+                  pdfMode: 'bundle',
+                }
+              : {}),
             generatePriceLists: true,
             generateSkuVariants: true,
             productCount: products.length,
