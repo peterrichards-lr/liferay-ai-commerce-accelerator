@@ -5,7 +5,7 @@ const {
   looksLikeZip,
   readMediaBundle,
 } = require('../utils/mediaBundle.cjs');
-const { resolveDatasetMedia } = require('../utils/mediaResolver.cjs');
+const { extractDatasetMedia } = require('../utils/mediaExtractor.cjs');
 
 // #814: a promotion must land the same pictures, not equivalent ones. The
 // round trip is the assertion that matters - everything else can pass while
@@ -142,7 +142,7 @@ describe('Media bundle round trip', () => {
   });
 });
 
-describe('Resolving media from the source instance', () => {
+describe('Extracting media from the source instance', () => {
   const liferayService = {
     getProductImages: async (_config, erc) =>
       erc === 'AICA-PRD-1'
@@ -166,7 +166,7 @@ describe('Resolving media from the source instance', () => {
   const logger = { warn: () => {}, info: () => {} };
 
   it('resolves each product by its external reference code', async () => {
-    const media = await resolveDatasetMedia({
+    const media = await extractDatasetMedia({
       config: {},
       liferayService,
       logger,
@@ -190,7 +190,7 @@ describe('Resolving media from the source instance', () => {
       },
     };
 
-    const media = await resolveDatasetMedia({
+    const media = await extractDatasetMedia({
       config: {},
       liferayService: failing,
       logger,
@@ -224,7 +224,7 @@ describe('Resolving media from the source instance', () => {
       },
     };
 
-    await resolveDatasetMedia({
+    await extractDatasetMedia({
       config: {},
       liferayService: byErc,
       logger,

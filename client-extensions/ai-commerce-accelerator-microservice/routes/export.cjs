@@ -2,7 +2,7 @@ const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { buildMediaBundle } = require('../utils/mediaBundle.cjs');
-const { resolveDatasetMedia } = require('../utils/mediaResolver.cjs');
+const { extractDatasetMedia } = require('../utils/mediaExtractor.cjs');
 const { buildConfigAndOptions } = require('../utils/normalize.cjs');
 
 /**
@@ -112,7 +112,15 @@ module.exports = (
   });
 
   /**
-   * The dataset plus the binaries its media entries point at.
+   * The dataset plus the binaries its media entries point at, pulled from a
+   * live Liferay instance.
+   *
+   * This is extract rather than export, and the difference is cost. An export
+   * packages what this service already holds - the session context and, once
+   * #848 lands, the media on disk - and needs no access to anything. Extract
+   * points at an instance, authenticates against it and pulls every binary
+   * across the network. Same package, very different operation, so they are
+   * named for what they do rather than for what they produce.
    *
    * A POST rather than a GET, and deliberately not a flag on the existing
    * export: this one calls Liferay, so it needs credentials, and credentials
@@ -125,7 +133,7 @@ module.exports = (
    * promoted - which is the case in front of us, and the reason this route
    * resolves rather than reads what the run recorded (#814).
    */
-  app.post(INTERNAL_API_PATHS.EXPORT_COMMERCE_BUNDLE, async (req, res) => {
+  app.post(INTERNAL_API_PATHS.EXTRACT_COMMERCE_BUNDLE, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
     const correlationId = config.correlationId;
 
@@ -151,14 +159,14 @@ module.exports = (
 
       const dataset = datasetFromSession(session, 'session-db');
 
-      logger.info('Resolving media for a dataset bundle', {
+      logger.info('Extracting media from the source instance', {
         correlationId,
-        operation: 'export-commerce-bundle',
+        operation: 'extract-commerce-bundle',
         productCount: dataset.products.length,
         sessionId,
       });
 
-      const media = await resolveDatasetMedia({
+      const media = await extractDatasetMedia({
         config,
         correlationId,
         liferayService,
@@ -171,10 +179,10 @@ module.exports = (
       // Said plainly, because a bundle that carries fewer pictures than the
       // source still imports cleanly and still looks like success.
       logger.info(
-        `Dataset bundle built: ${manifest.counts.images} image(s), ${manifest.counts.pdfs} PDF(s), ${manifest.counts.unresolved} unresolved`,
+        `Extracted bundle built: ${manifest.counts.images} image(s), ${manifest.counts.pdfs} PDF(s), ${manifest.counts.unresolved} unresolved`,
         {
           correlationId,
-          operation: 'export-commerce-bundle',
+          operation: 'extract-commerce-bundle',
           sessionId,
           ...manifest.counts,
         }
@@ -194,16 +202,16 @@ module.exports = (
       res.status(200).send(buffer);
     } catch (error) {
       const errorReference = createERC(ERC_PREFIX.ERROR);
-      logger.error('Failed to export commerce bundle', {
+      logger.error('Failed to extract commerce bundle', {
         correlationId,
-        operation: 'export-commerce-bundle',
+        operation: 'extract-commerce-bundle',
         errorReference,
         message: error.message,
         stack: error.stack,
       });
       res.status(500).json({
         success: false,
-        error: 'Failed to export commerce bundle',
+        error: 'Failed to extract commerce bundle',
         errorReference,
       });
     }

@@ -1,8 +1,12 @@
 const { KIND } = require('./mediaBundle.cjs');
 
 /**
- * Fetches the binaries behind a dataset's media entries, from the instance
- * that holds them.
+ * Pulls the binaries behind a dataset's media entries out of the instance that
+ * holds them.
+ *
+ * This is the expensive half of producing a package: it needs access to a live
+ * Liferay, credentials for it, and a round trip per attachment. An export
+ * packages what this service already has and needs none of that - see #848.
  *
  * `createdImages` and `createdPdfs` record `{ productERC, title, contentType,
  * priority }` and no bytes. That is the constraint - no file content in the
@@ -24,7 +28,7 @@ const { KIND } = require('./mediaBundle.cjs');
  * the target with an arbitrary prefix of the catalogue - the same shape as the
  * chunk failure that used to discard every chunk before it (#822).
  */
-async function resolveProductMedia({
+async function extractProductMedia({
   config,
   correlationId,
   liferayService,
@@ -53,7 +57,7 @@ async function resolveProductMedia({
       attachments = (await liferayService[listOf](config, productERC)) || [];
     } catch (error) {
       logger?.warn?.(
-        `[MediaResolver] Could not list ${kind}s for ${productERC}: ${error?.message}`,
+        `[MediaExtractor] Could not list ${kind}s for ${productERC}: ${error?.message}`,
         { correlationId, productERC }
       );
       resolved.push({
@@ -94,7 +98,7 @@ async function resolveProductMedia({
         });
       } catch (error) {
         logger?.warn?.(
-          `[MediaResolver] Could not read a ${kind} for ${productERC}: ${error?.message}`,
+          `[MediaExtractor] Could not read a ${kind} for ${productERC}: ${error?.message}`,
           { correlationId, productERC }
         );
         resolved.push({
@@ -120,7 +124,7 @@ async function resolveProductMedia({
  * cost of being slow is much lower than the cost of a burst of parallel binary
  * fetches against it.
  */
-async function resolveDatasetMedia({
+async function extractDatasetMedia({
   config,
   correlationId,
   liferayService,
@@ -135,7 +139,7 @@ async function resolveDatasetMedia({
     if (!productERC) continue;
 
     media.push(
-      ...(await resolveProductMedia({
+      ...(await extractProductMedia({
         config,
         correlationId,
         liferayService,
@@ -148,4 +152,4 @@ async function resolveDatasetMedia({
   return media;
 }
 
-module.exports = { resolveDatasetMedia, resolveProductMedia };
+module.exports = { extractDatasetMedia, extractProductMedia };
