@@ -409,7 +409,7 @@ generateBatchFiles {
 
 		def entityLabel = {
 			entity ->
-			(entity == 'promo') ? 'Promotion' : entity.capitalize()
+			(entity == 'promo') ? 'Promotion' : (entity == 'names') ? 'Product Names' : entity.capitalize()
 		}
 
 		int fileIndex = 4

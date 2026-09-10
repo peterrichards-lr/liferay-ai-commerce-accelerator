@@ -12,6 +12,11 @@ import { ensureLiferayCodeMirrorCss } from '../../utils/editor';
 // drifting again - omitting image here is what left it unreachable (#650).
 export const ENTITY_CONFIGS = [
   { id: 'product', title: 'Product Prompt', configKey: 'ai-prompt-product' },
+  {
+    id: 'names',
+    title: 'Product Names Prompt',
+    configKey: 'ai-prompt-names',
+  },
   { id: 'image', title: 'Image Prompt', configKey: 'ai-prompt-image' },
   { id: 'account', title: 'Account Prompt', configKey: 'ai-prompt-account' },
   { id: 'order', title: 'Order Prompt', configKey: 'ai-prompt-order' },

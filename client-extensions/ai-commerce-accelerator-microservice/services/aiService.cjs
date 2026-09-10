@@ -65,6 +65,7 @@ const { createProductLedger } = require('../utils/productLedger.cjs');
 const {
   accountGeography,
   accountTypeGuidance,
+  assignedNamesGuidance,
   avoidProductsGuidance,
   brandGuidance,
   currencyGuidance,
@@ -358,9 +359,26 @@ class AIService {
         : 2,
     };
 
+    // Name-first generation, off unless asked for. #825 is a model-behaviour
+    // problem rather than a plumbing one - the avoid list is delivered intact
+    // and the model repeats anyway - so the alternative ships behind a flag
+    // and is compared against the current path on the same brand and category
+    // set, rather than replacing a run a demo depends on before it has been
+    // measured once.
+    const nameFirstProducts =
+      (typeof requestConfig?.nameFirstProducts === 'boolean'
+        ? requestConfig.nameFirstProducts
+        : null) ??
+      (typeof aiCfg.nameFirstProducts === 'boolean'
+        ? aiCfg.nameFirstProducts
+        : null) ??
+      ENV.AI_NAME_FIRST_PRODUCTS ??
+      false;
+
     return {
       provider,
       mediaProvider: effectiveMediaProvider,
+      nameFirstProducts,
       retry,
       credentials: { apiKey },
       mediaCredentials: { apiKey: mediaApiKey },
@@ -684,6 +702,86 @@ class AIService {
     }
   }
 
+  /**
+   * Ask for `count` distinct product names in one completion, before any
+   * product is elaborated.
+   *
+   * This is the cheap half of name-first generation. Distinctness is the one
+   * thing the chunked path cannot achieve by insisting harder: a model given a
+   * growing avoid list drifts back to the same obvious products, and a live run
+   * had chunk 6 returning five repeats out of five (#825). A single completion
+   * asking only for names is small enough that the model keeps it internally
+   * consistent, and the result is a positive instruction - "write these" - for
+   * every chunk that follows.
+   *
+   * Returns `[{ name, category }]`, deduplicated case-insensitively because the
+   * response is an instruction for later chunks and a repeat here would be
+   * spent twice.
+   */
+  async generateProductNames(
+    count,
+    categoriesList,
+    requestConfig,
+    model,
+    options = {}
+  ) {
+    const { logger, prompt } = this.ctx;
+    const correlationId = requestConfig?.correlationId;
+    const categories =
+      Array.isArray(categoriesList) && categoriesList.length > 0
+        ? categoriesList
+        : ['General'];
+
+    const vars = {
+      brandGuidance: brandGuidance(options.brandName),
+      categoryList: joinList(categories),
+      count,
+      pluralSuffix: pluralize(count),
+      vocabularyGuidance: vocabularyGuidance(options.groundingMetadata),
+    };
+
+    const promptContent = await prompt.render('names', vars, requestConfig);
+    const result = await this._chatJson(
+      'names',
+      promptContent,
+      requestConfig,
+      model,
+      'names',
+      ['en-US']
+    );
+
+    const returned = Array.isArray(result) ? result : result?.names || [];
+    const seen = new Set();
+    const names = [];
+
+    for (const entry of returned) {
+      const name = typeof entry === 'string' ? entry : entry?.name;
+      if (!name) continue;
+
+      const key = String(name).trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+
+      seen.add(key);
+      names.push({
+        category:
+          (typeof entry === 'object' && entry?.category) || categories[0],
+        name: String(name).trim(),
+      });
+    }
+
+    logger?.info?.(
+      `[AIService] Name-first: asked for ${count} product names, received ${returned.length}, ${names.length} distinct`,
+      {
+        correlationId,
+        distinct: names.length,
+        received: returned.length,
+        requested: count,
+      }
+    );
+
+    return names;
+  }
+
   async generateProductData(
     category,
     count = 1,
@@ -731,9 +829,56 @@ class AIService {
             ? options.categories
             : [category || 'General'];
 
+        // Name the whole catalogue first, when asked to. A failure here costs
+        // the flag, not the run: an empty list leaves `assignedNames` empty for
+        // every chunk, `assignedNamesGuidance` renders nothing, and the loop
+        // below is the avoid-list path it has always been.
+        let assignedNames = [];
+
+        if (runtime?.nameFirstProducts) {
+          try {
+            assignedNames = await this.generateProductNames(
+              count,
+              categoriesList,
+              requestConfig,
+              model,
+              options
+            );
+          } catch (error) {
+            logger?.warn?.(
+              `[AIService] Name-first generation failed, falling back to the avoid-list path: ${error?.message}`,
+              { correlationId }
+            );
+          }
+
+          if (assignedNames.length < count) {
+            // Said before ten minutes of elaboration rather than after it: the
+            // ceiling on what this run can deliver is already known here (#825).
+            logger?.warn?.(
+              `[AIService] Name-first produced ${assignedNames.length} distinct names for ${count} requested products, so this run cannot exceed ${assignedNames.length}`,
+              {
+                correlationId,
+                distinct: assignedNames.length,
+                requested: count,
+              }
+            );
+          }
+        }
+
+        let namesTaken = 0;
+
         for (let i = 0; i < chunks.length; i++) {
           const chunkCount = chunks[i];
-          const chunkCategory = categoriesList[i % categoriesList.length];
+          const chunkNames = assignedNames
+            .slice(namesTaken, namesTaken + chunkCount)
+            .map((entry) => entry.name);
+          namesTaken += chunkNames.length;
+          // With names assigned, the chunk's category comes from the names it
+          // was given rather than from the round-robin, so a chunk is not asked
+          // for a category its names do not belong to.
+          const chunkCategory = chunkNames.length
+            ? assignedNames[namesTaken - chunkNames.length].category
+            : categoriesList[i % categoriesList.length];
           logger?.info?.(
             `[AIService] Generating product chunk ${i + 1}/${chunks.length} (${chunkCount} items, category: ${chunkCategory})...`,
             {
@@ -766,6 +911,7 @@ class AIService {
                     selectedLanguages,
                     {
                       ...options,
+                      assignedNames: chunkNames,
                       avoidProducts: ledger.avoid(),
                       categories: [chunkCategory],
                     }
@@ -815,11 +961,56 @@ class AIService {
 
           let kept = 0;
 
+          const avoidListSize = ledger.avoid().names.length;
+
           for (const product of chunkItems) {
             if (ledger.add(product)) {
               allProducts.push(product);
               kept++;
             }
+          }
+
+          // The measurement #825 asks for: distinct yield per chunk against the
+          // length of the list the model was told to avoid. Whether the
+          // collapse is gradual or a cliff decides whether the avoid list has a
+          // workable size or is the wrong shape of instruction outright, and
+          // the run had no record of either - the rendered prompt is never
+          // logged, which is why the plumbing had to be verified by
+          // re-implementing it rather than by reading a log.
+          logger?.info?.(
+            `[AIService] Product chunk ${i + 1}/${chunks.length} yielded ${kept} new of ${chunkItems.length} returned (avoid list ${avoidListSize}, ${allProducts.length}/${count} distinct so far)`,
+            {
+              assignedNames: chunkNames.length,
+              avoidListSize,
+              chunkIndex: i + 1,
+              correlationId,
+              distinctSoFar: allProducts.length,
+              kept,
+              requested: chunkCount,
+              requestedTotal: count,
+              returned: chunkItems.length,
+              totalChunks: chunks.length,
+            }
+          );
+
+          // A chunk that adds nothing is the plateau arriving, and it is
+          // knowable now rather than from the delivered count at the end. Said
+          // once, on the transition, so a long tail of empty chunks does not
+          // bury the run's own log.
+          if (
+            kept === 0 &&
+            chunkItems.length > 0 &&
+            allProducts.length < count
+          ) {
+            logger?.warn?.(
+              `[AIService] Product chunk ${i + 1}/${chunks.length} returned ${chunkItems.length} products and every one repeated an earlier chunk; at ${allProducts.length} of ${count} the run is unlikely to reach the requested count`,
+              {
+                chunkIndex: i + 1,
+                correlationId,
+                distinctSoFar: allProducts.length,
+                requestedTotal: count,
+              }
+            );
           }
 
           if (kept < chunkItems.length) {
@@ -913,7 +1104,13 @@ class AIService {
       }
 
       const vars = {
-        avoidProductsGuidance: avoidProductsGuidance(options.avoidProducts),
+        assignedNamesGuidance: assignedNamesGuidance(options.assignedNames),
+        // Mutually exclusive with the assigned names above: naming the products
+        // up front is the alternative to steering the model off a growing list,
+        // not an addition to it (#825).
+        avoidProductsGuidance: options.assignedNames?.length
+          ? ''
+          : avoidProductsGuidance(options.avoidProducts),
         brandName: options.brandName || '',
         category,
         count,
