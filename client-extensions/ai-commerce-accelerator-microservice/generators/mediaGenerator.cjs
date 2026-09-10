@@ -267,6 +267,43 @@ class MediaGenerator {
     }));
   }
 
+  /**
+   * Pull the reference Liferay returns when it accepts an upload.
+   *
+   * The `by-base64` endpoints answer with the attachment they created - its
+   * id, its own ERC and the `src` the bytes are served from. Recording those
+   * is what lets a later export find the binary again: without them a run
+   * knows only that it made a picture, not where the picture went, and a
+   * promotion has to go looking for it product by product (#838).
+   *
+   * An accepted upload that answers with none of the three is not an error -
+   * the media exists - but it does leave the run unable to point at it, so it
+   * says so rather than recording an entry that quietly holds nothing.
+   */
+  _mediaReference(created, { productERC, kind, sessionId, correlationId }) {
+    const { logger } = this.ctx;
+    const reference = {};
+
+    if (created?.id !== undefined && created.id !== null) {
+      reference.attachmentId = created.id;
+    }
+    if (created?.externalReferenceCode) {
+      reference.attachmentERC = created.externalReferenceCode;
+    }
+    if (created?.src) {
+      reference.src = created.src;
+    }
+
+    if (Object.keys(reference).length === 0) {
+      logger.warn(
+        `Liferay accepted the ${kind} for ${productERC} but returned no id, ERC or src, so the export cannot locate it`,
+        { sessionId, correlationId }
+      );
+    }
+
+    return reference;
+  }
+
   async createImages(config, products, options) {
     const { logger, liferay, progress, ai } = this.ctx;
     const { sessionId, correlationId: optionsCID } = options;
@@ -433,7 +470,7 @@ class MediaGenerator {
               ])
             );
 
-          await liferay.addProductImageByBase64(
+          const created = await liferay.addProductImageByBase64(
             config,
             product.externalReferenceCode,
             {
@@ -449,6 +486,12 @@ class MediaGenerator {
             title: title,
             contentType: contentType,
             priority: imageData.priority || 1,
+            ...this._mediaReference(created, {
+              productERC: product.externalReferenceCode,
+              kind: 'image',
+              sessionId,
+              correlationId,
+            }),
           });
         }
         completedCount++;
@@ -568,7 +611,7 @@ class MediaGenerator {
           pdfBase64 = mockPdf.base64;
         }
 
-        await liferay.addProductDocumentAttachmentByBase64(
+        const created = await liferay.addProductDocumentAttachmentByBase64(
           config,
           product.externalReferenceCode,
           {
@@ -585,6 +628,12 @@ class MediaGenerator {
           title: { en_US: `${sku}_manual.pdf` },
           contentType: 'application/pdf',
           priority: 1,
+          ...this._mediaReference(created, {
+            productERC: product.externalReferenceCode,
+            kind: 'PDF',
+            sessionId,
+            correlationId,
+          }),
         });
 
         completedCount++;
