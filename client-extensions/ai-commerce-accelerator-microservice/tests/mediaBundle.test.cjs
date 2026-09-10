@@ -5,7 +5,7 @@ const {
   looksLikeZip,
   readMediaBundle,
 } = require('../utils/mediaBundle.cjs');
-const { extractDatasetMedia } = require('../utils/mediaExtractor.cjs');
+const { extractDatasetMedia, srcPath } = require('../utils/mediaExtractor.cjs');
 
 // #814: a promotion must land the same pictures, not equivalent ones. The
 // round trip is the assertion that matters - everything else can pass while
@@ -234,5 +234,56 @@ describe('Extracting media from the source instance', () => {
     // The catalog API exposes no GET for a numeric attachment id, so the ERC
     // is the only usable fallback (SDK #181).
     expect(calls).toEqual(['AICAIMG-9']);
+  });
+});
+
+describe('The src Liferay returns', () => {
+  // Real payload from lctsolara-uat, 2026-09-10. The public host serves https
+  // on 443; :8080 is the internal listener, so this URL connects to nothing.
+  const OBSERVED =
+    'https://webserver-lctsolara-uat.lfr.cloud:8080/o/commerce-media/accounts/-9223372036854775808/images/90623?download=true';
+
+  it('keeps the path and discards the origin Liferay invented', () => {
+    expect(srcPath(OBSERVED)).toBe(
+      '/o/commerce-media/accounts/-9223372036854775808/images/90623?download=true'
+    );
+  });
+
+  it('keeps the query string, since the media servlet reads it', () => {
+    expect(srcPath(OBSERVED)).toContain('?download=true');
+  });
+
+  it('passes a relative src through unchanged', () => {
+    expect(srcPath('/o/commerce-media/images/1')).toBe(
+      '/o/commerce-media/images/1'
+    );
+  });
+
+  it('fetches the path, not the absolute URL', async () => {
+    const asked = [];
+    const liferayService = {
+      getProductImages: async () => [
+        { contentType: 'image/webp', priority: 1, src: OBSERVED },
+      ],
+      getProductAttachments: async () => [],
+      getProductImageContent: async (_config, locator) => {
+        asked.push(locator);
+        return { buffer: Buffer.from('bytes'), contentType: 'image/webp' };
+      },
+      getProductAttachmentContent: async () => ({ buffer: Buffer.from('') }),
+    };
+
+    await extractDatasetMedia({
+      config: {},
+      liferayService,
+      logger: { warn: () => {}, info: () => {} },
+      products: [{ externalReferenceCode: 'AICA-PRD-1' }],
+    });
+
+    // Passing the absolute URL through would send the request to :8080 on a
+    // host that serves 443, and the promotion would fail at first contact.
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).not.toContain('8080');
+    expect(asked[0].startsWith('/o/commerce-media/')).toBe(true);
   });
 });

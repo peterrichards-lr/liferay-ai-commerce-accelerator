@@ -21,6 +21,32 @@ const { KIND } = require('./mediaBundle.cjs');
  */
 
 /**
+ * The part of a `src` that can be trusted.
+ *
+ * Liferay returns an absolute URL built from its own idea of where it lives,
+ * and that is demonstrably not where a caller reaches it. Observed on UAT:
+ *
+ *   https://webserver-lctsolara-uat.lfr.cloud:8080/o/commerce-media/...
+ *
+ * The public host serves https on 443; port 8080 is the internal listener. As
+ * returned, that URL connects to nothing. The path is the only trustworthy
+ * part, so it is what gets passed on - the SDK resolves a relative path
+ * against the configured connection, which is where the caller actually
+ * reached the instance.
+ */
+function srcPath(src) {
+  if (typeof src !== 'string' || src === '') return src;
+
+  try {
+    const parsed = new URL(src);
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    // Already relative, which is what we want anyway.
+    return src;
+  }
+}
+
+/**
  * One product's media, both kinds, with failures recorded rather than thrown.
  *
  * A product whose attachments cannot be read costs its own pictures and
@@ -71,7 +97,9 @@ async function extractProductMedia({
     for (const attachment of attachments) {
       // `src` is what the content reader wants; the ERC is the fallback,
       // because the catalog API exposes no GET for a numeric attachment id.
-      const locator = attachment.src || attachment.externalReferenceCode;
+      const locator = attachment.src
+        ? srcPath(attachment.src)
+        : attachment.externalReferenceCode;
 
       if (!locator) {
         resolved.push({
@@ -152,4 +180,4 @@ async function extractDatasetMedia({
   return media;
 }
 
-module.exports = { extractDatasetMedia, extractProductMedia };
+module.exports = { extractDatasetMedia, extractProductMedia, srcPath };
