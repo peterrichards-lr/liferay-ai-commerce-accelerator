@@ -21,6 +21,11 @@ const INTERNAL_API_PATHS = {
   DELETE_COMMERCE_DATA: '/delete-commerce-data',
   DELETE_SELECTED_COMMERCE_DATA: '/delete-selected-commerce-data',
   EXPORT_COMMERCE_DATA: '/export-commerce-data',
+  // Extract, not export: this one points at a Liferay instance, authenticates
+  // against it and pulls the media across the network. A true export packages
+  // the session and media this service already holds, and costs neither
+  // access nor round trips (#848).
+  EXTRACT_COMMERCE_BUNDLE: '/extract-commerce-bundle',
   GENERATE_MEDIA: '/generate/media',
   GENERATE_WORKFLOW: '/generate/workflow',
   GET_CATALOGS: '/get-catalogs',

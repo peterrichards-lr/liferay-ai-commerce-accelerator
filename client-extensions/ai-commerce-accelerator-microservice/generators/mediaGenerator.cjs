@@ -304,6 +304,50 @@ class MediaGenerator {
     return reference;
   }
 
+  /**
+   * The media a bundle carries for one product.
+   *
+   * The binaries live in the in-memory cache rather than in the session
+   * context, because the context is JSON-serialised into `context_json` in
+   * SQLite and no file content belongs in the database. The context holds the
+   * key; this reads through it (#814).
+   *
+   * A bundle that is not there is a real fault, not an empty set: the caller
+   * asked to attach media it supplied, and silently attaching nothing would
+   * report a promotion as complete with no pictures on it. That happens when
+   * the service restarts between the upload and the attach step, since the
+   * cache does not survive it.
+   */
+  _bundledFor(options, productERC, kind) {
+    const { cache } = this.ctx;
+    const key = options?.mediaBundleKey;
+
+    if (!key) {
+      throw new Error(
+        `Media mode is 'bundle' but no mediaBundleKey was supplied for ${productERC}`
+      );
+    }
+
+    const bundled = cache?.get?.(key);
+
+    if (!bundled) {
+      throw new Error(
+        `The media bundle ${key} is no longer held. It is kept in memory only, so a restart between upload and attach loses it; re-upload the bundle.`
+      );
+    }
+
+    return (bundled || [])
+      .filter((item) => item.kind === kind && item.productERC === productERC)
+      .map((item) => ({
+        base64: Buffer.isBuffer(item.buffer)
+          ? item.buffer.toString('base64')
+          : item.buffer,
+        contentType: item.contentType,
+        priority: item.priority ?? 1,
+        title: item.title,
+      }));
+  }
+
   async createImages(config, products, options) {
     const { logger, liferay, progress, ai } = this.ctx;
     const { sessionId, correlationId: optionsCID } = options;
@@ -434,6 +478,20 @@ class MediaGenerator {
               priority: 1,
             },
           ];
+        } else if (imageMode === 'bundle') {
+          // The bundle already holds this product's pictures; nothing is
+          // generated, and the title and priority travel with the bytes so the
+          // target ends up with the same attachment, not an equivalent one.
+          imageSet = this._bundledFor(
+            options,
+            product.externalReferenceCode,
+            'image'
+          ).map((entry) => ({
+            base64: entry.base64,
+            contentType: entry.contentType,
+            priority: entry.priority,
+            title: entry.title,
+          }));
         } else if (imageMode === 'custom' && options.customImageFile) {
           imageSet = [
             {
@@ -496,8 +554,11 @@ class MediaGenerator {
         }
         completedCount++;
       } catch (error) {
+        // The reason belongs in the message, not only in the metadata. A
+        // bundle that is no longer held and a provider that refused the call
+        // are the same line otherwise, and the remedies are nothing alike.
         logger.error(
-          `Failed to create images for product ${product.externalReferenceCode || 'unknown'}`,
+          `Failed to create images for product ${product.externalReferenceCode || 'unknown'}: ${error?.message}`,
           {
             sessionId,
             correlationId,
@@ -585,61 +646,92 @@ class MediaGenerator {
     for (const product of productsToProcess) {
       try {
         const sku = product.skus?.[0]?.sku || product.externalReferenceCode;
-        let pdfBase64;
 
-        if (pdfMode === 'ai' && !options.demoMode) {
-          const pdfContent = await ai.generatePDFContent(
-            product,
-            product.categoryName || options.categories?.[0] || 'Generic',
-            config,
-            options.aiModel,
-            options
-          );
+        // A generated run makes exactly one PDF per product. A bundle may
+        // carry several, because it reflects whatever the source instance
+        // actually held - so the attach works from a list, and every other
+        // mode simply produces a list of one.
+        let pdfs;
 
-          const pdfBuffer = await this.generateProductPDF(
-            pdfContent,
-            sku,
-            config,
-            sessionId
-          );
-          pdfBase64 = pdfBuffer.toString('base64');
-        } else if (pdfMode === 'custom' && options.customPdfFile) {
-          pdfBase64 = options.customPdfFile.buffer.toString('base64');
+        if (pdfMode === 'bundle') {
+          pdfs = this._bundledFor(
+            options,
+            product.externalReferenceCode,
+            'pdf'
+          ).map((entry) => ({
+            base64: entry.base64,
+            contentType: entry.contentType || 'application/pdf',
+            priority: entry.priority,
+            title: entry.title || { en_US: `${sku}_manual.pdf` },
+          }));
         } else {
-          // Fallback to placeholder for 'placeholder', 'default', or 'ai' in demo mode
-          const mockPdf = await this.getDefaultBase64Pdf(config);
-          pdfBase64 = mockPdf.base64;
+          let pdfBase64;
+
+          if (pdfMode === 'ai' && !options.demoMode) {
+            const pdfContent = await ai.generatePDFContent(
+              product,
+              product.categoryName || options.categories?.[0] || 'Generic',
+              config,
+              options.aiModel,
+              options
+            );
+
+            const pdfBuffer = await this.generateProductPDF(
+              pdfContent,
+              sku,
+              config,
+              sessionId
+            );
+            pdfBase64 = pdfBuffer.toString('base64');
+          } else if (pdfMode === 'custom' && options.customPdfFile) {
+            pdfBase64 = options.customPdfFile.buffer.toString('base64');
+          } else {
+            // Fallback to placeholder for 'placeholder', 'default', or 'ai' in demo mode
+            const mockPdf = await this.getDefaultBase64Pdf(config);
+            pdfBase64 = mockPdf.base64;
+          }
+
+          pdfs = [
+            {
+              base64: pdfBase64,
+              contentType: 'application/pdf',
+              priority: 1,
+              title: { en_US: `${sku}_manual.pdf` },
+            },
+          ];
         }
 
-        const created = await liferay.addProductDocumentAttachmentByBase64(
-          config,
-          product.externalReferenceCode,
-          {
-            attachment: pdfBase64,
-            contentType: 'application/pdf',
-            title: { en_US: `${sku}_manual.pdf` },
-            priority: 1,
-          }
-        );
+        for (const pdf of pdfs) {
+          const created = await liferay.addProductDocumentAttachmentByBase64(
+            config,
+            product.externalReferenceCode,
+            {
+              attachment: pdf.base64,
+              contentType: pdf.contentType,
+              title: pdf.title,
+              priority: pdf.priority,
+            }
+          );
 
-        createdPdfs.push({
-          productERC: product.externalReferenceCode,
-          sku: sku,
-          title: { en_US: `${sku}_manual.pdf` },
-          contentType: 'application/pdf',
-          priority: 1,
-          ...this._mediaReference(created, {
+          createdPdfs.push({
             productERC: product.externalReferenceCode,
-            kind: 'PDF',
-            sessionId,
-            correlationId,
-          }),
-        });
+            sku: sku,
+            title: pdf.title,
+            contentType: pdf.contentType,
+            priority: pdf.priority,
+            ...this._mediaReference(created, {
+              productERC: product.externalReferenceCode,
+              kind: 'PDF',
+              sessionId,
+              correlationId,
+            }),
+          });
+        }
 
         completedCount++;
       } catch (error) {
         logger.error(
-          `Failed to create PDF for product ${product.externalReferenceCode}`,
+          `Failed to create PDF for product ${product.externalReferenceCode}: ${error?.message}`,
           {
             sessionId,
             correlationId,
