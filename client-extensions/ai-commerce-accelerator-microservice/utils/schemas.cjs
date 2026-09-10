@@ -36,6 +36,11 @@ const MEDIA_MODES = [
   'default',
   'custom',
   'generate',
+  // The import has set this on itself since media travelled with a dataset
+  // (#852), but it was never a mode a caller could ask for. That made a failed
+  // import unrecoverable: the products were on the instance and the only way
+  // to attach their media was to run the whole import again (#893).
+  'bundle',
 ];
 
 // The four the PDF prompt knows how to label (aiService.generatePDFContent).

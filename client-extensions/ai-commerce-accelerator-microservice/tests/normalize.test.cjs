@@ -340,3 +340,61 @@ describe('Data Normalization', () => {
     });
   });
 });
+
+/**
+ * A failed import leaves its products on the instance and its media in the
+ * cache. Attaching that media afterwards needs the key, and until #893 there
+ * was no path from a request to it - the import set it on itself and nobody
+ * else could. Generating instead is not an answer: AI output is not
+ * reproducible, so a second generation gives the same products different
+ * pictures, which is the failure carrying media between instances exists to
+ * prevent (#814).
+ */
+describe('buildConfigAndOptions - media bundle key (#893)', () => {
+  const request = (body) => ({
+    body: {
+      clientId: 'test-client',
+      clientSecret: 'test-secret',
+      ...body,
+    },
+    headers: {},
+    get: () => undefined,
+  });
+
+  it('carries a supplied mediaBundleKey through to options', () => {
+    const { options } = buildConfigAndOptions(
+      request({
+        liferayUrl: 'http://localhost:8080',
+        imageMode: 'bundle',
+        mediaBundleKey: 'media-bundle:AICA-SESSION-1-0-abc',
+        pdfMode: 'bundle',
+      })
+    );
+
+    expect(options.mediaBundleKey).toBe('media-bundle:AICA-SESSION-1-0-abc');
+    expect(options.imageMode).toBe('bundle');
+    expect(options.pdfMode).toBe('bundle');
+  });
+
+  it('leaves it undefined when none is supplied', () => {
+    const { options } = buildConfigAndOptions(
+      request({ liferayUrl: 'http://localhost:8080', imageMode: 'ai' })
+    );
+
+    expect(options.mediaBundleKey).toBeUndefined();
+  });
+
+  it('gives bundle media the whole selection rather than a sampled share', () => {
+    const { options } = buildConfigAndOptions(
+      request({
+        liferayUrl: 'http://localhost:8080',
+        imageMode: 'bundle',
+        mediaBundleKey: 'media-bundle:x',
+        pdfMode: 'bundle',
+      })
+    );
+
+    expect(options.imageRatio).toBe(100);
+    expect(options.pdfRatio).toBe(100);
+  });
+});
