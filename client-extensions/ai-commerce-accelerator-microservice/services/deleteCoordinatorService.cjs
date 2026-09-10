@@ -264,6 +264,12 @@ class DeleteCoordinatorService extends BaseGenerator {
       manifest.accountGroups = allGroups.filter(inScope);
 
       // --- 2. CHANNEL-BASED DISCOVERY (Orders mapped to in-scope accounts) ---
+      // The three `isTotal` branches in this crawl - channels here, catalogs
+      // below, and the orphan sweep at the end - decide how widely to look,
+      // not what may be kept. Everything they collect still passes `inScope`,
+      // and the orders here are kept only if their account did. They were
+      // never the hole #858 describes; the one place `isTotal` outranked
+      // ownership was _discoverEntities, and it no longer does.
       const activeChannels = [];
       if (isTotal) {
         // SDK getChannels already handles pagination
@@ -477,8 +483,10 @@ class DeleteCoordinatorService extends BaseGenerator {
     const session = await this.persistence.getSession(sessionId);
     if (!session) return;
 
-    const { config, options, channelId, catalogId, manifest, isTotal } =
-      session.context;
+    // `isTotal` used to be read here and handed to _discoverEntities, where it
+    // waved every candidate through regardless of ownership. It decides nothing
+    // on this path any more, so it is no longer read (#858).
+    const { config, options, channelId, catalogId, manifest } = session.context;
     const { correlationId } = session;
 
     // Use passed stepKey or fallback to session state
@@ -528,13 +536,14 @@ class DeleteCoordinatorService extends BaseGenerator {
       // promotion whose ERC came from the model, an option adopted by key from
       // an earlier run, or an entity type the crawl never visits at all. Ask
       // Liferay before declaring the step unnecessary. See #657.
+      const scope = ownershipScopeFromId(session.context.ownershipScope);
+
       let discovered;
       try {
         discovered = await this._discoverEntities(stepName, config, {
           channelId,
           catalogId,
-          isTotal,
-          scope: ownershipScopeFromId(session.context.ownershipScope),
+          scope,
         });
       } catch (error) {
         this.logger.error(
@@ -552,12 +561,38 @@ class DeleteCoordinatorService extends BaseGenerator {
         if (hasItems) {
           this.logger.warn(
             `Manifest recorded nothing for ${stepName}, but discovery found ${totalCount} item(s) in Liferay. Deleting those instead of bypassing.`,
-            { sessionId, correlationId }
+            { sessionId, correlationId, ownershipScope: scope.id }
           );
-        } else if (discovered.withheldCount > 0) {
+        }
+
+        // The outcome of a finished run cannot be read back for this: a step
+        // that reports 40 deletions says nothing about whether the 40 were
+        // AICA's. The log is the only place it survives, so both directions
+        // are recorded - what the run reached past AICA to take, and what it
+        // left behind because it could not attribute it. Reported whether or
+        // not the step found anything, because a step that took one AICA row
+        // and withheld thirty-nine is the case worth seeing (#858).
+        if (discovered.widenedCount > 0) {
           this.logger.warn(
-            `${stepName} left ${discovered.withheldCount} item(s) in place: they are not attributable to AICA and this run is scoped to a channel or catalog.`,
-            { sessionId, correlationId }
+            `${stepName} widened past AICA's own data: ${discovered.widenedCount} of ${totalCount} discovered item(s) were not created by AICA and are being deleted because this run covers ${scope.label}.`,
+            {
+              sessionId,
+              correlationId,
+              ownershipScope: scope.id,
+              widenedCount: discovered.widenedCount,
+            }
+          );
+        }
+
+        if (discovered.withheldCount > 0) {
+          this.logger.warn(
+            `${stepName} left ${discovered.withheldCount} item(s) in place: they are not attributable to AICA and this run covers ${scope.label}.`,
+            {
+              sessionId,
+              correlationId,
+              ownershipScope: scope.id,
+              withheldCount: discovered.withheldCount,
+            }
           );
         }
       }
@@ -669,23 +704,28 @@ class DeleteCoordinatorService extends BaseGenerator {
    * A step whose manifest entry is empty asks here before concluding there
    * is nothing to do. See #657.
    *
-   * A total run deletes whatever the query returns. A run scoped to one
-   * channel or catalog keeps only what the run's ownership scope can be shown
-   * to own, because the option, specification and warehouse-item endpoints
-   * have no scope to narrow by and the user asked about one channel, not the
-   * instance.
+   * What it may keep is the run's ownership scope, and nothing else. A total
+   * run used to take whatever the query returned - AICA's or not, with no
+   * confirmation anywhere - because `isTotal` was consulted here instead of the
+   * scope. That made the accidental door wider than the deliberate one #850
+   * put a lock on, on any step whose manifest entry came back empty. An empty
+   * manifest entry is a gap in what the crawl recognised, not a licence: the
+   * cases it stands for are all still enumerable here, and answering an
+   * enumeration that succeeded by deleting more than was asked for is the wrong
+   * default. A query that genuinely cannot run throws, and the caller already
+   * fails the step for it rather than widening. See #858.
    *
-   * That first sentence predates the ownership scope and outranks it: a total
-   * run reaches data AICA did not create on any step whose manifest entry came
-   * back empty, whichever scope it was started with. So 'AICA-owned' has never
-   * been the guarantee on this path that it is on the crawl. Left as it was
-   * because narrowing it would leave behind data that runs delete today, but
-   * it is the next thing to settle after #850.
+   * The step this narrows hardest is DELETE_WAREHOUSE_ITEMS: the crawl never
+   * collects warehouse items, so it always arrives here, and AICA creates them
+   * with no external reference code, so the AICA-owned scope can attribute none
+   * of them. Under that scope the step now bypasses - which costs nothing,
+   * because every AICA warehouse carries an 'AICA-WH-' code and DELETE_WAREHOUSES
+   * follows in every flow and takes its items with it.
    */
   async _discoverEntities(
     stepName,
     config,
-    { channelId, catalogId, isTotal, scope = AICA_OWNED }
+    { channelId, catalogId, scope = AICA_OWNED }
   ) {
     const products = () => this.liferay.getProducts(config, { catalogId });
 
@@ -734,7 +774,7 @@ class DeleteCoordinatorService extends BaseGenerator {
 
     const query = queries.get(stepName);
     if (!query) {
-      return { supported: false, items: [], withheldCount: 0 };
+      return { supported: false, items: [], widenedCount: 0, withheldCount: 0 };
     }
 
     const inScope = targetFilterFor(scope);
@@ -743,11 +783,19 @@ class DeleteCoordinatorService extends BaseGenerator {
     const candidates = (result?.items || []).filter(
       (item) => !isSystemEntity(item) && !isCatalogOwnedList(item)
     );
-    const items = isTotal ? candidates : candidates.filter(inScope);
+    const items = candidates.filter(inScope);
+
+    // How much of what this step is about to delete the default scope would
+    // have refused. Zero unless the run selected the everything scope, and the
+    // number the caller logs so that widening is discoverable after the fact
+    // rather than only in the row count (#858).
+    const isAICAOwned = targetFilterFor(AICA_OWNED);
+    const widenedCount = items.filter((item) => !isAICAOwned(item)).length;
 
     return {
       supported: true,
       items,
+      widenedCount,
       withheldCount: candidates.length - items.length,
     };
   }
