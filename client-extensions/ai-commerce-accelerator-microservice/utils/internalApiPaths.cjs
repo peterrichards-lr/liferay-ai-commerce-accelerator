@@ -20,6 +20,7 @@ const INTERNAL_API_PATHS = {
   CONFIG_GENERATION_LIMITS: '/config/generation-limits',
   DELETE_COMMERCE_DATA: '/delete-commerce-data',
   DELETE_SELECTED_COMMERCE_DATA: '/delete-selected-commerce-data',
+  EXPORT_COMMERCE_BUNDLE: '/export-commerce-bundle',
   EXPORT_COMMERCE_DATA: '/export-commerce-data',
   GENERATE_MEDIA: '/generate/media',
   GENERATE_WORKFLOW: '/generate/workflow',
