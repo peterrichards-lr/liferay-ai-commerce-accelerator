@@ -62,6 +62,241 @@ describe('Media scope selection', () => {
   });
 });
 
+// A product may carry a gallery rather than a single picture, from the picsum
+// path or from a bundle built off a live instance (#852), so "has images" and
+// "has all its images" stopped being the same question (#851).
+describe('Media scope selection against a declared gallery', () => {
+  const image = (productERC, title, priority, extra = {}) => ({
+    kind: 'image',
+    priority,
+    productERC,
+    title: { en_US: title },
+    ...extra,
+  });
+
+  const pdf = (productERC, title, extra = {}) => ({
+    kind: 'pdf',
+    priority: 1,
+    productERC,
+    title: { en_US: title },
+    ...extra,
+  });
+
+  const gallery = (productERC) => [
+    image(productERC, `${productERC} main`, 1),
+    image(productERC, `${productERC} thumb`, 2),
+    image(productERC, `${productERC} alt`, 3),
+  ];
+
+  const select = (context, expectedMedia) =>
+    selectProductsForMedia(context, {
+      expectedMedia,
+      scope: MEDIA_SCOPES.MISSING,
+    });
+
+  it('skips a product holding every image declared for it', () => {
+    const { imageProducts } = select(
+      {
+        productDataList: [product('P1')],
+        createdImages: gallery('P1'),
+      },
+      gallery('P1')
+    );
+
+    expect(imageProducts).toHaveLength(0);
+  });
+
+  it('selects a product holding some but not all of its images', () => {
+    const { imageProducts } = select(
+      {
+        productDataList: [product('P1'), product('P2')],
+        createdImages: [...gallery('P1'), gallery('P2')[0]],
+      },
+      [...gallery('P1'), ...gallery('P2')]
+    );
+
+    expect(imageProducts.map((p) => p.externalReferenceCode)).toEqual(['P2']);
+  });
+
+  // The question the count answer gets wrong: three declared against three
+  // unrelated files is a product that lost all three, not a product that is
+  // complete.
+  it('selects a product whose images were replaced rather than kept', () => {
+    const { imageProducts } = select(
+      {
+        productDataList: [product('P1')],
+        createdImages: [
+          image('P1', 'Something else', 1),
+          image('P1', 'Something else again', 2),
+          image('P1', 'And another', 3),
+        ],
+      },
+      gallery('P1')
+    );
+
+    expect(imageProducts).toHaveLength(1);
+  });
+
+  it('recognises a file by its attachment reference whatever it is titled', () => {
+    const declared = [
+      image('P1', 'As the source titled it', 1, { attachmentERC: 'ATT-1' }),
+    ];
+
+    const { imageProducts } = select(
+      {
+        productDataList: [product('P1')],
+        createdImages: [
+          image('P1', 'As the target titled it', 7, {
+            attachmentERC: 'ATT-1',
+          }),
+        ],
+      },
+      declared
+    );
+
+    expect(imageProducts).toHaveLength(0);
+  });
+
+  it('treats the same title at a different priority as a different file', () => {
+    const { imageProducts } = select(
+      {
+        productDataList: [product('P1')],
+        createdImages: [image('P1', 'P1 main', 1)],
+      },
+      [image('P1', 'P1 main', 1), image('P1', 'P1 main', 2)]
+    );
+
+    expect(imageProducts).toHaveLength(1);
+  });
+
+  // Entries written before #838 carry no attachment reference, and one written
+  // by a run that had no title to record carries nothing comparable at all.
+  // Counting is what is left, and it is still better than "has one, so done".
+  it('falls back to counting entries that carry no identity at all', () => {
+    const anonymous = { kind: 'image', productERC: 'P1' };
+
+    const short = select(
+      {
+        productDataList: [product('P1')],
+        createdImages: [{ productERC: 'P1' }],
+      },
+      [anonymous, anonymous, anonymous]
+    );
+
+    expect(short.imageProducts).toHaveLength(1);
+
+    const whole = select(
+      {
+        productDataList: [product('P1')],
+        createdImages: [
+          { productERC: 'P1' },
+          { productERC: 'P1' },
+          { productERC: 'P1' },
+        ],
+      },
+      [anonymous, anonymous, anonymous]
+    );
+
+    expect(whole.imageProducts).toHaveLength(0);
+  });
+
+  it('compares a pre-#838 record on title and priority', () => {
+    const { imageProducts } = select(
+      {
+        productDataList: [product('P1')],
+        // No attachmentERC and no src: an entry recorded before #838.
+        createdImages: [image('P1', 'P1 main', 1), image('P1', 'P1 alt', 3)],
+      },
+      gallery('P1')
+    );
+
+    expect(imageProducts).toHaveLength(1);
+  });
+
+  it('keeps a declaration of one kind out of the other', () => {
+    const context = {
+      productDataList: [product('P1')],
+      createdImages: [gallery('P1')[0]],
+      createdPdfs: [pdf('P1', 'P1 manual')],
+    };
+
+    const { imageProducts, pdfProducts } = select(context, [
+      ...gallery('P1'),
+      pdf('P1', 'P1 manual'),
+    ]);
+
+    expect(imageProducts).toHaveLength(1);
+    expect(pdfProducts).toHaveLength(0);
+  });
+
+  it('ignores a declaration that names no kind', () => {
+    const { imageProducts, pdfProducts } = select(
+      {
+        productDataList: [product('P1')],
+        createdImages: [gallery('P1')[0]],
+        createdPdfs: [pdf('P1', 'P1 manual')],
+      },
+      gallery('P1').map(({ kind: _kind, ...rest }) => rest)
+    );
+
+    expect(imageProducts).toHaveLength(0);
+    expect(pdfProducts).toHaveLength(0);
+  });
+
+  // The declaration says what a product should hold, never what it should not:
+  // a product a bundle carried nothing for is still one a later run can
+  // illustrate, which is what a media-only run over an import is usually for.
+  it('still selects a product the declaration does not name', () => {
+    const { imageProducts } = select(
+      {
+        productDataList: [product('P1'), product('P2')],
+        createdImages: gallery('P1'),
+      },
+      gallery('P1')
+    );
+
+    expect(imageProducts.map((p) => p.externalReferenceCode)).toEqual(['P2']);
+  });
+
+  it('reads the declaration from a manifest the session carries', () => {
+    const context = {
+      productDataList: [product('P1')],
+      createdImages: [gallery('P1')[0]],
+      mediaManifest: { files: gallery('P1') },
+    };
+
+    const { imageProducts } = selectProductsForMedia(context, {
+      scope: MEDIA_SCOPES.MISSING,
+    });
+
+    expect(imageProducts).toHaveLength(1);
+  });
+
+  it('accepts a whole manifest as the declaration', () => {
+    const { imageProducts } = select(
+      {
+        productDataList: [product('P1')],
+        createdImages: [gallery('P1')[0]],
+      },
+      { files: gallery('P1'), unresolved: [] }
+    );
+
+    expect(imageProducts).toHaveLength(1);
+  });
+
+  it('covers a declared product under the all scope regardless', () => {
+    const { imageProducts } = selectProductsForMedia(
+      {
+        productDataList: [product('P1')],
+        createdImages: gallery('P1'),
+      },
+      { expectedMedia: gallery('P1'), scope: MEDIA_SCOPES.ALL }
+    );
+
+    expect(imageProducts).toHaveLength(1);
+  });
+});
+
 describe('Media-only run route', () => {
   let routeHandler;
   let createSession;
