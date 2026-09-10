@@ -9,6 +9,10 @@ const {
   resolveRunCommerceSelection,
 } = require('../utils/commerceSelection.cjs');
 const { looksLikeZip, readMediaBundle } = require('../utils/mediaBundle.cjs');
+const {
+  inputValidationMiddleware,
+} = require('../middleware/securityMiddleware.cjs');
+const { writeTargetSchema } = require('../utils/schemas.cjs');
 
 const S = WORKFLOW_STEPS;
 const upload = multer({ storage: multer.memoryStorage() });
@@ -28,6 +32,9 @@ module.exports = (
   app.post(
     INTERNAL_API_PATHS.IMPORT_COMMERCE_DATA,
     upload.single('importFile'),
+    // An import creates a whole dataset, so it names its target or it does not
+    // run. See #815.
+    inputValidationMiddleware(writeTargetSchema),
     async (req, res) => {
       const { config, options: baseOptions } = buildConfigAndOptions(req);
       const correlationId = config.correlationId;

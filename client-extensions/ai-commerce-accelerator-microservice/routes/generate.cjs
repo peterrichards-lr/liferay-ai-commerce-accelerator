@@ -26,6 +26,10 @@ const {
 const {
   assessInventoryFeasibility,
 } = require('../utils/inventoryFeasibility.cjs');
+const {
+  inputValidationMiddleware,
+} = require('../middleware/securityMiddleware.cjs');
+const { writeTargetSchema } = require('../utils/schemas.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -61,6 +65,11 @@ module.exports = (
   app.post(
     INTERNAL_API_PATHS.GENERATE_WORKFLOW,
     upload.fields([{ name: 'customImageFile' }, { name: 'customPDFFile' }]),
+    // After multer, because the target arrives as a multipart field. A run that
+    // does not name its Liferay is refused rather than sent to whichever one
+    // the environment happens to name - the local instance, when the service is
+    // run against a remote one. See #815.
+    inputValidationMiddleware(writeTargetSchema),
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;
