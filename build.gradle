@@ -1036,12 +1036,20 @@ project(':client-extensions:ai-commerce-accelerator-microservice') {
 	afterEvaluate {
 		tasks.named('clean') {
 			doFirst {
-				logger.lifecycle("🧹 Purging microservice build, dist, and local workflows.db SQLite history to prevent dependency caching and stale session states...")
+				logger.lifecycle("🧹 Purging microservice build and dist...")
 			}
 			delete 'build'
 			delete 'dist'
-			delete 'data/workflows.db'
-			delete 'data/workflows.json'
+
+			// data/ is deliberately not deleted. build and dist are
+			// reproducible by definition; a workflow session is the record of
+			// an hour of paid, non-deterministic generation and cannot be
+			// regenerated. Deleting them together destroyed a completed UAT
+			// run that was the source for a production promotion (#868).
+			//
+			// The stale-state concern this was written for is already handled
+			// where it matters: NODE_ENV=test forces ':memory:', and the test
+			// setup points PERSISTENCE_DB_PATH at a per-process file.
 		}
 	}
 }
