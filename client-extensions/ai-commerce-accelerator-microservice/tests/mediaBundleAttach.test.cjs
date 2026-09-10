@@ -126,6 +126,63 @@ describe('Attaching a bundle to the target', () => {
     ]);
   });
 
+  it('attaches every image a product carried, in priority order', async () => {
+    // The generator makes one image per product on most paths, so nothing
+    // upstream exercised multiples. A real instance is under no such
+    // restriction, and extract reflects whatever it actually holds (#814).
+    const { attached, ctx, bundleKey } = buildCtx([
+      {
+        buffer: Buffer.from('main-shot'),
+        contentType: 'image/webp',
+        kind: 'image',
+        priority: 1,
+        productERC: 'AICA-PRD-1',
+        title: { en_US: 'main' },
+      },
+      {
+        buffer: Buffer.from('alt-shot'),
+        contentType: 'image/png',
+        kind: 'image',
+        priority: 2,
+        productERC: 'AICA-PRD-1',
+        title: { en_US: 'alt' },
+      },
+      {
+        buffer: Buffer.from('detail-shot'),
+        contentType: 'image/webp',
+        kind: 'image',
+        priority: 3,
+        productERC: 'AICA-PRD-1',
+        title: { en_US: 'detail' },
+      },
+    ]);
+
+    const created = await new MediaGenerator(ctx).createImages(
+      {},
+      [product('AICA-PRD-1')],
+      options(bundleKey)
+    );
+
+    expect(attached.images).toHaveLength(3);
+    expect(created).toHaveLength(3);
+
+    // Priority is how Liferay orders a gallery, so it has to travel with each
+    // file rather than be re-derived from position.
+    expect(attached.images.map((image) => image.priority)).toEqual([1, 2, 3]);
+    expect(
+      attached.images.map((image) =>
+        Buffer.from(image.attachment, 'base64').toString()
+      )
+    ).toEqual(['main-shot', 'alt-shot', 'detail-shot']);
+
+    // Content type is per file, not per product: a gallery can mix formats.
+    expect(attached.images.map((image) => image.contentType)).toEqual([
+      'image/webp',
+      'image/png',
+      'image/webp',
+    ]);
+  });
+
   it('gives each product only its own media', async () => {
     const { attached, ctx, bundleKey } = buildCtx([
       bundledImage('AICA-PRD-1', 'first'),
