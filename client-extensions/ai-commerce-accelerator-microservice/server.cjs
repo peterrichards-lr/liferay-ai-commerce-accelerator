@@ -279,7 +279,15 @@ const gracefulShutdown = async (signal) => {
   apiV1Router.use(securityHeadersMiddleware);
   apiV1Router.use(requestLoggingMiddleware);
   apiV1Router.use(basicRateLimitMiddleware(200, 60000));
-  apiV1Router.use(requestSizeLimitMiddleware(10485760));
+  // The import carries a dataset package - a whole catalogue and its media -
+  // so it gets its own ceiling. Everything else keeps the general one (#887).
+  apiV1Router.use(
+    requestSizeLimitMiddleware(ENV.REQUEST_MAX_BYTES, {
+      overrides: {
+        [INTERNAL_API_PATHS.IMPORT_COMMERCE_DATA]: ENV.IMPORT_MAX_BYTES,
+      },
+    })
+  );
   apiV1Router.use(sqlInjectionProtectionMiddleware);
   apiV1Router.use(xssProtectionMiddleware);
   apiV1Router.use(requestSigningMiddleware);

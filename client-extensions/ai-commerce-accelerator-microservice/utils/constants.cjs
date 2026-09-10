@@ -121,6 +121,20 @@ const ENV = {
   LIFERAY_OAUTH_CLIENT_ID: str('LIFERAY_OAUTH_CLIENT_ID', ''),
   LIFERAY_OAUTH_CLIENT_SECRET: str('LIFERAY_OAUTH_CLIENT_SECRET', ''),
 
+  // Request size ceilings (#887).
+  //
+  // The general ceiling guards every route. The import needs its own, because
+  // a dataset package is the one payload this service legitimately receives at
+  // size: a 22-product .aicap with its images and PDFs is 30MB, so the general
+  // 10MB ceiling rejected a package this same service had just produced.
+  //
+  // Raising the general ceiling instead would have removed the guard from
+  // every other route to accommodate one. This is deliberately generous rather
+  // than unbounded - multer buffers the upload in memory, so an unbounded
+  // ceiling is an out-of-memory waiting for a big enough file.
+  REQUEST_MAX_BYTES: num('REQUEST_MAX_BYTES', 10 * 1024 * 1024),
+  IMPORT_MAX_BYTES: num('IMPORT_MAX_BYTES', 256 * 1024 * 1024),
+
   // Internal microservice configuration
   MICROSERVICE_URL: str('MICROSERVICE_URL', 'http://localhost:3001'),
   SERVER_PORT: num('SERVER_PORT', 3001),
