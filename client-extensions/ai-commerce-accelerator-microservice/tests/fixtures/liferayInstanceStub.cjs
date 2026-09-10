@@ -14,6 +14,28 @@
  *     reason the extract reads them again.
  */
 
+/**
+ * What the product *list* answers with, as observed against a live instance.
+ *
+ * `GET /v1.0/products` is served from the search index - Liferay's own
+ * description says it calls `SearchUtil.search` over `CPDefinition` - so it
+ * carries indexed fields only. `description`, `shortDescription`, `urls`,
+ * `productType` and the meta fields are not among them, and no parameter
+ * brings them back: this endpoint does not support `fields` at all (SDK #210).
+ *
+ * The stub returned the whole product here, so the extract's suite was green
+ * while a live run reported all 22 products incomplete. A stub that is more
+ * generous than the system it stands in for tests nothing.
+ */
+function indexedProduct(product) {
+  return {
+    catalogId: product.catalogId,
+    externalReferenceCode: product.externalReferenceCode,
+    name: product.name,
+    productId: product.productId ?? product.id,
+  };
+}
+
 /** Exactly what CommerceService.getProductsWithSkus keeps of each SKU. */
 function projectedSku(sku) {
   return {
@@ -53,10 +75,22 @@ function liferayInstanceStub({
     )
   );
 
-  const calls = { getPriceEntries: [], getSkusByERC: [] };
+  const calls = { getPriceEntries: [], getProductById: [], getSkusByERC: [] };
 
   return {
     calls,
+
+    // The database-backed single read, which does answer with the whole
+    // record. This is what the extract hydrates each product from.
+    rest: {
+      async getProductById(_config, productId) {
+        calls.getProductById.push(productId);
+        const entry = products.find(
+          (e) => (e.product.productId ?? e.product.id) === productId
+        );
+        return entry ? { ...entry.product } : null;
+      },
+    },
 
     async getProductsWithSkus(_config, { catalogId } = {}) {
       const items = products
@@ -65,7 +99,7 @@ function liferayInstanceStub({
             catalogId === undefined || entry.product.catalogId === catalogId
         )
         .map((entry) => ({
-          ...entry.product,
+          ...indexedProduct(entry.product),
           skus: (entry.skus || []).map(projectedSku),
         }));
 

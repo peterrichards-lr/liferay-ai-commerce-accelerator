@@ -190,16 +190,21 @@ describe('POST /extract-commerce-bundle', () => {
     const liferayService = instance();
     // A product whose description Liferay does not hold. The package must not
     // pass that off as a complete extract.
+    //
+    // The list is served from the search index and never carries a
+    // description, so the extract hydrates each product from the single-product
+    // read (SDK #210). That read is therefore where an absent description has
+    // to come from now - forcing it on the list alone proves nothing, because
+    // the detail read would fill it back in.
     liferayService.getProductsWithSkus = async () => ({
-      items: [
-        {
-          ...HELMET.product,
-          description: undefined,
-          skus: HELMET.skus,
-        },
-      ],
+      items: [{ ...HELMET.product, skus: HELMET.skus }],
       totalCount: 1,
     });
+    liferayService.rest = {
+      async getProductById() {
+        return { ...HELMET.product, description: undefined };
+      },
+    };
 
     const handler = routes({ liferayService });
     const res = response();
