@@ -125,9 +125,11 @@ function AppUI() {
     logs,
     addLog: baseAddLog,
     clearLogs,
+    getLogStats,
   } = useActivityLog({
     level: config?.wsLoggingLevel || 'info',
-    maxEntries: 500,
+    // maxEntries left to the hook's default, so the cap and the reasoning
+    // behind it have one home (#811).
     dedupeWindowMs: 1000,
     mirrorToConsole: true,
     storageKey: 'aica_activity_log',
@@ -346,6 +348,7 @@ function AppUI() {
 
   const { exportLogs } = useLogExport({
     logs,
+    getLogStats,
     progress,
     config,
     generationConfig,
