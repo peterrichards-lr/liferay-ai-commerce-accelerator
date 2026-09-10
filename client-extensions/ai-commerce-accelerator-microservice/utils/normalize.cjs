@@ -155,6 +155,7 @@ function buildConfigAndOptions(req) {
     inventoryMin,
     languageId,
     liferayUrl,
+    mediaBundleKey,
     localeCode,
     microserviceUrl,
     orderCount,
@@ -280,6 +281,16 @@ function buildConfigAndOptions(req) {
   options.generateSpecifications = toBoolean(generateSpecifications);
   options.generateTierPricing = toBoolean(generateTierPricing);
   options.imageHeight = toNumber(imageHeight) || 512;
+  // The key naming a media bundle held in the cache, so media can be attached
+  // from the package the dataset arrived in rather than generated afresh.
+  //
+  // The import sets this on itself; until #893 a caller could not, which left
+  // a failed import with no way to attach its media short of repeating the
+  // whole run. Generating instead is not an answer - the point of carrying
+  // media between instances is that AI output is not reproducible, so a second
+  // generation produces different pictures for the same products (#814).
+  options.mediaBundleKey = mediaBundleKey || undefined;
+
   options.imageMode = imageMode || 'none';
   options.imageQuality = imageQuality || 'standard';
   options.imageRatio = mediaShare(imageRatio, options.imageMode, 'imageRatio');
