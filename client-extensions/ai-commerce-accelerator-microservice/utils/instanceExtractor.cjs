@@ -237,8 +237,23 @@ async function extractProduct({
   const productId = product.productId || product.id;
   const productERC = product.externalReferenceCode;
 
-  const [options, specifications, images, attachments, skus] =
+  const [detail, options, specifications, images, attachments, skus] =
     await Promise.all([
+      // The product list is served from the search index - Liferay's own
+      // description of GET /v1.0/products says it calls SearchUtil.search over
+      // CPDefinition - so it carries indexed fields only. `description`,
+      // `shortDescription` and `urls` are not indexed and never appear there,
+      // whatever is asked for: `fields` is not a parameter this endpoint
+      // supports (SDK #210).
+      //
+      // A live extract read 22 products and reported all 22 incomplete for
+      // exactly that reason. The single-product read goes to the database and
+      // answers with the whole record, so each product is hydrated from it.
+      readOrWarn(
+        () => liferayService.rest.getProductById(config, productId),
+        `detail for ${productERC}`,
+        logger
+      ),
       readOrWarn(
         () => liferayService.getProductOptions(config, productId),
         `options for ${productERC}`,
@@ -267,11 +282,17 @@ async function extractProduct({
       }),
     ]);
 
+  // The list item wins on nothing; it is a strict subset. Merging rather than
+  // replacing keeps the extract working if the detail read failed - the
+  // translation report then names what is missing instead of the product
+  // vanishing.
+  const hydrated = detail ? { ...product, ...detail } : product;
+
   return {
     attachments: itemsOf(attachments),
     images: itemsOf(images),
     options: itemsOf(options),
-    product,
+    product: hydrated,
     skus,
     specifications: itemsOf(specifications),
     translate: (priceEntries) =>
@@ -281,7 +302,7 @@ async function extractProduct({
           images: itemsOf(images),
           options: itemsOf(options),
           priceEntries,
-          product,
+          product: hydrated,
           skus,
           specifications: itemsOf(specifications),
         },
