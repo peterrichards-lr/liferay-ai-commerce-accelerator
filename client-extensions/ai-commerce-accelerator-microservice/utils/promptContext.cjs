@@ -348,9 +348,44 @@ function avoidProductsGuidance(avoid) {
   return lines.join('\n');
 }
 
+/**
+ * The name-first alternative to `avoidProductsGuidance`.
+ *
+ * An avoid list is a negative constraint that grows with the run, and a model
+ * asked to avoid a list drifts back toward the same obvious answers anyway -
+ * by chunk 6 of a live run every one of five returned products was a repeat of
+ * something already listed (#825). Naming the products up front converts
+ * "avoid these" into "write these", which is a constraint a model can satisfy
+ * item by item without tracking a list it has already seen.
+ *
+ * The two are mutually exclusive by construction: when names are assigned there
+ * is nothing to avoid, because the names were chosen to be distinct in a single
+ * completion.
+ */
+function assignedNamesGuidance(names) {
+  const assigned = (names || []).filter(Boolean);
+
+  if (assigned.length === 0) {
+    return '';
+  }
+
+  return [
+    `- Assigned Products: Generate exactly ${assigned.length} product` +
+      `${assigned.length === 1 ? '' : 's'}, one for each name below, in this ` +
+      'order. Use each name as the product\'s "en_US" name, translating it ' +
+      'for the other languages. Do not invent a different product, do not ' +
+      'merge two of them, and do not return more or fewer than the names ' +
+      'given. Everything else about each product - its SKUs, options, ' +
+      'specifications and pricing - is yours to decide, and should suit the ' +
+      'product the name describes.',
+    ...assigned.map((name, index) => `  ${index + 1}. ${name}`),
+  ].join('\n');
+}
+
 module.exports = {
   accountGeography,
   accountTypeGuidance,
+  assignedNamesGuidance,
   avoidProductsGuidance,
   brandGuidance,
   currencyGuidance,
