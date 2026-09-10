@@ -97,3 +97,9 @@ __pycache__/
 # Centrally Auto-Synced Node Power Control State
 /.node-power-config.json
 /.node-power-state.json
+
+# Extract artefacts: dataset packages and the headers a curl run writes.
+# A .aicap carries a whole catalogue and its media - 30MB for 22 products - and
+# one reached master because `git add -A` swept it in (#884).
+*.aicap
+extract-headers.txt
