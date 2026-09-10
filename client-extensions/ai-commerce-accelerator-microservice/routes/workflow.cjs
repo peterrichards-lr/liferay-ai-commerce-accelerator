@@ -49,6 +49,44 @@ function safeErrorResponse({
   }
 }
 
+/**
+ * Step to progress-bucket mapping, mirroring the SDK's
+ * `BaseWorkflowService._normalizeEntityType`. Lifted to module scope so the
+ * two can be compared by a test rather than by a comment: the copies had
+ * already drifted, and `reset-catalog-config` kept counting against products
+ * here after the SDK stopped (#841).
+ */
+const STEP_ENTITY_MAP = {
+  // Only map primary creation/deletion steps to avoid inflating totals
+  'create-products': 'products',
+  'delete-products': 'products',
+  'create-skus': 'skus',
+  'create-accounts': 'accounts',
+  'delete-accounts': 'accounts',
+  'create-orders': 'orders',
+  'delete-orders': 'orders',
+  'create-warehouses': 'warehouses',
+  'delete-warehouses': 'warehouses',
+  'create-price-lists': 'priceLists',
+  'delete-price-lists': 'priceLists',
+  'create-bulk-pricing': 'priceLists',
+  'create-tier-pricing': 'priceLists',
+  'delete-promotions': 'promotions',
+  'create-images': 'images',
+  'create-pdfs': 'pdfs',
+  'create-addresses': 'addresses',
+  'delete-options': 'options',
+  'delete-specifications': 'specifications',
+  // Not products. The step deletes nothing and reports the one unit
+  // it processed, so counting it here made a delete run show
+  // "Products 1 Deleted, Done" while delete-products was still
+  // PREPARED at 0 of 50, and the bar stayed finished for the rest of
+  // the run (#786). `progress` has no `config` key and the accumulator
+  // guards on one, so the step now counts against nothing - which is
+  // what it did. Mirrors the SDK's _normalizeEntityType (SDK #182).
+  'reset-catalog-config': 'config',
+};
+
 module.exports = (app, { logger, persistenceService, progressService }) => {
   app.get(INTERNAL_API_PATHS.WORKFLOW_SESSIONS, async (req, res) => {
     try {
@@ -294,33 +332,8 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
         addresses: { completed: 0, total: 0 },
       };
 
-      // Consistent mapping with BaseWorkflowService._normalizeEntityType
-      const entityMap = {
-        // Only map primary creation/deletion steps to avoid inflating totals
-        'create-products': 'products',
-        'delete-products': 'products',
-        'create-skus': 'skus',
-        'create-accounts': 'accounts',
-        'delete-accounts': 'accounts',
-        'create-orders': 'orders',
-        'delete-orders': 'orders',
-        'create-warehouses': 'warehouses',
-        'delete-warehouses': 'warehouses',
-        'create-price-lists': 'priceLists',
-        'delete-price-lists': 'priceLists',
-        'create-bulk-pricing': 'priceLists',
-        'create-tier-pricing': 'priceLists',
-        'delete-promotions': 'promotions',
-        'create-images': 'images',
-        'create-pdfs': 'pdfs',
-        'create-addresses': 'addresses',
-        'delete-options': 'options',
-        'delete-specifications': 'specifications',
-        'reset-catalog-config': 'products',
-      };
-
       batches.forEach((b) => {
-        const entity = entityMap[b.step_key];
+        const entity = STEP_ENTITY_MAP[b.step_key];
         if (entity && progress[entity]) {
           progress[entity].completed += b.processed_count || 0;
           // For batches, we use the max to avoid doubling if multiple batches are used for one step
@@ -548,3 +561,5 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
     }
   });
 };
+
+module.exports.STEP_ENTITY_MAP = STEP_ENTITY_MAP;
