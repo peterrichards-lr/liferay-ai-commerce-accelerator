@@ -3,7 +3,23 @@ const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { buildMediaBundle } = require('../utils/mediaBundle.cjs');
 const { extractDatasetMedia } = require('../utils/mediaExtractor.cjs');
+const { buildInstanceDataset } = require('../utils/instanceExtractor.cjs');
 const { buildConfigAndOptions } = require('../utils/normalize.cjs');
+const {
+  logCommerceSelection,
+  resolveRunCommerceSelection,
+} = require('../utils/commerceSelection.cjs');
+const {
+  ownershipScopeFromRequestBody,
+} = require('../utils/ownershipScope.cjs');
+
+/** Where a bundle's dataset half came from. */
+const DATASET_SOURCE = Object.freeze({
+  /** The instance itself, read back through the commerce APIs (#849). */
+  INSTANCE: 'instance',
+  /** The run this service recorded, out of workflows.db. */
+  SESSION: 'session',
+});
 
 /**
  * Reads a session's context into the export shape.
@@ -132,38 +148,102 @@ module.exports = (
    * dataset generated before anything recorded an attachment id can still be
    * promoted - which is the case in front of us, and the reason this route
    * resolves rather than reads what the run recorded (#814).
+   *
+   * `source` chooses where the *dataset* half comes from, and it is a
+   * parameter on this route rather than a route of its own on purpose. The
+   * media half, the manifest, the counts, the headers and the error handling
+   * are identical whichever way the dataset was read - a sibling route would
+   * duplicate all of it and then have to be kept in step - and the operation
+   * is the same operation: point at an instance, pull a package out of it.
+   * Only the answer to "where did the product list come from" differs, and
+   * `metadata.source` already carries that into the artefact.
+   *
+   * It is required rather than inferred from the absence of `sessionId`.
+   * Inferring it would make a typo'd session id silently produce an
+   * instance-read package - the same shape of failure as the export's tier
+   * fallback, where a missing session quietly yields a materially thinner
+   * dataset that still reports success (#840).
    */
   app.post(INTERNAL_API_PATHS.EXTRACT_COMMERCE_BUNDLE, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
     const correlationId = config.correlationId;
 
     try {
-      const { sessionId } = req.body || {};
+      const { sessionId, source = DATASET_SOURCE.SESSION } = req.body || {};
 
-      if (!sessionId) {
+      if (!Object.values(DATASET_SOURCE).includes(source)) {
         return res.status(400).json({
           success: false,
-          error:
-            'sessionId is required. A bundle is built for one session, not for whatever ran last.',
+          error: `Unknown source '${source}'. Use '${DATASET_SOURCE.SESSION}' to read the run this service recorded, or '${DATASET_SOURCE.INSTANCE}' to read the instance itself.`,
         });
       }
 
-      const session = await persistenceService.getSession(sessionId);
+      let dataset;
 
-      if (!session || !session.context) {
-        return res.status(404).json({
-          success: false,
-          error: `No session found for ${sessionId}`,
+      if (source === DATASET_SOURCE.INSTANCE) {
+        // An extract lands in whichever catalog and channel this instance
+        // resolves to, by the same rules an import and a run use, so the three
+        // cannot disagree about which catalogue a promotion is about (#680).
+        const commerceSelection = await resolveRunCommerceSelection({
+          config,
+          correlationId,
+          liferayService,
+          logger,
+          operation: 'extract-commerce-bundle',
         });
-      }
 
-      const dataset = datasetFromSession(session, 'session-db');
+        logCommerceSelection({
+          correlationId,
+          logs: commerceSelection.logs,
+          logger,
+          operation: 'extract-commerce-bundle',
+        });
+
+        if (commerceSelection.rejection) {
+          return res.status(400).json({
+            success: false,
+            error: commerceSelection.rejection,
+            details: commerceSelection.rejections,
+          });
+        }
+
+        dataset = await buildInstanceDataset({
+          config,
+          correlationId,
+          liferayService,
+          logger,
+          // The only path from a request body to a scope, and it needs the
+          // confirmation phrase typed out in full. Anything else leaves the
+          // AICA-owned default in place (#850).
+          ownershipScope: ownershipScopeFromRequestBody(req.body),
+        });
+      } else {
+        if (!sessionId) {
+          return res.status(400).json({
+            success: false,
+            error:
+              'sessionId is required. A bundle is built for one session, not for whatever ran last.',
+          });
+        }
+
+        const session = await persistenceService.getSession(sessionId);
+
+        if (!session || !session.context) {
+          return res.status(404).json({
+            success: false,
+            error: `No session found for ${sessionId}`,
+          });
+        }
+
+        dataset = datasetFromSession(session, 'session-db');
+      }
 
       logger.info('Extracting media from the source instance', {
         correlationId,
         operation: 'extract-commerce-bundle',
         productCount: dataset.products.length,
         sessionId,
+        source,
       });
 
       const media = await extractDatasetMedia({
@@ -188,9 +268,20 @@ module.exports = (
         }
       );
 
+      // A shortfall in the *dataset* is worth as much noise as a shortfall in
+      // the media, and until now only the media had a header saying so.
+      const incompleteProducts = dataset.metadata?.translationReport?.length;
+
+      if (incompleteProducts) {
+        logger.warn(
+          `${incompleteProducts} of ${dataset.products.length} products carry fields the instance could not answer; see metadata.translationReport in the package`,
+          { correlationId, operation: 'extract-commerce-bundle' }
+        );
+      }
+
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="commerce-dataset-${sessionId}.zip"`
+        `attachment; filename="commerce-dataset-${sessionId || source}.zip"`
       );
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('X-AICA-Media-Images', String(manifest.counts.images));
@@ -198,6 +289,10 @@ module.exports = (
       res.setHeader(
         'X-AICA-Media-Unresolved',
         String(manifest.counts.unresolved)
+      );
+      res.setHeader(
+        'X-AICA-Products-Incomplete',
+        String(incompleteProducts || 0)
       );
       res.status(200).send(buffer);
     } catch (error) {
