@@ -68,6 +68,10 @@ aica-dataset-*.json
 *.db-wal
 **/data/*.db
 
+# Generated Media Written To Disk (#848, MEDIA_ARCHIVE_PATH)
+/client-extensions/ai-commerce-accelerator-microservice/data/media/
+**/data/media/
+
 # Ephemeral AI Agent Intra-Task Scratchpad
 .agent-state.md
 

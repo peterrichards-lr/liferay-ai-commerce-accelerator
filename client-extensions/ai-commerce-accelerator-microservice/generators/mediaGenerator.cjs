@@ -13,6 +13,8 @@ const {
   isValidUrl,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { KIND } = require('../utils/mediaBundle.cjs');
+const { openMediaArchive } = require('../utils/mediaArchive.cjs');
 const { SELECTION_KEYS, selectShare } = require('../utils/shareSelection.cjs');
 
 class MediaGenerator {
@@ -425,6 +427,12 @@ class MediaGenerator {
       }
     }
 
+    // Opened once for the pass, not once per picture, so the manifest is
+    // extended rather than rebuilt. Never throws and never returns null: a
+    // switched-off or unopenable archive is a no-op the loop cannot tell
+    // apart from a working one (#848).
+    const archive = openMediaArchive({ correlationId, logger, sessionId });
+
     let completedCount = 0;
     const createdImages = [];
     for (const product of productsToProcess) {
@@ -528,6 +536,18 @@ class MediaGenerator {
               ])
             );
 
+          // Down first, uploaded second. The whole point of #848 is that a
+          // rejected upload leaves a file behind rather than only a log line,
+          // and that only holds if the write happens before the post.
+          const archived = archive.record({
+            base64,
+            contentType,
+            kind: KIND.IMAGE,
+            priority: imageData.priority || 1,
+            productERC: product.externalReferenceCode,
+            title,
+          });
+
           const created = await liferay.addProductImageByBase64(
             config,
             product.externalReferenceCode,
@@ -539,17 +559,21 @@ class MediaGenerator {
             }
           );
 
+          const reference = this._mediaReference(created, {
+            productERC: product.externalReferenceCode,
+            kind: 'image',
+            sessionId,
+            correlationId,
+          });
+
+          archive.link(archived, reference);
+
           createdImages.push({
             productERC: product.externalReferenceCode,
             title: title,
             contentType: contentType,
             priority: imageData.priority || 1,
-            ...this._mediaReference(created, {
-              productERC: product.externalReferenceCode,
-              kind: 'image',
-              sessionId,
-              correlationId,
-            }),
+            ...reference,
           });
         }
         completedCount++;
@@ -641,6 +665,8 @@ class MediaGenerator {
       correlationId,
     });
 
+    const archive = openMediaArchive({ correlationId, logger, sessionId });
+
     let completedCount = 0;
     const createdPdfs = [];
     for (const product of productsToProcess) {
@@ -702,6 +728,16 @@ class MediaGenerator {
         }
 
         for (const pdf of pdfs) {
+          const archived = archive.record({
+            base64: pdf.base64,
+            contentType: pdf.contentType,
+            kind: KIND.PDF,
+            priority: pdf.priority,
+            productERC: product.externalReferenceCode,
+            sku,
+            title: pdf.title,
+          });
+
           const created = await liferay.addProductDocumentAttachmentByBase64(
             config,
             product.externalReferenceCode,
@@ -713,18 +749,22 @@ class MediaGenerator {
             }
           );
 
+          const reference = this._mediaReference(created, {
+            productERC: product.externalReferenceCode,
+            kind: 'PDF',
+            sessionId,
+            correlationId,
+          });
+
+          archive.link(archived, reference);
+
           createdPdfs.push({
             productERC: product.externalReferenceCode,
             sku: sku,
             title: pdf.title,
             contentType: pdf.contentType,
             priority: pdf.priority,
-            ...this._mediaReference(created, {
-              productERC: product.externalReferenceCode,
-              kind: 'PDF',
-              sessionId,
-              correlationId,
-            }),
+            ...reference,
           });
         }
 
