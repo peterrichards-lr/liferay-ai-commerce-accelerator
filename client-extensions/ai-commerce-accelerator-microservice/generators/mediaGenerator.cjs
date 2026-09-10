@@ -556,6 +556,13 @@ class MediaGenerator {
               contentType: contentType,
               title: title,
               priority: imageData.priority || 1,
+              // Liferay otherwise applies its own default, which on a live
+              // instance was one month: media generated 2026-09-09 was set to
+              // expire 2026-10-09, from a value nobody chose. Generated demo
+              // media is not time-limited content, and a promotion that sent
+              // no dates gave the target its own fresh fuse dated from the
+              // import (#853).
+              neverExpire: true,
             }
           );
 
@@ -746,6 +753,7 @@ class MediaGenerator {
               contentType: pdf.contentType,
               title: pdf.title,
               priority: pdf.priority,
+              neverExpire: true,
             }
           );
 

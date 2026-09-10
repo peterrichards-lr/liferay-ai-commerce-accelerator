@@ -183,6 +183,35 @@ describe('Attaching a bundle to the target', () => {
     ]);
   });
 
+  it('tells Liferay the media does not expire', async () => {
+    // Without this Liferay applies its own default. On a live instance that
+    // was one month: media generated 2026-09-09 expired 2026-10-09, from a
+    // value nobody chose. A promotion sent no dates at all, so the target
+    // inherited a fresh fuse dated from the import (#853).
+    const { attached, ctx, bundleKey } = buildCtx([
+      bundledImage('AICA-PRD-1', 'bytes'),
+      {
+        buffer: Buffer.from('manual'),
+        contentType: 'application/pdf',
+        kind: 'pdf',
+        priority: 1,
+        productERC: 'AICA-PRD-1',
+        title: { en_US: 'manual.pdf' },
+      },
+    ]);
+
+    const generator = new MediaGenerator(ctx);
+    await generator.createImages(
+      {},
+      [product('AICA-PRD-1')],
+      options(bundleKey)
+    );
+    await generator.createPdfs({}, [product('AICA-PRD-1')], options(bundleKey));
+
+    expect(attached.images[0].neverExpire).toBe(true);
+    expect(attached.pdfs[0].neverExpire).toBe(true);
+  });
+
   it('gives each product only its own media', async () => {
     const { attached, ctx, bundleKey } = buildCtx([
       bundledImage('AICA-PRD-1', 'first'),
