@@ -9,6 +9,20 @@ const channelConnectionSchema = {
   channelId: { type: 'number', required: true, integer: true },
 };
 
+/**
+ * The one thing a request that writes must state: which Liferay it is for.
+ *
+ * Only the URL, deliberately - reusing connectionSchema here would newly reject
+ * the blank clientId and clientSecret the colocated UI sends, and where the
+ * credentials come from is a different question from where the write lands.
+ * The credential chain in resolveEffectiveLiferayConnection is still what makes
+ * a colocated deployment and the MCP tools work; what it must not do is invent
+ * a *target* for a write. See #815.
+ */
+const writeTargetSchema = {
+  liferayUrl: connectionSchema.liferayUrl,
+};
+
 // The values the UI offers are none/placeholder/ai (VisualAssetControls.jsx).
 // mediaGenerator additionally handles picsum, default and custom, and
 // useGeneration.js treats 'generate' as a legacy alias of 'ai'. The previous
@@ -209,6 +223,7 @@ module.exports = {
   PDF_CONTENT_TYPES,
   connectionSchema,
   channelConnectionSchema,
+  writeTargetSchema,
   modeSchema,
   commerceSchema,
   generateDataSchema,

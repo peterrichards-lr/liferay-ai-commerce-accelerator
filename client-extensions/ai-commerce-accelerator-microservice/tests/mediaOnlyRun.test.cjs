@@ -340,8 +340,11 @@ describe('Media-only run route', () => {
 
     generateMediaRoute(
       {
-        post: vi.fn().mockImplementation((_path, _upload, handler) => {
-          routeHandler = handler;
+        // Positional capture would take a middleware now that the write
+        // routes guard their target; the terminal handler is always last.
+        // See #815.
+        post: vi.fn().mockImplementation((_path, ...handlers) => {
+          routeHandler = handlers[handlers.length - 1];
         }),
       },
       {

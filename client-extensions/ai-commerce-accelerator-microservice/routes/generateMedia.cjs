@@ -12,6 +12,10 @@ const {
   MEDIA_SCOPES,
   selectProductsForMedia,
 } = require('../utils/mediaScope.cjs');
+const {
+  inputValidationMiddleware,
+} = require('../middleware/securityMiddleware.cjs');
+const { writeTargetSchema } = require('../utils/schemas.cjs');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -46,6 +50,10 @@ module.exports = (
   app.post(
     INTERNAL_API_PATHS.GENERATE_MEDIA,
     upload.fields([{ name: 'customImageFile' }, { name: 'customPDFFile' }]),
+    // The route already refuses to start unless the caller confirms; where the
+    // media is attached is the other thing it must be told rather than infer.
+    // See #815.
+    inputValidationMiddleware(writeTargetSchema),
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
       config.demoMode = options.demoMode;
