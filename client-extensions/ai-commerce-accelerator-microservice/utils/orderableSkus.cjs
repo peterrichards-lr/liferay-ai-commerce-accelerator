@@ -16,6 +16,17 @@
  * The rule is the product's, not the SKU's: whether variants exist decides
  * which list is orderable, so a product with no contributing options still
  * orders its base SKU, which is the case that worked before.
+ *
+ * The one thing the product cannot say is which run it is in, so the caller
+ * says it instead. `prompts/product.md` asks for `skuVariants` and
+ * `skuContributor` whatever the run, and `generation.cjs` keeps what the model
+ * returns - while `products.cjs` omits the base SKU only when variants are
+ * being created and `skus.cjs` replaces `lp.skus` with the variants under the
+ * same condition. A product on a `generateSkuVariants: false` run therefore
+ * looks exactly like a variant product while Liferay holds only its base SKU,
+ * and reading the product alone offers orders a set of SKUs that do not exist:
+ * the #747 failure with the two lists the other way round. `coverPriceEntries`
+ * takes the run's mode for the same reason (#787). See #810.
  */
 
 /**
@@ -42,36 +53,56 @@ function isNameable(sku) {
 
 /**
  * The SKUs of one product that an order may reference.
+ *
+ * `variants` is the run's mode, not the product's: false means the run created
+ * the base SKU and nothing else, whatever `skuVariants` the model returned.
+ * It defaults to true so a caller that has not been told stays on the #747
+ * behaviour, which is the shape of every run that generates variants.
  */
-function orderableSkusFor(product) {
-  const variants = (product?.skuVariants || []).filter(isNameable);
+function orderableSkusFor(product, { variants = true } = {}) {
+  const base = (product?.skus || []).filter(isNameable);
+
+  if (!variants) {
+    // Nothing created the variants, so the base SKU is the whole of what
+    // exists. No fallback to `skuVariants` when there is no base SKU either:
+    // that product had nothing created for it at all, and naming a variant
+    // would fail exactly as naming an uncreated base SKU does.
+    return base;
+  }
+
+  const variantSkus = (product?.skuVariants || []).filter(isNameable);
 
   if (hasSkuContributingOptions(product)) {
     // The base SKU is not created for these products, so variants are the only
     // thing that exists. An empty list is correct rather than a fallback: an
     // order naming the base SKU would fail.
-    return variants;
+    return variantSkus;
   }
-
-  const base = (product?.skus || []).filter(isNameable);
 
   // No contributing options, so the base SKU is orderable. Variants are still
   // included where a product happens to have both.
-  return [...base, ...variants];
+  return [...base, ...variantSkus];
 }
 
 /**
  * Every SKU an order may reference, across the run's products.
  */
-function orderableSkus(products, { logger } = {}) {
+function orderableSkus(products, { logger, variants = true } = {}) {
   const list = Array.isArray(products) ? products : [];
-  const orderable = list.flatMap((product) => orderableSkusFor(product));
+  const orderable = list.flatMap((product) =>
+    orderableSkusFor(product, { variants })
+  );
 
   const withContributing = list.filter(hasSkuContributingOptions).length;
-  const strandedBase = list.filter(
-    (product) =>
-      hasSkuContributingOptions(product) && (product?.skus || []).length > 0
-  ).length;
+  // Only a run creating variants strands a base SKU. On a run that is not, the
+  // base SKU is the one thing Liferay did create, so saying it is stranded
+  // would send whoever reads the log looking for the wrong fault.
+  const strandedBase = variants
+    ? list.filter(
+        (product) =>
+          hasSkuContributingOptions(product) && (product?.skus || []).length > 0
+      ).length
+    : 0;
 
   if (strandedBase > 0) {
     logger?.debug?.(
@@ -80,7 +111,9 @@ function orderableSkus(products, { logger } = {}) {
   }
 
   logger?.info?.(
-    `${orderable.length} orderable SKU(s) across ${list.length} product(s); ${withContributing} product(s) declare SKU-contributing options.`
+    `${orderable.length} orderable SKU(s) across ${list.length} product(s); ${withContributing} product(s) declare SKU-contributing options${
+      variants ? '' : ', which this run did not turn into variants'
+    }.`
   );
 
   return orderable;

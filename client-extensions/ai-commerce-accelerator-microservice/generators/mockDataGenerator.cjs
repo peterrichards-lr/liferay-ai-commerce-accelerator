@@ -402,7 +402,14 @@ class MockDataGenerator {
           ]
         : [];
 
-    return orderableSkusFor(product).map((sku) => {
+    // The run's mode is passed rather than left to the product. Mock products
+    // built without variants carry neither `skuVariants` nor a contributing
+    // option, so this changes nothing here today - but it is the same call the
+    // orders path had to correct (#810), and leaving it to be inferred is what
+    // made that defect possible.
+    return orderableSkusFor(product, {
+      variants: options.generateSkuVariants !== false,
+    }).map((sku) => {
       const skuERC = sku.externalReferenceCode || sku.sku;
       const price =
         typeof sku.price === 'number'

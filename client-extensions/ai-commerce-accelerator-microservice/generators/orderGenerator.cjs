@@ -361,7 +361,14 @@ class OrderGenerator extends BaseGenerator {
         for (let batchIndex = 0; batchIndex < chunks.length; batchIndex++) {
           const originalBatch = chunks[batchIndex];
           const batch = originalBatch.map((od) =>
-            this.buildOrderPayload(config, od, accounts, products, warehouses)
+            this.buildOrderPayload(
+              config,
+              od,
+              accounts,
+              products,
+              warehouses,
+              options
+            )
           );
 
           await this.submitBatch(
@@ -441,7 +448,14 @@ class OrderGenerator extends BaseGenerator {
     }
   }
 
-  buildOrderPayload(config, orderData, accounts, products, _warehouses) {
+  buildOrderPayload(
+    config,
+    orderData,
+    accounts,
+    products,
+    _warehouses,
+    options = {}
+  ) {
     const account = this.pickAccount(
       orderData.accountId,
       accounts,
@@ -458,8 +472,15 @@ class OrderGenerator extends BaseGenerator {
     // `p.skus` alone is the base SKU, which Liferay does not create for a
     // product with SKU-contributing options - so every order item named a SKU
     // that did not exist and the run died at create-orders (#747).
+    //
+    // The run's mode goes with it, because the product cannot express it: on a
+    // `generateSkuVariants: false` run the model still returns `skuVariants`
+    // and SKU-contributing options while Liferay created the base SKU alone,
+    // and reading the product by itself would offer orders the variants
+    // instead - the same failure, inverted (#810).
     const allPurchasableSkus = orderableSkus(products, {
       logger: this.logger,
+      variants: options.generateSkuVariants !== false,
     });
 
     this.logger.debug(
@@ -552,7 +573,8 @@ class OrderGenerator extends BaseGenerator {
           orderDataList[i],
           accounts,
           products,
-          options.warehouses
+          options.warehouses,
+          options
         );
         const createdOrder = await this.createSingleOrder(config, payload);
         created.push(createdOrder);
@@ -731,7 +753,16 @@ class OrderGenerator extends BaseGenerator {
         // SKU-ELE-037 and the run died at create-orders with
         // CPInstanceSkuException (#747 fixed the pool; this poisoned it
         // upstream).
-        const fallbackSkus = orderableSkus([cp], { logger: this.logger });
+        //
+        // The run's mode has to travel with the product here as well: this list
+        // is the generator's own data, which carries `skuVariants` and
+        // SKU-contributing options whether or not the run created variants, so
+        // a `generateSkuVariants: false` run merged in variants that exist
+        // nowhere and hid the base SKU that does (#810).
+        const fallbackSkus = orderableSkus([cp], {
+          logger: this.logger,
+          variants: context.options?.generateSkuVariants !== false,
+        });
 
         if (existingMap.has(cp.externalReferenceCode)) {
           const ep = existingMap.get(cp.externalReferenceCode);
