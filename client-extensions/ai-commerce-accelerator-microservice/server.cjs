@@ -14,6 +14,39 @@ try {
   console.warn(`[Bootstrap] Error loading .env from root: ${err.message}`);
 }
 
+// WHERE THE WORKFLOW DATABASE LIVES (MUST BE BEFORE THE SDK IS REQUIRED)
+//
+// The SDK reads PERSISTENCE_DB_PATH from process.env when its constants are
+// first required, so this has to run before any SDK import - which is why it
+// sits here rather than in utils/constants.cjs.
+//
+// It has now been destroyed twice by ordinary tooling, in two places, for the
+// same reason: it lived somewhere tooling treats as disposable. SDK #175 - it
+// resolved inside node_modules, and every install removed it. Then #868 -
+// `gradle clean` removed it along with build/ and dist/, taking a completed
+// UAT run that was the source for a production promotion.
+//
+// A home directory is the first location that is none of those things: it
+// survives clean, `git clean -xfd`, removing a worktree, and re-cloning the
+// repository - none of which anyone thinks of as destroying a workflow
+// session, because none of them is (#869).
+//
+// An explicit PERSISTENCE_DB_PATH still wins, which is how a deployment points
+// at a mounted volume. NODE_ENV=test is untouched: resolveDbPath returns
+// ':memory:' regardless of what this sets.
+if (!process.env.PERSISTENCE_DB_PATH) {
+  const os = require('os');
+  process.env.PERSISTENCE_DB_PATH = path.join(
+    os.homedir(),
+    '.aica',
+    'data',
+    'workflows.db'
+  );
+  console.info(
+    `[Bootstrap] Workflow database: ${process.env.PERSISTENCE_DB_PATH}`
+  );
+}
+
 const { logger } = require('./utils/logger.cjs');
 const { checkAndRebuild } = require('./scripts/ensure-native-modules.cjs');
 
