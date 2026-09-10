@@ -277,8 +277,16 @@ module.exports = (
             ...(mediaBundleKey
               ? {
                   imageMode: 'bundle',
+                  // The package decides which products have media, so every
+                  // product is a candidate and `_bundledFor` returns nothing
+                  // for the ones it carried nothing for. Without these the
+                  // share defaults to zero, the attach steps run over an empty
+                  // set, and a promotion lands products with no pictures while
+                  // reporting success (#872).
+                  imageRatio: 100,
                   mediaBundleKey,
                   pdfMode: 'bundle',
+                  pdfRatio: 100,
                 }
               : {}),
             generatePriceLists: true,
