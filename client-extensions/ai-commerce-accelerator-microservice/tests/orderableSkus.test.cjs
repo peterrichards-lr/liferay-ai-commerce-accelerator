@@ -149,6 +149,63 @@ describe('orderableSkus', () => {
   });
 });
 
+// The product cannot say which run it is in. `prompts/product.md` asks for
+// `skuVariants` and `skuContributor` unconditionally and `generation.cjs` keeps
+// what the model returns, so a product on a `generateSkuVariants: false` run
+// looks exactly like a variant product - while `products.cjs` created its base
+// SKU and `skus.cjs` created no variants at all. See #810, and #787 for the
+// same defect on the pricing path.
+describe('a run that is not creating variants', () => {
+  it('orders the base SKU, the only one Liferay created', () => {
+    expect(codes(orderableSkusFor(withOptions, { variants: false }))).toEqual([
+      'BASE-1',
+    ]);
+  });
+
+  it('never offers a variant Liferay was never asked to create', () => {
+    const names = codes(orderableSkus([withOptions], { variants: false }));
+
+    expect(names).not.toContain('BASE-1-RED-S');
+    expect(names).not.toContain('BASE-1-BLUE-M');
+  });
+
+  it('leaves a product with nothing contributing exactly as it was', () => {
+    expect(
+      codes(orderableSkusFor(withoutOptions, { variants: false }))
+    ).toEqual(['BASE-2']);
+  });
+
+  it('still returns nothing when there is no base SKU to order', () => {
+    // No fallback to the variants: a run that created no base SKU created
+    // nothing at all for this product, and an order naming a variant would
+    // fail exactly as one naming an uncreated base SKU does.
+    const baseless = { ...withOptions, skus: [] };
+
+    expect(orderableSkusFor(baseless, { variants: false })).toEqual([]);
+  });
+
+  it('assumes variants when the caller does not say, so #747 stands', () => {
+    expect(codes(orderableSkusFor(withOptions))).toEqual([
+      'BASE-1-RED-S',
+      'BASE-1-BLUE-M',
+    ]);
+    expect(codes(orderableSkus([withOptions]))).toEqual([
+      'BASE-1-RED-S',
+      'BASE-1-BLUE-M',
+    ]);
+  });
+
+  it('does not call the base SKU stranded when the run kept it', () => {
+    const logger = { debug: vi.fn(), info: vi.fn() };
+
+    orderableSkus([withOptions], { logger, variants: false });
+
+    expect(logger.debug).not.toHaveBeenCalledWith(
+      expect.stringContaining('base SKU that Liferay does not create')
+    );
+  });
+});
+
 describe('the order step merges context products by the same rule', () => {
   const { orderableSkus } = require('../utils/orderableSkus.cjs');
 

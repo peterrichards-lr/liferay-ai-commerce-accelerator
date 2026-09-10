@@ -371,4 +371,87 @@ describe('OrderGenerator', () => {
       expect(mockCtx.liferay.getAccounts).not.toHaveBeenCalled();
     });
   });
+
+  // A `generateSkuVariants: false` run creates the base SKU and nothing else -
+  // `products.cjs` omits it only when variants are being created, and
+  // `skus.cjs` replaces `lp.skus` with the variants under the same condition.
+  // The product data does not say so: `prompts/product.md` asks for
+  // `skuVariants` and `skuContributor` whatever the run, and `generation.cjs`
+  // keeps what the model returns. Read alone, that product looks like a variant
+  // product, and the pool ends up naming variants Liferay never created - the
+  // #747 failure with the two SKU lists the other way round. See #810.
+  describe('the SKU pool on a run that is not creating variants', () => {
+    const config = { channelId: 44207, catalogId: 1, currencyCode: 'USD' };
+
+    const productData = {
+      externalReferenceCode: 'AICA-PRD-1',
+      name: { en_US: 'Widget' },
+      options: [
+        {
+          name: 'Color',
+          fieldType: 'select',
+          productOptionValues: ['Red', 'Blue'],
+          skuContributor: true,
+        },
+      ],
+      skus: [{ sku: 'SKU-ELE-001', externalReferenceCode: 'SKU-ELE-001' }],
+      skuVariants: [
+        { sku: 'SKU-ELE-001-RED', externalReferenceCode: 'SKU-ELE-001-RED' },
+        { sku: 'SKU-ELE-001-BLUE', externalReferenceCode: 'SKU-ELE-001-BLUE' },
+      ],
+    };
+
+    beforeEach(() => {
+      mockCtx.liferay.getProducts = vi.fn().mockResolvedValue({
+        items: [
+          { id: 2001, externalReferenceCode: 'AICA-PRD-1', name: 'Widget' },
+        ],
+      });
+      // The SKUs have not reached the index yet, which is the case the merge
+      // from `productDataList` exists for.
+      mockCtx.liferay.rest = { _get: vi.fn().mockResolvedValue({ items: [] }) };
+      mockCtx.liferay.getAccounts = vi.fn().mockResolvedValue({
+        items: [{ id: 1, externalReferenceCode: 'A1', type: 'business' }],
+      });
+    });
+
+    it('merges the base SKU rather than uncreated variants', async () => {
+      const { products } = await generator.getProductsAndAccounts(config, {
+        options: { generateSkuVariants: false },
+        productDataList: [productData],
+      });
+
+      expect(products[0].skus.map((sku) => sku.sku)).toEqual(['SKU-ELE-001']);
+    });
+
+    it('draws order items from the SKU Liferay actually created', () => {
+      const payload = generator.buildOrderPayload(
+        config,
+        { accountId: 1, items: [{ quantity: 1, sku: 'SKU-ELE-001' }] },
+        [{ id: 1, externalReferenceCode: 'A1' }],
+        [productData],
+        [],
+        { generateSkuVariants: false }
+      );
+
+      expect(payload.orderItems.map((item) => item.sku)).toEqual([
+        'SKU-ELE-001',
+      ]);
+    });
+
+    it('still orders the variants when the run created them', () => {
+      const payload = generator.buildOrderPayload(
+        config,
+        { accountId: 1, items: [{ quantity: 1, sku: 'SKU-ELE-001-RED' }] },
+        [{ id: 1, externalReferenceCode: 'A1' }],
+        [productData],
+        [],
+        { generateSkuVariants: true }
+      );
+
+      expect(payload.orderItems.map((item) => item.sku)).toEqual([
+        'SKU-ELE-001-RED',
+      ]);
+    });
+  });
 });

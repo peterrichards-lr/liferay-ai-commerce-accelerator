@@ -66,13 +66,14 @@ function skuCodesOf(sku) {
  * alone would drop the base entry, which is the only one with an id, and derive
  * entries for variants Liferay never created: a priced product would reach the
  * storefront with no price at all.
+ *
+ * That exception used to be answered here, because `orderableSkusFor` is shared
+ * with the orders path and could not be changed on the pricing branch (#787).
+ * It now takes the run's mode itself, so the rule lives in one place and the
+ * orders path is held to it too (#810).
  */
 function priceableSkusFor(product, variants) {
-  if (variants) {
-    return orderableSkusFor(product);
-  }
-
-  return (product?.skus || []).filter((sku) => skuCodesOf(sku).length > 0);
+  return orderableSkusFor(product, { variants });
 }
 
 /**

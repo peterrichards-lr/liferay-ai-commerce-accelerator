@@ -135,6 +135,26 @@ const ENV = {
     'PERSISTENCE_DB_PATH',
     process.env.NODE_ENV === 'test' ? ':memory:' : './data/workflows.db'
   ),
+  // Generated media on disk (#848).
+  //
+  // Off by default, and deliberately so. The recovery it buys is real - the
+  // bytes are written before the upload, so a rejection leaves a usable file
+  // instead of a log line - but it is the only feature here that writes
+  // hundreds of megabytes to a volume that, on the PaaS instances, a restart
+  // may not preserve. Nothing reads the directory back yet either: the export
+  // still resolves media from the source instance (#814). Costing every
+  // deployment disk for a consumer that has not landed is the wrong default,
+  // so it is one switch away rather than on.
+  MEDIA_ARCHIVE_ENABLED: bool('MEDIA_ARCHIVE_ENABLED', false),
+  // Beside workflows.db, for the same reason it is there: a single directory
+  // the microservice owns, already gitignored, already redirectable.
+  MEDIA_ARCHIVE_PATH: str('MEDIA_ARCHIVE_PATH', './data/media'),
+  // Logs at least rotate. Binaries do not, so the retention policy is the
+  // whole answer to "is this a disk leak". Three days keeps a run recoverable
+  // across a weekend and no longer; the session cap behind it is what stops a
+  // single busy day filling the volume well inside that window.
+  MEDIA_ARCHIVE_RETENTION_HOURS: num('MEDIA_ARCHIVE_RETENTION_HOURS', 72, 1),
+  MEDIA_ARCHIVE_MAX_SESSIONS: num('MEDIA_ARCHIVE_MAX_SESSIONS', 10, 1),
   BATCH_CACHE_TTL_MS: num('BATCH_CACHE_TTL_MS', 3600000, 0), // 1 hour
   API_REQUEST_TIMEOUT_MS: num('API_REQUEST_TIMEOUT_MS', 15000, 0), // 15 seconds
 
