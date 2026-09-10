@@ -1,0 +1,23 @@
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: X-Correlation-ID
+X-Correlation-ID: 7329e780-9039-4820-a473-d37875d88f88
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+Content-Disposition: attachment; filename="commerce-dataset-instance.aicap"
+Content-Type: application/zip
+X-AICA-Media-Images: 22
+X-AICA-Media-Pdfs: 22
+X-AICA-Media-Unresolved: 0
+X-AICA-Products-Incomplete: 22
+Content-Length: 31280324
+ETag: W/"1dd4cc4-siNhX7f4G/SucBfo39NAIdfXdmo"
+Date: Thu, 10 Sep 2026 13:22:16 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
