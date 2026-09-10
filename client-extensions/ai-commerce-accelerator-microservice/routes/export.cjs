@@ -1,7 +1,10 @@
 const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
-const { buildMediaBundle } = require('../utils/mediaBundle.cjs');
+const {
+  PACKAGE_EXTENSION,
+  buildMediaBundle,
+} = require('../utils/mediaBundle.cjs');
 const { extractDatasetMedia } = require('../utils/mediaExtractor.cjs');
 const { buildInstanceDataset } = require('../utils/instanceExtractor.cjs');
 const { buildConfigAndOptions } = require('../utils/normalize.cjs');
@@ -281,7 +284,7 @@ module.exports = (
 
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="commerce-dataset-${sessionId || source}.zip"`
+        `attachment; filename="commerce-dataset-${sessionId || source}.${PACKAGE_EXTENSION}"`
       );
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('X-AICA-Media-Images', String(manifest.counts.images));

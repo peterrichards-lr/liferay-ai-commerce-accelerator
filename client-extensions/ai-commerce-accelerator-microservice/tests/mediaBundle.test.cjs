@@ -1,5 +1,6 @@
 const {
   DATASET_ENTRY,
+  PACKAGE_EXTENSION,
   MANIFEST_ENTRY,
   buildMediaBundle,
   looksLikeZip,
@@ -285,5 +286,24 @@ describe('The src Liferay returns', () => {
     expect(asked).toHaveLength(1);
     expect(asked[0]).not.toContain('8080');
     expect(asked[0].startsWith('/o/commerce-media/')).toBe(true);
+  });
+});
+
+describe('The package extension (#878)', () => {
+  it('is aicap, so the artefact is not mistaken for a folder of files', () => {
+    expect(PACKAGE_EXTENSION).toBe('aicap');
+  });
+
+  it('is not what decides whether a file is a package', async () => {
+    // Someone will rename a package to .zip to look inside it, and a package
+    // that then refused to import would be a trap. Detection reads the local
+    // file header, so the name is decoration - this exists so nobody
+    // "helpfully" adds an extension check later.
+    const { buffer } = await buildMediaBundle({ dataset: DATASET, media: [] });
+
+    expect(looksLikeZip(buffer)).toBe(true);
+
+    const read = await readMediaBundle(buffer);
+    expect(read.dataset).toEqual(DATASET);
   });
 });
