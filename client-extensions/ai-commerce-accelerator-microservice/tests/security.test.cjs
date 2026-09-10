@@ -2,6 +2,7 @@ const {
   sqlInjectionProtectionMiddleware,
   inputValidationMiddleware,
   requestSigningMiddleware,
+  requestSizeLimitMiddleware,
   xssProtectionMiddleware,
   validateInput,
 } = require('../middleware/securityMiddleware.cjs');
@@ -256,5 +257,99 @@ describe('Security Middleware - XSS Protection', () => {
     expect(req.body.text).toBe(
       '&lt;p&gt;Some &quot;quoted&quot; text & &#x27;single&#x27;&lt;/p&gt;'
     );
+  });
+});
+
+/**
+ * The general ceiling guards every route; the import needs its own, because a
+ * dataset package is the one payload this service legitimately receives at
+ * size. A 22-product .aicap with its images and PDFs is 30MB, and the general
+ * 10MB ceiling rejected a package this same service had just produced (#887).
+ */
+describe('Security Middleware - request size ceilings (#887)', () => {
+  const IMPORT_PATH = '/import-commerce-data';
+
+  const request = (path, contentLength) => ({
+    get: (header) =>
+      header === 'Content-Length' ? String(contentLength) : undefined,
+    path,
+  });
+
+  const response = () => {
+    const res = { statusCode: null, body: null };
+    res.status = (code) => {
+      res.statusCode = code;
+      return res;
+    };
+    res.json = (body) => {
+      res.body = body;
+      return res;
+    };
+    return res;
+  };
+
+  let originalWarn;
+
+  beforeAll(() => {
+    originalWarn = logger.warn;
+    logger.warn = vi.fn();
+  });
+
+  afterAll(() => {
+    logger.warn = originalWarn;
+  });
+
+  it('rejects an oversized request on an ordinary route', () => {
+    const middleware = requestSizeLimitMiddleware(10 * 1024 * 1024);
+    const res = response();
+    const next = vi.fn();
+
+    middleware(request('/generate', 30 * 1024 * 1024), res, next);
+
+    expect(res.statusCode).toBe(413);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('lets a 30MB package through on the route that has its own ceiling', () => {
+    const middleware = requestSizeLimitMiddleware(10 * 1024 * 1024, {
+      overrides: { [IMPORT_PATH]: 256 * 1024 * 1024 },
+    });
+    const res = response();
+    const next = vi.fn();
+
+    middleware(request(IMPORT_PATH, 30 * 1024 * 1024), res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.statusCode).toBeNull();
+  });
+
+  it('still bounds the overridden route rather than letting anything through', () => {
+    const middleware = requestSizeLimitMiddleware(10 * 1024 * 1024, {
+      overrides: { [IMPORT_PATH]: 256 * 1024 * 1024 },
+    });
+    const res = response();
+    const next = vi.fn();
+
+    middleware(request(IMPORT_PATH, 300 * 1024 * 1024), res, next);
+
+    expect(res.statusCode).toBe(413);
+    expect(res.body.maxSize).toBe(256 * 1024 * 1024);
+  });
+
+  it('does not widen a route the override does not name', () => {
+    const middleware = requestSizeLimitMiddleware(10 * 1024 * 1024, {
+      overrides: { [IMPORT_PATH]: 256 * 1024 * 1024 },
+    });
+    const res = response();
+    const next = vi.fn();
+
+    middleware(
+      request('/import-commerce-data-other', 30 * 1024 * 1024),
+      res,
+      next
+    );
+
+    expect(res.statusCode).toBe(413);
+    expect(res.body.maxSize).toBe(10 * 1024 * 1024);
   });
 });

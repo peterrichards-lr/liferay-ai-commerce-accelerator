@@ -395,22 +395,38 @@ function ipAllowlistMiddleware(allowedIPs) {
   };
 }
 
-function requestSizeLimitMiddleware(maxSize = 10485760) {
+/**
+ * Rejects a request larger than this route is willing to buffer.
+ *
+ * `overrides` maps a path to its own ceiling, because one route legitimately
+ * receives payloads the rest never should. The import takes a dataset package
+ * - a whole catalogue and its media - and the general ceiling rejected a 30MB
+ * package this service had itself produced (#887). Raising the general ceiling
+ * to fit it would have removed the guard from every other route.
+ *
+ * The path is matched exactly against the router-relative `req.path`, so an
+ * override cannot widen anything but the route it names.
+ */
+function requestSizeLimitMiddleware(
+  maxSize = 10485760,
+  { overrides = {} } = {}
+) {
   return (req, res, next) => {
     const contentLength = parseInt(req.get('Content-Length') || '0');
+    const limit = overrides[req.path] ?? maxSize;
 
-    if (contentLength > maxSize) {
+    if (contentLength > limit) {
       logger.warn('Request size exceeds limit', {
         correlationId: req.correlationId,
         contentLength,
-        maxSize,
+        maxSize: limit,
         path: req.path,
       });
 
       return res.status(413).json({
         success: false,
         error: 'Request entity too large',
-        maxSize,
+        maxSize: limit,
         timestamp: new Date().toISOString(),
       });
     }
