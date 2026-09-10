@@ -34,8 +34,16 @@ class OrderGenerator extends BaseGenerator {
         this._runAdaptiveSyncDelayStep(
           sId,
           S.SYNC_DELAY_ORDERS,
+          // Asks whether any product has appeared yet, so it reads products.
+          // It used to call getProductsWithSkus, which was cheap only because
+          // that method's SKU half requested `<liferay>/undefined` and swallowed
+          // the failure. SDK #199 fixed that properly, and the SKU half now
+          // sweeps every page of the catalogue's SKUs - for data this discards,
+          // once per poll. getProductsWithSkus also throws when SKUs cannot be
+          // read, which would fail a product-existence check for a reason it is
+          // not asking about (#866).
           async (config) => {
-            const res = await this.liferay.getProductsWithSkus(config, {
+            const res = await this.liferay.getProducts(config, {
               catalogId: config.catalogId,
               pageSize: 1,
             });
