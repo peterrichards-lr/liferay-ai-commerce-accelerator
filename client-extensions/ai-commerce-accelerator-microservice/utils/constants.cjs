@@ -153,6 +153,10 @@ const ENV = {
   AI_CHUNK_SIZE_ACCOUNT: num('AI_CHUNK_SIZE_ACCOUNT', null, 1),
   AI_CHUNK_SIZE_WAREHOUSE: num('AI_CHUNK_SIZE_WAREHOUSE', null, 1),
   AI_CHUNK_SIZE_PRICING: num('AI_CHUNK_SIZE_PRICING', null, 1),
+  // Null rather than false, for the same reason as the settings above: it is
+  // the ENV layer of the chain, and `false` would be indistinguishable from a
+  // deliberate opt-out and would shadow the target's own configuration.
+  AI_NAME_FIRST_PRODUCTS: bool('AI_NAME_FIRST_PRODUCTS', null),
   WS_HEARTBEAT_MS: num(
     'WS_HEARTBEAT_INTERVAL_MS',
     30000,

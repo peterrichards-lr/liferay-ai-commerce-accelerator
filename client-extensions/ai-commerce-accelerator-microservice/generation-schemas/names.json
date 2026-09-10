@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "names": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The product name in English."
+          },
+          "category": {
+            "type": "string",
+            "description": "The category this product belongs to."
+          }
+        },
+        "required": ["name", "category"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["names"],
+  "additionalProperties": false
+}

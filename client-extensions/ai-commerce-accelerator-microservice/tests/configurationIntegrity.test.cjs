@@ -50,6 +50,18 @@ function seededConfigKeys(infix) {
     .sort();
 }
 
+function seededPromptValues() {
+  return fs
+    .readdirSync(BATCH_DIR)
+    .filter((fileName) => fileName.includes('-object-entry-ai-prompt-'))
+    .flatMap((fileName) =>
+      JSON.parse(
+        fs.readFileSync(path.join(BATCH_DIR, fileName), 'utf8')
+      ).items.map((item) => [item.configKey, item.configValue])
+    )
+    .reduce((values, [key, value]) => ({ ...values, [key]: value }), {});
+}
+
 describe('Microservice Configuration Integrity', () => {
   let _restService;
   let mockCtx;
@@ -124,6 +136,27 @@ describe('Microservice Configuration Integrity', () => {
   // and the microservice papered over it by treating a configured 4000 as
   // "unset", which is what made tuning the panel move the cap backwards
   // (#823). Drift is a defect, so it fails the build.
+  // Existence was never the whole question. The product prompt gained five
+  // rules in #788 and #808 while its hand-maintained payload stayed on the
+  // #744 text, so the object deployed to Liferay ran 2,099 characters behind
+  // the prompt the microservice reads - and the assertion above stayed green
+  // throughout, because the entry it looks for was there all along (#840).
+  it('should seed each ai-prompt config entry with its prompt file verbatim', () => {
+    const seeded = seededPromptValues();
+
+    for (const name of listPromptNames()) {
+      const prompt = fs.readFileSync(
+        path.join(__dirname, '..', 'prompts', `${name}.md`),
+        'utf8'
+      );
+
+      expect(
+        seeded[`ai-prompt-${name}`],
+        `The batch payload for ${name} has drifted from prompts/${name}.md`
+      ).toBe(prompt);
+    }
+  });
+
   it('should seed the same default token cap the microservice resolves', () => {
     expect(seededAiConfig().maxTokens.default).toBe(DEFAULT_MAX_TOKENS);
   });
