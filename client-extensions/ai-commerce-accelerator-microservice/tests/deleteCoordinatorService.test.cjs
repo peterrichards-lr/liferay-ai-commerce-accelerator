@@ -1,5 +1,9 @@
 const DeleteCoordinatorService = require('../services/deleteCoordinatorService.cjs');
 const PersistenceService = require('../services/persistenceService.cjs');
+const {
+  AICA_OWNED,
+  EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE,
+} = require('../utils/ownershipScope.cjs');
 
 describe('DeleteCoordinatorService', () => {
   let coordinator;
@@ -407,6 +411,214 @@ describe('DeleteCoordinatorService', () => {
       expect(statuses).toContain('FAILED');
       expect(statuses).not.toContain('BYPASSED');
       expect(mockCtx.logger.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('which entities a run may touch (#850)', () => {
+    // One AICA account and one nobody generated. Which of them the crawl keeps
+    // is the entire question the ownership scope answers.
+    const mixedAccounts = {
+      items: [
+        { id: 1, externalReferenceCode: 'AICA-ACC-1' },
+        { id: 2, externalReferenceCode: 'CUSTOMER-LTD' },
+      ],
+      totalCount: 2,
+    };
+
+    const seedDiscovery = async (sessionId, context = {}) => {
+      await persistence.createSession({
+        sessionId,
+        flowType: 'delete',
+        status: 'STARTED',
+        currentSteps: ['discover'],
+        context: {
+          config: { correlationId: 'test-cid' },
+          options: {},
+          isTotal: true,
+          steps: [{ name: 'discover' }],
+          ...context,
+        },
+      });
+    };
+
+    it('crawls only AICA-owned data when nothing asked otherwise', async () => {
+      mockCtx.liferay.getAccounts.mockResolvedValue(mixedAccounts);
+
+      await seedDiscovery('sess-scope-default');
+      await coordinator._runDiscoveryStep('sess-scope-default');
+
+      const session = await persistence.getSession('sess-scope-default');
+      expect(session.context.manifest.accounts.map((a) => a.id)).toEqual([1]);
+    });
+
+    it('crawls what the default rejects when the run asked for everything', async () => {
+      mockCtx.liferay.getAccounts.mockResolvedValue(mixedAccounts);
+
+      await seedDiscovery('sess-scope-everything', {
+        ownershipScope: EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE.id,
+      });
+      await coordinator._runDiscoveryStep('sess-scope-everything');
+
+      const session = await persistence.getSession('sess-scope-everything');
+      expect(session.context.manifest.accounts.map((a) => a.id)).toEqual([
+        1, 2,
+      ]);
+    });
+
+    it('still leaves the catalog base price list alone under everything', async () => {
+      // The scope says who owns an entity, not whether Liferay will part with
+      // it. The base list is refused either way, and counting it as a target
+      // would leave the step reporting fewer deletions than it promised.
+      mockCtx.liferay.getCatalogs.mockResolvedValue([{ id: 77 }]);
+      mockCtx.liferay.getPriceLists.mockResolvedValue({
+        items: [
+          { id: 20, externalReferenceCode: 'BY-HAND' },
+          {
+            id: 21,
+            externalReferenceCode: 'CATALOG-BASE',
+            catalogBasePriceList: true,
+          },
+        ],
+        totalCount: 2,
+      });
+
+      await seedDiscovery('sess-scope-base-list', {
+        catalogId: 77,
+        ownershipScope: EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE.id,
+      });
+      await coordinator._runDiscoveryStep('sess-scope-base-list');
+
+      const session = await persistence.getSession('sess-scope-base-list');
+      expect(session.context.manifest.priceLists.map((p) => p.id)).toEqual([
+        20,
+      ]);
+    });
+
+    it('takes what fallback discovery finds outside AICA only when asked', async () => {
+      mockCtx.liferay.getOptions.mockResolvedValue({
+        items: [
+          { id: 1, externalReferenceCode: 'AICA-OPT-COLOUR' },
+          { id: 2, externalReferenceCode: 'COLOUR-BY-HAND' },
+        ],
+        totalCount: 2,
+      });
+
+      const runScoped = async (sessionId, ownershipScope) => {
+        await persistence.createSession({
+          sessionId,
+          flowType: 'delete',
+          status: 'STARTED',
+          currentSteps: ['delete-options'],
+          context: {
+            config: {},
+            options: {},
+            catalogId: 77,
+            steps: [{ name: 'delete-options' }],
+            // Not a total run: this is where the ownership scope decides,
+            // rather than isTotal waving everything through.
+            isTotal: false,
+            manifest: { options: [] },
+            ownershipScope,
+          },
+        });
+
+        mockCtx.liferay.deleteOptionsBatch.mockClear();
+        await coordinator._runGenericDeletionStep('deleteOptions', sessionId);
+
+        const [, args] = mockCtx.liferay.deleteOptionsBatch.mock.calls[0];
+        return args.items.map((i) => i.id);
+      };
+
+      expect(await runScoped('sess-fallback-default', undefined)).toEqual([1]);
+      expect(
+        await runScoped(
+          'sess-fallback-everything',
+          EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE.id
+        )
+      ).toEqual([1, 2]);
+    });
+
+    describe('starting a run', () => {
+      it('records and logs the AICA-owned default', async () => {
+        const result = await coordinator.runDeleteAndMonitor(
+          { correlationId: 'test-cid' },
+          {}
+        );
+
+        const session = await persistence.getSession(result.sessionId);
+        expect(session.context.ownershipScope).toBe(AICA_OWNED.id);
+
+        // An operator reading the log after the fact has no other way to tell
+        // which scope a finished run used.
+        expect(mockCtx.logger.info).toHaveBeenCalledWith(
+          expect.stringContaining(AICA_OWNED.label),
+          expect.objectContaining({ ownershipScope: AICA_OWNED.id })
+        );
+      });
+
+      it('records and logs everything when the scope object is passed', async () => {
+        const result = await coordinator.runDeleteAndMonitor(
+          { correlationId: 'test-cid' },
+          {},
+          { ownershipScope: EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE }
+        );
+
+        const session = await persistence.getSession(result.sessionId);
+        expect(session.context.ownershipScope).toBe(
+          EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE.id
+        );
+        expect(mockCtx.logger.info).toHaveBeenCalledWith(
+          expect.stringContaining(
+            EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE.label
+          ),
+          expect.objectContaining({
+            ownershipScope: EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE.id,
+          })
+        );
+      });
+
+      it('names the scope when a selected run starts', async () => {
+        await coordinator.runDeleteSelectedAndMonitor(
+          { correlationId: 'test-cid' },
+          {},
+          {
+            deleteScope: [{ name: 'deleteOrders' }],
+            ownershipScope: EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE,
+          }
+        );
+
+        expect(mockCtx.logger.info).toHaveBeenCalledWith(
+          expect.stringContaining(
+            EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE.label
+          ),
+          expect.objectContaining({
+            ownershipScope: EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE.id,
+          })
+        );
+      });
+
+      it('refuses a scope that arrived as a string rather than starting a run', async () => {
+        expect(() =>
+          coordinator.runDeleteAndMonitor(
+            { correlationId: 'x' },
+            {},
+            {
+              ownershipScope: 'everything',
+            }
+          )
+        ).toThrow(TypeError);
+
+        await expect(
+          coordinator.runDeleteSelectedAndMonitor(
+            { correlationId: 'x' },
+            {},
+            {
+              deleteScope: [{ name: 'deleteOrders' }],
+              ownershipScope: true,
+            }
+          )
+        ).rejects.toThrow(TypeError);
+      });
     });
   });
 

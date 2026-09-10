@@ -13,6 +13,9 @@ const {
 const { requireAdmin } = require('../middleware/authorizationMiddleware.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const {
+  ownershipScopeFromRequestBody,
+} = require('../utils/ownershipScope.cjs');
 
 function handleError(res, logger, req, config, operation, error, extra = {}) {
   const errorRef = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
@@ -136,10 +139,18 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
 
+      // buildConfigAndOptions takes a fixed list of fields off the body, so a
+      // request cannot smuggle a scope through config or options. This is the
+      // one place a request may ask for a wider one, and it has to type the
+      // confirmation phrase out in full to get it - anything else, including a
+      // truthy flag, leaves the AICA-owned default in place. See #850.
+      const ownershipScope = ownershipScopeFromRequestBody(req.body);
+
       try {
         const summary = await deleteCoordinatorService.runDeleteAndMonitor(
           config,
-          options
+          options,
+          { ownershipScope }
         );
 
         res.status(200).json({
@@ -179,13 +190,16 @@ module.exports = (app, { deleteCoordinatorService, logger, configService }) => {
     async (req, res) => {
       const { config, options } = buildConfigAndOptions(req);
       const { channelId, catalogId, deleteScope } = req.body;
+      // See the note on the full-delete route: the confirmation phrase is the
+      // only way a request reaches anything but AICA-owned data (#850).
+      const ownershipScope = ownershipScopeFromRequestBody(req.body);
 
       try {
         const summary =
           await deleteCoordinatorService.runDeleteSelectedAndMonitor(
             config,
             options,
-            { channelId, catalogId, deleteScope }
+            { channelId, catalogId, deleteScope, ownershipScope }
           );
 
         res.status(200).json({
