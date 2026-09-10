@@ -16,6 +16,22 @@ const JSZip = require('jszip');
  * in Liferay at export time. The bundle is built from the source instance and
  * consumed by the target; nothing persists it in between.
  */
+/**
+ * The package's own extension.
+ *
+ * It is a zip and stays one - the import reads `media/manifest.json` before
+ * anything else, which a solid archive could not offer - but a `.zip` in a
+ * downloads folder invites being opened, rearranged and re-zipped. The
+ * manifest names every entry, its product, title, priority and content type,
+ * and the import trusts it over the directory, so a package whose files and
+ * manifest disagree imports quietly wrong (#878).
+ *
+ * Nothing dispatches on this. `looksLikeZip` reads the local file header, so a
+ * renamed package still imports - which it must, because someone will rename
+ * one to look inside.
+ */
+const PACKAGE_EXTENSION = 'aicap';
+
 const DATASET_ENTRY = 'dataset.json';
 const MANIFEST_ENTRY = 'media/manifest.json';
 const BUNDLE_VERSION = 1;
@@ -169,6 +185,7 @@ async function readMediaBundle(buffer) {
 
 module.exports = {
   BUNDLE_VERSION,
+  PACKAGE_EXTENSION,
   DATASET_ENTRY,
   KIND,
   MANIFEST_ENTRY,
