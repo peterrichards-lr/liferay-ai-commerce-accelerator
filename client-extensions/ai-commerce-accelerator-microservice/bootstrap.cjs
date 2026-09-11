@@ -63,6 +63,9 @@ async function reconcileMediaArchive(ctx) {
 
     const sessions = await ctx.persistence.getAllSessions();
 
+    // No configuration read here: this runs before any request, so there is
+    // no connection to ask Liferay with, and the sweep only needs the root -
+    // which is deployment-owned and environment-only by design (#917).
     sweepOrphanMediaArchives({
       knownSessionIds: sessions.map((session) => session.session_id),
       logger: ctx.logger,
