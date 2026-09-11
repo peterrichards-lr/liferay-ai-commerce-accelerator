@@ -166,10 +166,11 @@ class PromoGenerator extends BaseGenerator {
         error: error.message,
       });
       await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
         sessionId,
         stepKey: S.GENERATE_PROMO_DATA,
         status: 'FAILED',
-        errorDetails: error.message,
+        statusReason: error.message,
       });
       throw error;
     }
@@ -247,10 +248,11 @@ class PromoGenerator extends BaseGenerator {
         error: error.message,
       });
       await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
         sessionId,
         stepKey: S.CREATE_USER_SEGMENTS,
         status: 'FAILED',
-        errorDetails: error.message,
+        statusReason: error.message,
       });
       throw error;
     }
@@ -452,10 +454,11 @@ class PromoGenerator extends BaseGenerator {
         error: error.message,
       });
       await this.persistence.createBatch({
+        erc: createERC(ERC_PREFIX.BATCH),
         sessionId,
         stepKey: S.CREATE_PROMOTIONS,
         status: 'FAILED',
-        errorDetails: error.message,
+        statusReason: error.message,
       });
       throw error;
     }
