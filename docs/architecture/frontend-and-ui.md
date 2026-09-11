@@ -59,8 +59,36 @@ To ensure exact color parity between the DXP Stylebook and browser-rendered form
 
 ---
 
+### 5. Dataset transfer controls (provisional placement)
+
+The Dashboard nav bar carries **Import**, **Export**, **Package** and **Extract**
+under `Dataset:`. They drive the four operations described in
+[microservice-architecture.md](./microservice-architecture.md): a JSON dataset
+out, a package with its media out, a package read back from a live instance, and
+either form in.
+
+**Where these controls live is not settled.** They are here so the operations
+can be driven and tested end to end; #903 covers the operator's path through the
+tool as a whole — connection, catalog, channel and transfer — and may move or
+replace any of them.
+
+Three rules that are settled, and should survive whatever the layout becomes:
+
+- **A package is bytes.** `exportJsonFile` stringifies whatever it is handed,
+  which turns a zip into an unopenable text file that still downloads under the
+  right name. `saveBlobFile` exists for this and must be used for `.aicap`.
+- **The counts are the result.** `X-AICA-Media-Unresolved`,
+  `X-AICA-Products-Incomplete` and `X-AICA-Products-Partial` say whether the
+  package is thinner than its source. A non-zero shortfall reads as a warning,
+  never a tick — and an _unreadable_ header reads as unknown rather than zero,
+  since a header the microservice does not list in `exposedHeaders` is absent
+  rather than empty.
+- **An import is a run.** The same steps as a generate without the generation,
+  so it costs no AI spend but takes as long to land and fails in the same
+  places. It takes over the progress view rather than reporting a toast.
+
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-11_ | _Last Reviewed: 2026-09-11_

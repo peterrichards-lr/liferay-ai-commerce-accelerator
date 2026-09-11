@@ -259,7 +259,21 @@ const gracefulShutdown = async (signal) => {
       origin: process.env.NODE_ENV === 'test' ? '*' : allowList,
       credentials: process.env.NODE_ENV !== 'test', // Credentials cannot be true when origin is '*'
       optionsSuccessStatus: 200,
-      exposedHeaders: ['X-Correlation-ID'],
+      // A package reports on itself in its headers, and a browser can read a
+      // response header only if it is named here. Without them the Dashboard
+      // would show a download with every count at zero - which reads as a
+      // perfect extract and is exactly the silence these counts exist to
+      // break (#875, #886).
+      exposedHeaders: [
+        'Content-Disposition',
+        'X-AICA-Media-Images',
+        'X-AICA-Media-Pdfs',
+        'X-AICA-Media-Source',
+        'X-AICA-Media-Unresolved',
+        'X-AICA-Products-Incomplete',
+        'X-AICA-Products-Partial',
+        'X-Correlation-ID',
+      ],
     })
   );
 

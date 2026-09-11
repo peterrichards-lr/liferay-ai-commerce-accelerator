@@ -77,7 +77,66 @@ export function createApiClient({
     return res.text();
   }
 
+  /**
+   * A response that is a file rather than a payload.
+   *
+   * `request` decides what to return by content type and hands back parsed
+   * JSON or text, which turns a zip into a mangled string. A package is a
+   * zip, so it needs the body untouched - and it needs the headers, because
+   * for extract and export the counts in the headers *are* the result: how
+   * much media could not be resolved, and how many products are missing a
+   * field the schema requires. Returning only the blob would drop exactly the
+   * part that says the package is thinner than its source.
+   *
+   * An error is still JSON, so a failure is read as a message rather than
+   * downloaded as a corrupt file named after the thing that did not happen.
+   */
+  async function download(
+    path,
+    { method = 'GET', body, headers, signal } = {}
+  ) {
+    const url = toUrl(path);
+    const cid =
+      typeof getCorrelationId === 'function'
+        ? getCorrelationId()
+        : (typeof window !== 'undefined' &&
+            sessionStorage.getItem('correlationId')) ||
+          null;
+
+    const oauthToken = await getOAuth2AccessToken();
+
+    const res = await fetch(url, {
+      method,
+      credentials: withCredentials ? 'include' : 'same-origin',
+      headers: {
+        Accept: 'application/zip, application/json;q=0.9, */*;q=0.1',
+        ...(oauthToken ? { Authorization: `Bearer ${oauthToken}` } : {}),
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        ...(headers || {}),
+        ...(cid ? { [CORRELATION_ID_HEADER]: cid } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      let message = text;
+
+      try {
+        message = JSON.parse(text).error || text;
+      } catch {
+        // Not JSON. The text, whatever it is, is more use than the status.
+      }
+
+      throw new Error(message || `HTTP ${res.status} ${res.statusText}`);
+    }
+
+    return { blob: await res.blob(), headers: res.headers };
+  }
+
   return {
+    download: (p, opts) => download(p, opts),
     get: (p, opts) => request(p, { ...opts, method: 'GET' }),
     post: (p, body, opts) => request(p, { ...opts, method: 'POST', body }),
     put: (p, body, opts) => request(p, { ...opts, method: 'PUT', body }),

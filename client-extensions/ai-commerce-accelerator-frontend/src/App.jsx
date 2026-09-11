@@ -101,6 +101,9 @@ function AppUI() {
   const [aiMediaKeyAvailable, setAiMediaKeyAvailable] = useState(false);
   const [batchErrors, setBatchErrors] = useState([]);
   const [showSessionSelector, setShowSessionSelector] = useState(false);
+  // Which of the two per-session downloads the selector is being opened for:
+  // the dataset alone, or the dataset with its media.
+  const [sessionAction, setSessionAction] = useState('dataset');
   const [showMediaGenerator, setShowMediaGenerator] = useState(false);
   const [batchSizes, setBatchSizes] = useState([1, 10, 25, 50]); // Default values
 
@@ -354,9 +357,17 @@ function AppUI() {
     generationConfig,
   });
 
-  const { exportSession, importDataset } = useDatasetIO({
+  const {
+    exportPackage,
+    exportSession,
+    extractPackage,
+    importDataset,
+    isTransferring,
+  } = useDatasetIO({
     api,
     addLog,
+    buildPayload,
+    dispatch,
     isGenerating,
   });
 
@@ -557,19 +568,45 @@ function AppUI() {
                     onClick={() =>
                       document.getElementById('datasetImport').click()
                     }
-                    disabled={isGenerating}
-                    title="Import mock dataset from JSON"
+                    disabled={isGenerating || isTransferring}
+                    title="Import a dataset (.json) or a dataset package (.aicap) into the connected instance"
                   >
                     Import
                   </ClayButton>
                   <ClayButton
                     displayType="secondary"
                     size="sm"
-                    onClick={() => setShowSessionSelector(true)}
-                    disabled={isGenerating}
-                    title="Choose a successful generation run to export"
+                    onClick={() => {
+                      setSessionAction('dataset');
+                      setShowSessionSelector(true);
+                    }}
+                    disabled={isGenerating || isTransferring}
+                    title="Choose a successful generation run to export as JSON, without media"
                   >
                     Export
+                  </ClayButton>
+                  <ClayButton
+                    displayType="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setSessionAction('package');
+                      setShowSessionSelector(true);
+                    }}
+                    disabled={isGenerating || isTransferring}
+                    title="Choose a run to download as a package (.aicap) carrying its images and attachments"
+                  >
+                    Package
+                  </ClayButton>
+                  <ClayButton
+                    displayType="secondary"
+                    size="sm"
+                    onClick={() => extractPackage({ source: 'instance' })}
+                    disabled={
+                      isGenerating || isTransferring || !connectionEstablished
+                    }
+                    title="Read the connected instance and download what it holds as a package (.aicap)"
+                  >
+                    Extract
                   </ClayButton>
                   <ClayButton
                     displayType="secondary"
@@ -608,10 +645,10 @@ function AppUI() {
             <input
               type="file"
               id="datasetImport"
-              accept=".json"
+              accept=".json,.aicap"
               onChange={importDataset}
               style={{ display: 'none' }}
-              disabled={isGenerating}
+              disabled={isGenerating || isTransferring}
             />
 
             <MediaGenerationModal
@@ -625,7 +662,9 @@ function AppUI() {
             <SessionSelectorModal
               visible={showSessionSelector}
               onClose={() => setShowSessionSelector(false)}
-              onSelect={exportSession}
+              onSelect={
+                sessionAction === 'package' ? exportPackage : exportSession
+              }
               api={api}
             />
           </nav>
