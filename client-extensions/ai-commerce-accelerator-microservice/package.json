@@ -1,11 +1,11 @@
 {
   "author": "Peter Richards",
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.46",
-    "@anthropic-ai/sdk": "^0.123.0",
+    "@ai-sdk/anthropic": "^4.0.49",
+    "@anthropic-ai/sdk": "^0.124.0",
     "@google-cloud/storage": "^8.0.1",
     "@google/generative-ai": "^0.24.1",
-    "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.8.20",
+    "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.8.7",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@rotty3000/config-node": "^0.4.1",
     "ajv": "^8.12.0",
@@ -27,7 +27,7 @@
     "multer": "^2.3.0",
     "node-fetch": "^3.3.2",
     "node-stream-zip": "^1.16.0",
-    "openai": "^7.8.0",
+    "openai": "^7.10.0",
     "ws": "^8.21.3",
     "zod": "^4.4.3"
   },
@@ -49,15 +49,15 @@
   "version": "1.0.0",
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "5.0.0",
     "autocannon": "^8.0.0",
-    "eslint": "10.9.1",
+    "eslint": "10.10.0",
     "eslint-plugin-promise": "^7.2.1",
     "eslint-plugin-security": "^4.0.1",
     "graphql": "^17.0.2",
     "msw": "^2.15.0",
     "prettier": "^3.9.6",
     "supertest": "^7.0.0",
-    "vitest": "4.1.11"
+    "vitest": "5.0.0"
   }
 }
