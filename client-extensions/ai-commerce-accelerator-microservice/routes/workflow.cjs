@@ -88,6 +88,86 @@ const STEP_ENTITY_MAP = {
   'reset-catalog-config': 'config',
 };
 
+/**
+ * What a run asked for, before any of it has happened.
+ *
+ * A bar that reads 0/0 until the first batch lands tells an operator nothing,
+ * so each bucket starts at the figure the request implies and the run's own
+ * batches raise it from there.
+ */
+function requestedTotals(options) {
+  const count = (value) => Number.parseInt(value, 10) || 0;
+  const mediaTotal = (mode, ratio) =>
+    mode !== 'none'
+      ? Math.round((count(options.productCount) * (ratio || 0)) / 100)
+      : 0;
+
+  return {
+    products: count(options.productCount),
+    skus: 0,
+    accounts: count(options.accountCount),
+    orders: count(options.orderCount),
+    priceLists: 0,
+    promotions: 0,
+    images: mediaTotal(options.imageMode, options.imageRatio),
+    pdfs: mediaTotal(options.pdfMode, options.pdfRatio),
+    warehouses: options.createWarehouses ? count(options.warehouseCount) : 0,
+    options: 0,
+    specifications: 0,
+    addresses: 0,
+  };
+}
+
+/**
+ * Per-entity `completed` and `total`, both read from the same batch rows.
+ *
+ * The two numbers used to be gathered differently: `completed` summed every
+ * batch in the bucket while `total` took the largest single one. Any step that
+ * submits more than one batch therefore counted all of its work against the
+ * size of one batch, and any bucket fed by more than one step did it again.
+ * A run that created 47 standard and 10 promotional price entries in four
+ * batches reported `57/47`, and one SKU batch per product reported `7/1` -
+ * counters that exceed their own total, on a run where every entity was
+ * correct (#891).
+ *
+ * `total_count` is what the step said it was about to attempt and
+ * `processed_count` what it achieved, so summing both over the same rows is
+ * the only pairing that can be read as a fraction. Steps fan out - a product
+ * yields several price entries - and the sum is what makes the denominator
+ * reflect that rather than the input count.
+ *
+ * The requested figure stays a floor rather than being replaced, mirroring the
+ * dashboard's `withRequestFloor`: 16 products delivered against 50 asked for
+ * is 16/50, not 16/16 (#756).
+ */
+function summariseSessionProgress({ batches = [], options = {} }) {
+  const counters = new Map(
+    Object.entries(requestedTotals(options)).map(([entity, total]) => [
+      entity,
+      { completed: 0, requested: total, total },
+    ])
+  );
+
+  batches.forEach((batch) => {
+    const counter = counters.get(STEP_ENTITY_MAP[batch.step_key]);
+
+    // A step mapped to no bucket declines to be counted, which is how
+    // reset-catalog-config stopped reporting against products (#786).
+    if (!counter) return;
+
+    counter.completed += batch.processed_count || 0;
+    counter.attempted = (counter.attempted || 0) + (batch.total_count || 0);
+    counter.total = Math.max(counter.requested, counter.attempted);
+  });
+
+  return Object.fromEntries(
+    [...counters].map(([entity, { completed, total }]) => [
+      entity,
+      { completed, total },
+    ])
+  );
+}
+
 module.exports = (app, { logger, persistenceService, progressService }) => {
   /**
    * Media whose session no longer exists, removed.
@@ -310,65 +390,7 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
 
       const { options = {} } = session.context || {};
 
-      // Initialize with expected totals from configuration to avoid 0/0 state
-      const progress = {
-        products: {
-          completed: 0,
-          total: Number.parseInt(options.productCount, 10) || 0,
-        },
-        skus: { completed: 0, total: 0 },
-        accounts: {
-          completed: 0,
-          total: Number.parseInt(options.accountCount, 10) || 0,
-        },
-        orders: {
-          completed: 0,
-          total: Number.parseInt(options.orderCount, 10) || 0,
-        },
-        priceLists: { completed: 0, total: 0 },
-        promotions: { completed: 0, total: 0 },
-        images: {
-          completed: 0,
-          total:
-            options.imageMode !== 'none'
-              ? Math.round(
-                  ((options.productCount || 0) * (options.imageRatio || 0)) /
-                    100
-                )
-              : 0,
-        },
-        pdfs: {
-          completed: 0,
-          total:
-            options.pdfMode !== 'none'
-              ? Math.round(
-                  ((options.productCount || 0) * (options.pdfRatio || 0)) / 100
-                )
-              : 0,
-        },
-        warehouses: {
-          completed: 0,
-          total: options.createWarehouses
-            ? Number.parseInt(options.warehouseCount, 10) || 0
-            : 0,
-        },
-        options: { completed: 0, total: 0 },
-        specifications: { completed: 0, total: 0 },
-        addresses: { completed: 0, total: 0 },
-      };
-
-      batches.forEach((b) => {
-        const entity = STEP_ENTITY_MAP[b.step_key];
-        if (entity && progress[entity]) {
-          progress[entity].completed += b.processed_count || 0;
-          // For batches, we use the max to avoid doubling if multiple batches are used for one step
-          // and we use the discovery total if it's larger than the expected total
-          progress[entity].total = Math.max(
-            progress[entity].total,
-            b.total_count || 0
-          );
-        }
-      });
+      const progress = summariseSessionProgress({ batches, options });
 
       const totalSteps = session.context?.steps?.length || 0;
       const completedSteps = session.currentSteps?.length || 0;
@@ -593,3 +615,4 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
 };
 
 module.exports.STEP_ENTITY_MAP = STEP_ENTITY_MAP;
+module.exports.summariseSessionProgress = summariseSessionProgress;
