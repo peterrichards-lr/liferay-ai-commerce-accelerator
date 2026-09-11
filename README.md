@@ -48,8 +48,14 @@ aica config set --key liferayUrl --value "https://my-custom-dxp.com"
 # Export a completed generation dataset to JSON for portability
 aica export AICA-SESSION-12345 ./my-saved-dataset.json
 
-# Import and re-scaffold a saved dataset on a new Liferay DXP instance in <1 minute!
-aica import ./my-saved-dataset.json
+# Export it as a package instead, carrying the images and attachments with it
+aica export AICA-SESSION-12345 --bundle ./solara-moto.aicap
+
+# Or read a package back out of a live instance, when the media was never held locally
+aica extract --instance ./from-uat.aicap
+
+# Import and re-scaffold a saved dataset or package on another Liferay DXP instance
+aica import ./solara-moto.aicap
 
 # Wipe all generated commerce entities globally, leaving Liferay perfectly clean
 aica delete --all
