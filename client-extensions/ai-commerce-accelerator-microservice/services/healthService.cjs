@@ -185,17 +185,24 @@ class HealthService {
       // throwing (e.g. no persisted OAuth config custom-object yet, or
       // OAuth intentionally disabled in favor of basic auth), so the env
       // fallback below must be unconditional rather than a catch handler.
+      //
+      // Through ENV rather than process.env: constants.cjs resolves each of
+      // these through the LXC configuration layer as well as the environment,
+      // so a deployment that supplies credentials the way Liferay does is read
+      // too. The credentials half of this fallback used to read
+      // LIFERAY_CLIENT_ID and LIFERAY_CLIENT_SECRET, which nothing in this
+      // project defines, so the check ran with a URL and no credentials at all
+      // - the one situation the fallback exists to cover (#933).
       const oauthConfig =
         (await configService.getOAuthConfig(requestConfig)) || {};
       if (!oauthConfig.liferayUrl) {
-        oauthConfig.liferayUrl =
-          process.env.LIFERAY_URL || 'http://localhost:8080';
+        oauthConfig.liferayUrl = ENV.LIFERAY_URL;
       }
-      if (!oauthConfig.clientId) {
-        oauthConfig.clientId = process.env.LIFERAY_CLIENT_ID;
+      if (!oauthConfig.clientId && ENV.LIFERAY_OAUTH_CLIENT_ID) {
+        oauthConfig.clientId = ENV.LIFERAY_OAUTH_CLIENT_ID;
       }
-      if (!oauthConfig.clientSecret) {
-        oauthConfig.clientSecret = process.env.LIFERAY_CLIENT_SECRET;
+      if (!oauthConfig.clientSecret && ENV.LIFERAY_OAUTH_CLIENT_SECRET) {
+        oauthConfig.clientSecret = ENV.LIFERAY_OAUTH_CLIENT_SECRET;
       }
 
       await liferay.rest.testConnection(oauthConfig);
