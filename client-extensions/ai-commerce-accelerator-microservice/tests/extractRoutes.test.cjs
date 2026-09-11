@@ -223,6 +223,47 @@ describe('POST /extract-commerce-bundle', () => {
     });
   });
 
+  it('does not raise the alarm for optional fields that are blank on the source', async () => {
+    // #886: the header counted any unanswered field, required or not, so a
+    // perfect extract of a catalogue with no meta titles read 22 of 22 -
+    // indistinguishable from the 22 it read while genuinely dropping four
+    // required fields per product. A signal that fires on every healthy run
+    // is one people learn to ignore, and this one guards a promotion to
+    // production.
+    const liferayService = instance();
+    // Blank on the source, exactly as the UAT catalogue had them: the extract
+    // reads them correctly, finds nothing there, and faithfully reproduces
+    // nothing there.
+    liferayService.getProductsWithSkus = async () => ({
+      items: [{ ...HELMET.product, skus: HELMET.skus }],
+      totalCount: 1,
+    });
+    liferayService.rest = {
+      async getProductById() {
+        return {
+          ...HELMET.product,
+          metaDescription: { en_US: '' },
+          metaKeyword: { en_US: '' },
+          metaTitle: { en_US: '' },
+        };
+      },
+    };
+
+    const handler = routes({ liferayService });
+    const res = response();
+
+    await handler(request({ source: 'instance' }), res);
+
+    expect(res.headers['X-AICA-Products-Incomplete']).toBe('0');
+    expect(Number(res.headers['X-AICA-Products-Partial'])).toBeGreaterThan(0);
+
+    const bundle = await readMediaBundle(res.body);
+
+    expect(
+      bundle.dataset.metadata.translationReport.flatMap((p) => p.missing)
+    ).not.toContainEqual(expect.objectContaining({ required: true }));
+  });
+
   it('reports a truncated read as a failure rather than shipping a short package', async () => {
     const liferayService = instance();
 

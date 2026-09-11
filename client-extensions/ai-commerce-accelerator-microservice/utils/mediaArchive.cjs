@@ -403,6 +403,66 @@ function openMediaArchive({ correlationId, logger, sessionId, ...overrides }) {
   return archive;
 }
 
+/**
+ * Everything a session's archive directory holds, ready for `buildMediaBundle`.
+ *
+ * The manifest is the authority, not the directory listing, for the same
+ * reason the import trusts the bundle's manifest over its entries (#878): the
+ * manifest carries the identity - product, kind, title, priority, content type
+ * - and a file on its own carries only a name. An entry naming a file that is
+ * no longer there is returned in `missing` rather than skipped, because a
+ * package that is quietly short is the failure this feature exists to prevent.
+ *
+ * Returns `null` when the archive is switched off or the session was never
+ * written, which the caller must be able to tell apart from a session that
+ * genuinely generated no media. The first cannot produce a package and has to
+ * say so; the second produces an honest empty one.
+ */
+function readMediaArchive({ sessionId, ...overrides } = {}) {
+  const settings = mediaArchiveSettings(overrides);
+
+  if (!settings.enabled || !sessionId) return null;
+
+  const dir = path.join(settings.root, safeSegment(sessionId, 'session'));
+
+  let manifest;
+
+  try {
+    manifest = JSON.parse(
+      fs.readFileSync(path.join(dir, MANIFEST_FILE), 'utf8')
+    );
+  } catch {
+    return null;
+  }
+
+  const entries = [];
+  const missing = [];
+
+  for (const file of Array.isArray(manifest.files) ? manifest.files : []) {
+    let buffer;
+
+    try {
+      buffer = fs.readFileSync(path.join(dir, file.file));
+    } catch (error) {
+      missing.push({ ...file, reason: error.message });
+      continue;
+    }
+
+    entries.push({ ...file, buffer });
+  }
+
+  return {
+    dir,
+    entries,
+    manifest: {
+      counts: manifest.counts || null,
+      unresolved: Array.isArray(manifest.unresolved) ? manifest.unresolved : [],
+      version: manifest.version ?? null,
+    },
+    missing,
+  };
+}
+
 /** Test seam: the open-archive cache is process-wide and outlives a test. */
 function resetMediaArchives() {
   openArchives.clear();
@@ -415,5 +475,6 @@ module.exports = {
   mediaArchiveSettings,
   openMediaArchive,
   pruneArchiveRoot,
+  readMediaArchive,
   resetMediaArchives,
 };

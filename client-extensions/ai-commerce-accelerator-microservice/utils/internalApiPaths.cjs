@@ -21,6 +21,10 @@ const INTERNAL_API_PATHS = {
   DELETE_COMMERCE_DATA: '/delete-commerce-data',
   DELETE_SELECTED_COMMERCE_DATA: '/delete-selected-commerce-data',
   EXPORT_COMMERCE_DATA: '/export-commerce-data',
+  // The cheap half of the pair below: the dataset this service recorded plus
+  // the media it wrote to disk as it generated it (#848). No instance, no
+  // credentials, no round trips - so a GET, where extract is a POST (#896).
+  EXPORT_COMMERCE_BUNDLE: '/export-commerce-bundle',
   // Extract, not export: this one points at a Liferay instance, authenticates
   // against it and pulls the media across the network. A true export packages
   // the session and media this service already holds, and costs neither

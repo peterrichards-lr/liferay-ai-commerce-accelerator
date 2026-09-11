@@ -47,7 +47,58 @@ This layer manages the canonical state of all asynchronous operations (sessions,
   - **Reads**: Checks cache first; on miss, loads from SQLite and populates cache.
   - **Writes/Updates**: All mutations are written directly to SQLite first. Immediately following a successful write, the corresponding cache entry is **invalidated (deleted)**.
 
----## AI Multi-Provider Strategy (Text vs. Media)
+### Dataset packages: export, extract, import
+
+A dataset is worth paying for once. The AI calls happen on the first run and
+every instance after that is a replay, so the same catalogue is promoted
+between instances rather than regenerated — a generated catalogue cannot be
+reproduced, because generation is not deterministic.
+
+Three operations share one package format (`.aicap`, a zip holding
+`dataset.json` and `media/`). They differ in **cost and dependency**, not in
+what they produce:
+
+| Operation   | Route                                           | Reads                                                  | Needs                                    |
+| ----------- | ----------------------------------------------- | ------------------------------------------------------ | ---------------------------------------- |
+| **export**  | `GET /api/v1/export-commerce-bundle?sessionId=` | this service's session, plus the media archive on disk | nothing external                         |
+| **extract** | `POST /api/v1/extract-commerce-bundle`          | a live Liferay instance                                | credentials, a round trip per attachment |
+| **import**  | `POST /api/v1/import-commerce-data`             | a package (or a bare JSON dataset)                     | write access to the target               |
+
+`GET /api/v1/export-commerce-data` remains the dataset-only JSON export, with
+no media.
+
+**Export needs the media archive switched on.** `MEDIA_ARCHIVE_ENABLED` is off
+by default; with it on, `utils/mediaArchive.cjs` writes each binary to
+`data/media/<sessionId>/` _before_ uploading it, under the same manifest the
+package format uses. When the run recorded media and the archive can supply
+none, the export **refuses with 409** and names extract — a package that
+quietly carries a catalogue with no pictures is the failure the whole feature
+exists to prevent.
+
+**Extract is the route for media this service never held**: a dataset
+generated before the archive existed, or one whose media now lives only in
+Liferay. It resolves attachments by product ERC rather than by anything the
+run recorded, which is why a historic session can still be promoted.
+
+**Both producers report the same four counts**, as response headers and inside
+`media/manifest.json`:
+
+| Header                                      | Reads                                                                                     |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `X-AICA-Media-Images` / `X-AICA-Media-Pdfs` | what the package carries                                                                  |
+| `X-AICA-Media-Unresolved`                   | media the source recorded that the package does **not** carry                             |
+| `X-AICA-Products-Incomplete`                | products missing a field the schema **requires** — these cannot be imported as they stand |
+| `X-AICA-Products-Partial`                   | products missing optional fields only, usually because they are blank on the source       |
+| `X-AICA-Media-Source`                       | `archive` or `instance` — which producer built it                                         |
+
+The last two exist because one number conflating them fired on every healthy
+run and was therefore ignored (#886). Anything above zero in the first three
+means the package is thinner than its source; per-product detail is in
+`metadata.translationReport` inside the package.
+
+---
+
+## AI Multi-Provider Strategy (Text vs. Media)
 
 To provide maximum flexibility and cost optimization, the microservice supports independent AI drivers for different content types.
 
@@ -143,4 +194,4 @@ Identifier for correlating user-visible errors and server logs.
 
 ---
 
-_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
+_Last Updated: 2026-09-11_ | _Last Reviewed: 2026-09-11_
