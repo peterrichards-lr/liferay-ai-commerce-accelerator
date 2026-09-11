@@ -117,6 +117,11 @@ const ENV = {
 
   // Liferay connection
   LIFERAY_API_URL: str('LIFERAY_API_URL', ''),
+  // The instance as a browser sees it, which is what a bearer token is
+  // verified against and what the health check connects to. Documented in
+  // .env.example and read straight from process.env in two places until #933;
+  // the default lives here so both read the same one.
+  LIFERAY_URL: str('LIFERAY_URL', 'http://localhost:8080'),
   LIFERAY_API_USERNAME: str('LIFERAY_API_USERNAME', ''),
   LIFERAY_API_PASSWORD: str('LIFERAY_API_PASSWORD', ''),
   LIFERAY_COMPANY_ID: num('LIFERAY_COMPANY_ID', 20101),
