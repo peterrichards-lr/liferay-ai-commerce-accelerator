@@ -145,39 +145,59 @@ async function extractProductMedia({
 }
 
 /**
- * Every product's media, in dataset order.
+ * Every product's media, in dataset order, written to the archive as it
+ * arrives.
  *
  * Sequential on purpose. A promotion is a rare, operator-initiated action, and
  * the source instance is usually the one a demo is being prepared on - so the
  * cost of being slow is much lower than the cost of a burst of parallel binary
  * fetches against it.
+ *
+ * Each binary goes to disk and is released rather than accumulated, so the
+ * peak is one attachment rather than the whole catalogue, and what it paid
+ * for is still there afterwards: extract once, and every later export of that
+ * session is a directory read (#898). The package is then built from the
+ * archive by the caller - the same step, from the same place, whichever
+ * producer staged it.
  */
 async function extractDatasetMedia({
+  archive,
   config,
   correlationId,
   liferayService,
   logger,
   products = [],
 }) {
-  const media = [];
+  let staged = 0;
+  let unresolved = 0;
 
   for (const product of products) {
     const productERC = product?.externalReferenceCode;
 
     if (!productERC) continue;
 
-    media.push(
-      ...(await extractProductMedia({
-        config,
-        correlationId,
-        liferayService,
-        logger,
-        productERC,
-      }))
-    );
+    const found = await extractProductMedia({
+      config,
+      correlationId,
+      liferayService,
+      logger,
+      productERC,
+    });
+
+    for (const item of found) {
+      // An item that could not be fetched is recorded too, carrying the reason
+      // it failed. Dropping it would leave the shortfall to be inferred from a
+      // count, which is how a package quietly thinner than its source gets
+      // mistaken for a complete one.
+      if (archive.record(item)) {
+        staged += 1;
+      } else {
+        unresolved += 1;
+      }
+    }
   }
 
-  return media;
+  return { staged, unresolved };
 }
 
 module.exports = { extractDatasetMedia, extractProductMedia, srcPath };

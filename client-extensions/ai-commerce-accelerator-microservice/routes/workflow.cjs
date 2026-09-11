@@ -1,4 +1,5 @@
 const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
+const { sweepOrphanMediaArchives } = require('../utils/mediaArchive.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { sanitizeValue } = require('../utils/normalize.cjs');
@@ -88,6 +89,30 @@ const STEP_ENTITY_MAP = {
 };
 
 module.exports = (app, { logger, persistenceService, progressService }) => {
+  /**
+   * Media whose session no longer exists, removed.
+   *
+   * Read back rather than tracked: the two routes below remove sessions in
+   * bulk and report counts, not identities, so what survives is the only
+   * reliable answer to what should keep its media. A failure here leaves
+   * directories for the next sweep and must not fail the request that asked
+   * for the sessions to go - they already have.
+   */
+  const sweepMediaForSurvivingSessions = async () => {
+    try {
+      const sessions = await persistenceService.getAllSessions();
+
+      sweepOrphanMediaArchives({
+        knownSessionIds: sessions.map((session) => session.session_id),
+        logger,
+      });
+    } catch (error) {
+      logger.warn(
+        `Could not sweep orphaned media after clearing sessions: ${error.message}. The directories stay until the next sweep.`
+      );
+    }
+  };
+
   app.get(INTERNAL_API_PATHS.WORKFLOW_SESSIONS, async (req, res) => {
     try {
       const sessions = await persistenceService.getAllSessions();
@@ -510,6 +535,10 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
   app.delete(INTERNAL_API_PATHS.WORKFLOW_CLEAR_ALL, async (req, res) => {
     try {
       await persistenceService.clearAll();
+      // The sessions are gone; their media would otherwise stay until the age
+      // prune got to it, on the one path where someone has explicitly asked
+      // for everything to go (#898).
+      await sweepMediaForSurvivingSessions();
       res.json({
         success: true,
         message: 'All workflow data cleared successfully',
@@ -540,6 +569,7 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
       }
 
       await persistenceService.cleanup(cutoff);
+      await sweepMediaForSurvivingSessions();
 
       res.json({
         success: true,

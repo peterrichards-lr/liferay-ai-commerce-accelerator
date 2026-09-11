@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { BUNDLE_VERSION, KIND } = require('./mediaBundle.cjs');
@@ -53,8 +54,8 @@ const openArchives = new Map();
  */
 function mediaArchiveSettings(overrides = {}) {
   return {
-    enabled: overrides.enabled ?? ENV.MEDIA_ARCHIVE_ENABLED,
     maxSessions: overrides.maxSessions ?? ENV.MEDIA_ARCHIVE_MAX_SESSIONS,
+    retain: overrides.retain ?? ENV.MEDIA_ARCHIVE_RETAIN,
     retentionHours:
       overrides.retentionHours ?? ENV.MEDIA_ARCHIVE_RETENTION_HOURS,
     root: overrides.root ?? ENV.MEDIA_ARCHIVE_PATH,
@@ -260,6 +261,47 @@ class MediaArchive {
   }
 
   /**
+   * Drop any earlier record of the same thing, file included.
+   *
+   * A session's directory is written to more than once - images and PDFs are
+   * separate passes, a media-only re-run comes back to it, and an extract can
+   * be repeated against the same session - and `entryPath` resolves a name
+   * collision by appending `-2`. Left alone, a second extract would put every
+   * picture in the package twice and the counts would read as a catalogue with
+   * twice the media it has (#898).
+   *
+   * Identity is product, kind and title: the same picture of the same product.
+   * Priority is deliberately not part of it - a re-extract that reorders
+   * pictures is still the same pictures - and the new entry carries whatever
+   * priority the source now reports.
+   */
+  forget({ kind, productERC, title }) {
+    const same = (item) =>
+      item.kind === kind &&
+      item.productERC === productERC &&
+      (item.title ?? null) === (title ?? null);
+
+    this.manifest.unresolved = this.manifest.unresolved.filter(
+      (item) => !same(item)
+    );
+
+    this.manifest.files = this.manifest.files.filter((item) => {
+      if (!same(item)) return true;
+
+      this.taken.delete(item.file);
+
+      try {
+        fs.rmSync(path.join(this.dir, item.file), { force: true });
+      } catch {
+        // The file is going to be overwritten or left orphaned in a directory
+        // that is itself pruned. Neither is worth failing a record over.
+      }
+
+      return false;
+    });
+  }
+
+  /**
    * Write one binary and record it. Called *before* the upload, deliberately.
    *
    * Returns the manifest entry so the caller can hand back what Liferay
@@ -273,6 +315,7 @@ class MediaArchive {
     kind,
     priority,
     productERC,
+    reason,
     sku,
     title,
   }) {
@@ -290,10 +333,15 @@ class MediaArchive {
       title: title ?? null,
     };
 
+    this.forget(entry);
+
     if (bytes.length === 0) {
       this.manifest.unresolved.push({
         ...entry,
-        reason: 'no content to write',
+        // The caller's reason where it has one: 'no content resolved' from an
+        // extract and 'no content to write' from a generator are different
+        // events, and the manifest is where anyone finds out which.
+        reason: reason || 'no content to write',
       });
       this.writeManifest();
       return null;
@@ -368,7 +416,11 @@ const NO_ARCHIVE = {
 function openMediaArchive({ correlationId, logger, sessionId, ...overrides }) {
   const settings = mediaArchiveSettings(overrides);
 
-  if (!settings.enabled || !sessionId) return NO_ARCHIVE;
+  // No feature switch here any more. Staging is how a package is built, so a
+  // flag that skipped it would produce a package with no pictures and no error
+  // (#898). Only a missing session id or a directory that cannot be created
+  // stands the archive down, and both are real failures rather than choices.
+  if (!sessionId) return NO_ARCHIVE;
 
   const cached = openArchives.get(sessionId);
   if (cached) return cached;
@@ -421,7 +473,7 @@ function openMediaArchive({ correlationId, logger, sessionId, ...overrides }) {
 function readMediaArchive({ sessionId, ...overrides } = {}) {
   const settings = mediaArchiveSettings(overrides);
 
-  if (!settings.enabled || !sessionId) return null;
+  if (!sessionId) return null;
 
   const dir = path.join(settings.root, safeSegment(sessionId, 'session'));
 
@@ -488,6 +540,157 @@ function readMediaArchive({ sessionId, ...overrides } = {}) {
   };
 }
 
+/**
+ * The name a directory gets when a package, not a run, is what needs staging.
+ *
+ * An extract reading a live instance has no session of its own - there is no
+ * run behind it, only a request - so it mints one. The prefix is what tells
+ * the orphan sweep to leave it alone: a staging directory is *expected* to
+ * have no row in workflows.db, so matching it against sessions would delete it
+ * the moment it was created.
+ */
+const EXTRACT_STAGING_PREFIX = 'AICA-EXTRACT-';
+
+function extractStagingId(now = Date.now()) {
+  return `${EXTRACT_STAGING_PREFIX}${now}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function isExtractStaging(name) {
+  return String(name || '').startsWith(EXTRACT_STAGING_PREFIX);
+}
+
+/**
+ * Remove one session's directory and forget the open archive for it.
+ *
+ * Used when a staging directory has served its purpose and retention is off.
+ * Never throws: failing to clean up scratch must not fail the operation that
+ * produced the package, which by then has already been sent.
+ */
+function removeMediaArchive({ sessionId, logger, ...overrides }) {
+  if (!sessionId) return false;
+
+  const settings = mediaArchiveSettings(overrides);
+  const dir = path.join(settings.root, safeSegment(sessionId, 'session'));
+
+  openArchives.delete(sessionId);
+
+  try {
+    fs.rmSync(dir, { force: true, recursive: true });
+    return true;
+  } catch (error) {
+    logger?.warn?.(
+      `Could not remove the media archive directory ${dir}: ${error.message}`
+    );
+    return false;
+  }
+}
+
+/**
+ * Delete the media of sessions that no longer exist.
+ *
+ * `PersistenceService` belongs to the SDK, so hooking session deletion at
+ * source would mean an SDK change, a release and a pin bump for a directory
+ * the SDK has no business knowing about. Sweeping is better anyway: a
+ * directory whose session id is not in the database is garbage however it
+ * went - `clear-all`, `cleanup`, a row removed by hand, or a crash between two
+ * of those - and one rule covers all of it (#898).
+ *
+ * Staging directories are exempt by name, because having no session is what
+ * they are.
+ */
+function sweepOrphanMediaArchives({ knownSessionIds, logger, ...overrides }) {
+  const settings = mediaArchiveSettings(overrides);
+  const known = new Set(
+    [...(knownSessionIds || [])].map((id) => safeSegment(id, 'session'))
+  );
+
+  let entries;
+
+  try {
+    entries = fs.readdirSync(settings.root, { withFileTypes: true });
+  } catch {
+    // No root yet. Nothing has been staged, so nothing is orphaned.
+    return { removed: [] };
+  }
+
+  const removed = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (isExtractStaging(entry.name)) continue;
+    if (known.has(entry.name)) continue;
+
+    const dir = path.join(settings.root, entry.name);
+
+    try {
+      fs.rmSync(dir, { force: true, recursive: true });
+      removed.push(dir);
+    } catch (error) {
+      logger?.warn?.(
+        `Could not sweep the orphaned media archive ${dir}: ${error.message}`
+      );
+    }
+  }
+
+  if (removed.length > 0) {
+    logger?.info?.(
+      `Swept ${removed.length} media archive director${removed.length === 1 ? 'y' : 'ies'} whose session no longer exists`
+    );
+  }
+
+  return { removed };
+}
+
+/**
+ * Move media left behind by the old in-repository default.
+ *
+ * The archive used to live at `./data/media`, inside the repository and beside
+ * build/ and dist/ - the location #869 moved the database out of, after
+ * ordinary tooling destroyed it twice. Anything already there is media a
+ * package may still be built from, so it is moved rather than ignored (#899).
+ *
+ * Only when the destination does not exist, and never when the operator has
+ * set a path of their own: their setting is the answer, not something to
+ * migrate away from.
+ */
+function migrateLegacyMediaRoot({ logger, ...overrides } = {}) {
+  if (process.env.MEDIA_ARCHIVE_PATH) return { moved: false };
+
+  const settings = mediaArchiveSettings(overrides);
+  const legacy = path.resolve(
+    overrides.legacyRoot ?? ENV.MEDIA_ARCHIVE_LEGACY_PATH
+  );
+
+  if (path.resolve(settings.root) === legacy) return { moved: false };
+
+  try {
+    if (!fs.statSync(legacy).isDirectory()) return { moved: false };
+  } catch {
+    return { moved: false };
+  }
+
+  if (fs.existsSync(settings.root)) {
+    logger?.warn?.(
+      `Media exists at both ${legacy} and ${settings.root}. The old directory was left alone; move or delete it by hand.`
+    );
+    return { moved: false };
+  }
+
+  try {
+    fs.mkdirSync(path.dirname(settings.root), { recursive: true });
+    fs.renameSync(legacy, settings.root);
+    logger?.info?.(
+      `Moved the media archive from ${legacy} to ${settings.root}, where a clean cannot reach it (#899)`
+    );
+    return { moved: true };
+  } catch (error) {
+    logger?.warn?.(
+      `Could not move the media archive from ${legacy} to ${settings.root}: ${error.message}. It is still readable where it is; set MEDIA_ARCHIVE_PATH to keep using it.`
+    );
+    return { moved: false };
+  }
+}
+
 /** Test seam: the open-archive cache is process-wide and outlives a test. */
 function resetMediaArchives() {
   openArchives.clear();
@@ -495,11 +698,17 @@ function resetMediaArchives() {
 
 module.exports = {
   EXTENSIONS,
+  EXTRACT_STAGING_PREFIX,
   MANIFEST_FILE,
   NO_ARCHIVE,
+  extractStagingId,
+  isExtractStaging,
   mediaArchiveSettings,
+  migrateLegacyMediaRoot,
   openMediaArchive,
   pruneArchiveRoot,
   readMediaArchive,
+  removeMediaArchive,
+  sweepOrphanMediaArchives,
   resetMediaArchives,
 };
