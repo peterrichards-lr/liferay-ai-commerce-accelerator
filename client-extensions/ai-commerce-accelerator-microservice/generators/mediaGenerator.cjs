@@ -350,6 +350,26 @@ class MediaGenerator {
       }));
   }
 
+  /**
+   * The retention an operator has configured, or the deployment's.
+   *
+   * Fetched here rather than read inside `openMediaArchive`, because that is
+   * synchronous and this is a network read - the same split the catalog
+   * expiry config uses. A failure resolves to the environment and then the
+   * shipped defaults, so media is still written when configuration cannot be
+   * reached (#917).
+   */
+  async _mediaArchiveOverrides(config) {
+    try {
+      return (await this.ctx?.config?.getMediaArchiveConfig?.(config)) || {};
+    } catch (error) {
+      this.ctx?.logger?.warn?.(
+        `Could not read the media archive configuration: ${error.message}. Falling back to the environment.`
+      );
+      return {};
+    }
+  }
+
   async createImages(config, products, options) {
     const { logger, liferay, progress, ai } = this.ctx;
     const { sessionId, correlationId: optionsCID } = options;
@@ -431,7 +451,12 @@ class MediaGenerator {
     // extended rather than rebuilt. Never throws and never returns null: a
     // switched-off or unopenable archive is a no-op the loop cannot tell
     // apart from a working one (#848).
-    const archive = openMediaArchive({ correlationId, logger, sessionId });
+    const archive = openMediaArchive({
+      correlationId,
+      logger,
+      sessionId,
+      ...(await this._mediaArchiveOverrides(config)),
+    });
 
     let completedCount = 0;
     const createdImages = [];
@@ -672,7 +697,12 @@ class MediaGenerator {
       correlationId,
     });
 
-    const archive = openMediaArchive({ correlationId, logger, sessionId });
+    const archive = openMediaArchive({
+      correlationId,
+      logger,
+      sessionId,
+      ...(await this._mediaArchiveOverrides(config)),
+    });
 
     let completedCount = 0;
     const createdPdfs = [];

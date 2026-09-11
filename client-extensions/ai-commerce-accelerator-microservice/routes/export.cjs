@@ -189,9 +189,29 @@ function setBundleHeaders(res, { dataset, manifest, sessionId, source }) {
   return { incomplete, partial };
 }
 
+/**
+ * The retention an operator configured, if configuration can be reached.
+ *
+ * A read failure is not allowed to stop a package being built: it resolves to
+ * the environment and then the shipped defaults, exactly as an absent entry
+ * does. The alternative - refusing to export because a configuration object is
+ * unreachable - would break the cheap route in precisely the situation it
+ * exists for (#917).
+ */
+async function mediaArchiveOverrides({ config, configService, logger }) {
+  try {
+    return (await configService?.getMediaArchiveConfig?.(config)) || {};
+  } catch (error) {
+    logger?.warn?.(
+      `Could not read the media archive configuration: ${error.message}. Falling back to the environment.`
+    );
+    return {};
+  }
+}
+
 module.exports = (
   app,
-  { cacheService, liferayService, logger, persistenceService }
+  { cacheService, configService, liferayService, logger, persistenceService }
 ) => {
   app.get(INTERNAL_API_PATHS.EXPORT_COMMERCE_DATA, async (req, res) => {
     try {
@@ -311,6 +331,9 @@ module.exports = (
       }
 
       const dataset = datasetFromSession(session, 'session-db');
+      // No configuration read here, and none needed: retention decides how
+      // long an archive lives, not how it is read, and this route has no
+      // credentials with which to ask Liferay anyway.
       const archive = readMediaArchive({ sessionId });
       const expected = dataset.images.length + dataset.pdfs.length;
 
@@ -515,10 +538,17 @@ module.exports = (
         stagingId,
       });
 
+      const archiveSettings = await mediaArchiveOverrides({
+        config,
+        configService,
+        logger,
+      });
+
       const archive = openMediaArchive({
         correlationId,
         logger,
         sessionId: stagingId,
+        ...archiveSettings,
       });
 
       if (!archive.enabled) {
@@ -540,7 +570,10 @@ module.exports = (
 
       // Built from the archive, exactly as the export route builds it. One
       // packaging step from one place, whichever producer staged the bytes.
-      const staged = readMediaArchive({ sessionId: stagingId });
+      const staged = readMediaArchive({
+        sessionId: stagingId,
+        ...archiveSettings,
+      });
 
       const { buffer, manifest } = await buildMediaBundle({
         dataset,
@@ -597,8 +630,12 @@ module.exports = (
       // only when it was scratch and retention is off - a session's own
       // directory is the session's, not this request's, and is governed by the
       // prune and the orphan sweep instead.
-      if (stagingIsScratch && !mediaArchiveSettings().retain) {
-        removeMediaArchive({ logger, sessionId: stagingId });
+      if (stagingIsScratch && !mediaArchiveSettings(archiveSettings).retain) {
+        removeMediaArchive({
+          logger,
+          sessionId: stagingId,
+          ...archiveSettings,
+        });
       }
     } catch (error) {
       const errorReference = createERC(ERC_PREFIX.ERROR);

@@ -15,6 +15,9 @@ const {
   listSchemaNames,
 } = require('../utils/configurationAssets.cjs');
 const { normalizeCatalogExpiryConfig } = require('../utils/catalogExpiry.cjs');
+const {
+  normalizeMediaArchiveConfig,
+} = require('../utils/mediaArchiveConfig.cjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -37,7 +40,9 @@ const CACHE_CONFIG_CACHE_KEY = 'CACHE_CONFIG_KEY';
 const CACHE_CONFIG_KEY = 'cache-config';
 
 const CATALOG_EXPIRY_CONFIG_CACHE_KEY = 'CATALOG_EXPIRY_CONFIG_KEY';
+const MEDIA_ARCHIVE_CONFIG_CACHE_KEY = 'MEDIA_ARCHIVE_CONFIG_KEY';
 const CATALOG_EXPIRY_CONFIG_KEY = 'catalog-expiry-config';
+const MEDIA_ARCHIVE_CONFIG_KEY = 'media-archive-config';
 
 const DEFAULT_IMAGE_CACHE_KEY = 'DEFAULT_IMAGE_KEY';
 const DEFAULT_IMAGE_CONFIG_KEY = 'default-image';
@@ -669,6 +674,34 @@ class ConfigService {
         'get-catalog-expiry-config',
         'Failed to get catalog expiry configuration'
       )
+    );
+  }
+
+  /**
+   * How long a run's media stays, and whether package staging outlives its
+   * package.
+   *
+   * Normalized on the way out for the same reason the expiry config is: an
+   * empty answer means "provisioned before this entry existed" or "the read
+   * failed", and neither may resolve to a retention of zero, which would
+   * prune every run's media on the next pass. See utils/mediaArchiveConfig.cjs
+   * and #917.
+   */
+  async getMediaArchiveConfig(requestConfig) {
+    return normalizeMediaArchiveConfig(
+      await this._getConfigWithFallback(
+        requestConfig,
+        MEDIA_ARCHIVE_CONFIG_CACHE_KEY,
+        MEDIA_ARCHIVE_CONFIG_KEY,
+        'get-media-archive-config',
+        'Failed to get media archive configuration'
+      )
+    );
+  }
+
+  getMediaArchiveConfigCached() {
+    return normalizeMediaArchiveConfig(
+      this.getConfigCached(MEDIA_ARCHIVE_CONFIG_CACHE_KEY)
     );
   }
 
