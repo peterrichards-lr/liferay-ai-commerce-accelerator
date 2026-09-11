@@ -12,11 +12,19 @@ updates:
           - '*'
     ignore:
       - dependency-name: 'codemirror'
+      # The SDK is pinned by git tag, and Dependabot compares those tags as
+      # strings: it read v0.8.7 as newer than v0.8.20 and opened #907, a
+      # thirteen-release downgrade. The pin only ever moves deliberately, as
+      # part of releasing the SDK, so there is nothing here for it to propose.
+      - dependency-name: '@liferay/accelerator-sdk'
   - package-ecosystem: 'npm'
     directory: '/client-extensions/ai-commerce-accelerator-microservice'
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 10
+    ignore:
+      # See the root entry: a git-tag pin Dependabot cannot order.
+      - dependency-name: '@liferay/accelerator-sdk'
   - package-ecosystem: 'npm'
     directory: '/client-extensions/ai-commerce-accelerator-frontend'
     schedule:
