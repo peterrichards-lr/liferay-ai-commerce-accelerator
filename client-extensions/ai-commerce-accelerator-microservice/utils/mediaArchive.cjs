@@ -439,12 +439,37 @@ function readMediaArchive({ sessionId, ...overrides } = {}) {
   const missing = [];
 
   for (const file of Array.isArray(manifest.files) ? manifest.files : []) {
+    const target = path.resolve(dir, String(file.file || ''));
+
+    // The writer flattens every name, so a manifest that points outside its
+    // own session directory was not written by this service. Treating it as
+    // missing rather than reading it keeps a package built from a tampered or
+    // hand-edited archive to the bytes that archive actually owns.
+    if (
+      target !== dir &&
+      !target.startsWith(`${path.resolve(dir)}${path.sep}`)
+    ) {
+      missing.push({
+        ...file,
+        reason: 'the manifest names a file outside the session directory',
+      });
+      continue;
+    }
+
     let buffer;
 
     try {
-      buffer = fs.readFileSync(path.join(dir, file.file));
+      buffer = fs.readFileSync(target);
     } catch (error) {
-      missing.push({ ...file, reason: error.message });
+      // The code, not the message: the message carries the absolute path,
+      // and this reason travels inside a package that goes to other people.
+      missing.push({
+        ...file,
+        reason:
+          error.code === 'ENOENT'
+            ? `the media archive no longer holds ${file.file}`
+            : `${file.file} could not be read from the media archive (${error.code || 'unknown error'})`,
+      });
       continue;
     }
 

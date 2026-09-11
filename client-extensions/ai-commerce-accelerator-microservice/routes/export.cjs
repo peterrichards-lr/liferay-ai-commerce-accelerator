@@ -99,12 +99,15 @@ function mediaExpectations(dataset) {
  * the same way.
  */
 function archiveGaps({ dataset, entries, missing }) {
+  // The reader's own reason is kept: a manifest pointing outside its
+  // directory is a different problem from a file that was deleted, and the
+  // package is where whoever imports it finds out which.
   const gaps = missing.map((entry) => ({
     contentType: entry.contentType,
     kind: entry.kind,
     priority: entry.priority,
     productERC: entry.productERC,
-    reason: `the media archive no longer holds ${entry.file}`,
+    reason: entry.reason,
     title: entry.title,
   }));
 

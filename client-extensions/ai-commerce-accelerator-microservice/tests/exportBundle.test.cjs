@@ -208,6 +208,29 @@ describe('GET /export-commerce-bundle', () => {
     expect(manifest.unresolved[0].reason).toContain('never received it');
   });
 
+  it('will not read a file the manifest points outside the session directory', async () => {
+    const dir = writeArchive({
+      files: [{ ...IMAGE, bytes: Buffer.from('helmet image') }],
+    });
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(dir, MANIFEST_FILE), 'utf8')
+    );
+
+    manifest.files.push({ ...PDF, file: '../../../etc/hosts' });
+    fs.writeFileSync(path.join(dir, MANIFEST_FILE), JSON.stringify(manifest));
+
+    const res = await call();
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['X-AICA-Media-Pdfs']).toBe('0');
+
+    const bundle = await readMediaBundle(res.body);
+
+    expect(bundle.manifest.unresolved[0].reason).toContain(
+      'outside the session directory'
+    );
+  });
+
   it('builds an honest empty package for a run that generated no media', async () => {
     const res = await call({
       stored: session({ images: [], pdfs: [] }),
