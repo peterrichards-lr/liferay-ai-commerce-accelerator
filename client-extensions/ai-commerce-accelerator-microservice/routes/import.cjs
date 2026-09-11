@@ -47,6 +47,7 @@ module.exports = (
         liferayService,
         logger,
         operation: 'import-commerce-data',
+        writes: true,
       });
 
       logCommerceSelection({

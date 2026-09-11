@@ -311,6 +311,7 @@ module.exports = (router, routeCtx) => {
             liferayService,
             logger,
             operation: 'aica_trigger_generation',
+            writes: true,
           });
 
           logCommerceSelection({
