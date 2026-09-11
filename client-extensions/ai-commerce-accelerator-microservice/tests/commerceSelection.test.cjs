@@ -20,6 +20,25 @@ const CHANNELS = [
   { id: 402, name: 'Trade Counter', siteGroupId: 901 },
 ];
 
+/**
+ * A rejection shaped the way HttpCoreService throws one: the message is the
+ * operation's display name and everything diagnostic is on the properties.
+ */
+const unreadable = (status) => {
+  const error = new Error('Get Channels Bulk');
+
+  error.name = 'LiferayRequestError';
+  error.operation = 'get-channels-bulk';
+  error.status = status;
+  error.request = {
+    method: 'GET',
+    url: '/o/headless-commerce-admin-channel/v1.0/channels',
+  };
+  error.response = { status, data: { status: 'FORBIDDEN' } };
+
+  return error;
+};
+
 const makeLogger = () => ({
   debug: vi.fn(),
   error: vi.fn(),
@@ -268,7 +287,7 @@ describe('resolveRunCommerceSelection', () => {
     );
   });
 
-  it('uses the ids as supplied when the lists cannot be read', async () => {
+  it('uses the ids as supplied when a read cannot check them', async () => {
     const config = { catalogId: 34205, channelId: 34907 };
     const logger = makeLogger();
 
@@ -285,6 +304,84 @@ describe('resolveRunCommerceSelection', () => {
     expect(config.catalogId).toBe(34205);
     expect(config.channelId).toBe(34907);
     expect(logger.error).toHaveBeenCalled();
+  });
+
+  it('refuses a write whose channel could not be checked', async () => {
+    // The run that prompted this created five warehouses on production after
+    // saying it could not read the channel list, then failed resolving the
+    // siteGroupId it had never read (#889).
+    const config = { catalogId: 102, channelId: 42508 };
+
+    const result = await resolveRunCommerceSelection({
+      config,
+      liferayService: liferayService({
+        getChannels: vi.fn().mockRejectedValue(unreadable(403)),
+      }),
+      logger: makeLogger(),
+      writes: true,
+    });
+
+    expect(result.rejection).toContain('Channel id 42508 could not be checked');
+    expect(result.rejection).toContain('Refusing the run');
+    expect(result.rejections).toHaveLength(1);
+  });
+
+  it('names the status that stopped the write, not the operation label', async () => {
+    const result = await resolveRunCommerceSelection({
+      config: { catalogId: 102, channelId: 42508 },
+      liferayService: liferayService({
+        getChannels: vi.fn().mockRejectedValue(unreadable(403)),
+      }),
+      logger: makeLogger(),
+      writes: true,
+    });
+
+    expect(result.rejection).toContain('HTTP 403');
+  });
+
+  it('logs the status and path of a list read that failed', async () => {
+    const logger = makeLogger();
+
+    await resolveRunCommerceSelection({
+      config: { catalogId: 102, channelId: 42508 },
+      liferayService: liferayService({
+        getChannels: vi.fn().mockRejectedValue(unreadable(403)),
+      }),
+      logger,
+      writes: true,
+    });
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Failed to read the channel list from Liferay',
+      expect.objectContaining({
+        requestPath: '/o/headless-commerce-admin-channel/v1.0/channels',
+        status: 403,
+      })
+    );
+  });
+
+  it('asks the instance directly before refusing an unreadable list', async () => {
+    // The by-id read is the courtesy STALE already gets: a list read can fail
+    // for reasons a single record read does not share (#889).
+    const getChannel = vi
+      .fn()
+      .mockResolvedValue({ id: 42508, name: 'Prod', siteGroupId: 960 });
+
+    const config = { catalogId: 102, channelId: 42508 };
+
+    const result = await resolveRunCommerceSelection({
+      config,
+      liferayService: liferayService({
+        client: { headlessCommerceAdminChannel: { v1_0: { getChannel } } },
+        getChannels: vi.fn().mockRejectedValue(unreadable(500)),
+      }),
+      logger: makeLogger(),
+      writes: true,
+    });
+
+    expect(getChannel).toHaveBeenCalledWith(config, 42508);
+    expect(result.rejection).toBeNull();
+    expect(config.siteGroupId).toBe(960);
   });
 
   it("prefers the channel's own siteGroupId over a stale one in the request", async () => {
@@ -394,6 +491,18 @@ describe('Generation route commerce guard', () => {
         success: true,
       })
     );
+  });
+
+  it('starts no session when the channel list could not be read', async () => {
+    // The point of the guard is where it fires: before the first write. The
+    // run this came from had already created five warehouses by the time it
+    // discovered it had no siteGroupId (#889).
+    liferayService.getChannels = vi.fn().mockRejectedValue(unreadable(403));
+
+    const res = await post({ catalogId: 205, channelId: 42508 });
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(createSession).not.toHaveBeenCalled();
   });
 
   it('guards a seed pack run, which used to return before the fallback ran', async () => {

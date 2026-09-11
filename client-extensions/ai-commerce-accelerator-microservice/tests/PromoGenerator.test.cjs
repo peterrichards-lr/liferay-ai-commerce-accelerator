@@ -408,4 +408,145 @@ describe('PromoGenerator', () => {
       expect(code.length).toBeLessThanOrEqual(75);
     }
   });
+  /**
+   * A failure batch is a row somebody has to be able to read back.
+   *
+   * These three call sites omitted `erc` entirely, and the SDK's `createBatch`
+   * binds what it is given straight into the insert. `workflow_batches.erc` is
+   * `TEXT PRIMARY KEY` with no NOT NULL, and SQLite permits NULLs in exactly
+   * that shape, so nothing raised - the row was simply written with no
+   * identity. `getBatch(erc)` and `updateBatch(erc, ...)` both key on it, so it
+   * could be neither looked up nor amended, and two failures in one session
+   * were indistinguishable in the report.
+   *
+   * The message went the same way. `errorDetails` is not a key `createBatch`
+   * reads, so the one thing the row existed to record was dropped in silence -
+   * the third instance of that class of drop after #172 and #763 (#862).
+   */
+  describe('a failed promotion step writes a batch that can be read back', () => {
+    const seedSession = async (sessionId) => {
+      await persistence.createSession({
+        sessionId,
+        flowType: 'generate',
+        status: 'STARTED',
+        currentSteps: [],
+        context: {
+          config: { siteGroupId: 123 },
+          options: {
+            generatePromotions: true,
+            productCount: 1,
+            accountCount: 1,
+          },
+          accountDataList: [
+            {
+              name: 'Wholesale Inc',
+              externalReferenceCode: 'ACC-WHOLESALE',
+              id: 200,
+            },
+          ],
+          productDataList: [{ name: 'Hammer', sku: 'SKU-HAMMER', id: 100 }],
+        },
+      });
+    };
+
+    const failedBatches = async (sessionId) =>
+      (await persistence.getBatchesForSession(sessionId)).filter(
+        (batch) => batch.status === 'FAILED'
+      );
+
+    it('records the generation step failure against an ERC of its own', async () => {
+      const sessionId = 'session-promo-data-failed';
+      await seedSession(sessionId);
+      mockCtx.generation.generateData.mockRejectedValue(
+        new Error('the model returned no promotions')
+      );
+
+      await expect(
+        generator._runPromoDataGenerationStep(sessionId)
+      ).rejects.toThrow('the model returned no promotions');
+
+      const batches = await failedBatches(sessionId);
+      expect(batches).toHaveLength(1);
+      expect(batches[0].erc).toMatch(/^AICA-BATCH/);
+      expect(batches[0].step_key).toBe('generate-promo-data');
+      expect(batches[0].status_reason).toBe('the model returned no promotions');
+      expect(await persistence.getBatch(batches[0].erc)).toMatchObject({
+        status: 'FAILED',
+      });
+    });
+
+    it('records the segment step failure against an ERC of its own', async () => {
+      const sessionId = 'session-segments-failed';
+      await seedSession(sessionId);
+      await generator._runPromoDataGenerationStep(sessionId);
+      // Reset first: the shared mock queues a one-time null so the happy path
+      // creates the group, and a queued value outranks the default.
+      mockCtx.liferay.getAccountGroupByERC.mockReset();
+      mockCtx.liferay.getAccountGroupByERC.mockRejectedValue(
+        new Error('Liferay refused the account group')
+      );
+
+      await expect(
+        generator._runCreateUserSegmentsStep(sessionId)
+      ).rejects.toThrow('Liferay refused the account group');
+
+      const batches = await failedBatches(sessionId);
+      expect(batches).toHaveLength(1);
+      expect(batches[0].erc).toMatch(/^AICA-BATCH/);
+      expect(batches[0].step_key).toBe('create-user-segments');
+      expect(batches[0].status_reason).toBe(
+        'Liferay refused the account group'
+      );
+    });
+
+    it('records the promotion step failure against an ERC of its own', async () => {
+      const sessionId = 'session-promotions-failed';
+      await seedSession(sessionId);
+      await generator._runPromoDataGenerationStep(sessionId);
+      mockCtx.liferay.getCatalogs.mockRejectedValue(
+        new Error('Liferay refused the catalogue lookup')
+      );
+
+      await expect(
+        generator._runCreatePromotionsStep(sessionId)
+      ).rejects.toThrow('Liferay refused the catalogue lookup');
+
+      const batches = await failedBatches(sessionId);
+      expect(batches).toHaveLength(1);
+      expect(batches[0].erc).toMatch(/^AICA-BATCH/);
+      expect(batches[0].step_key).toBe('create-promotions');
+      expect(batches[0].status_reason).toBe(
+        'Liferay refused the catalogue lookup'
+      );
+    });
+
+    // Two rows written in one session are two rows, not one row overwritten
+    // and one unaddressable.
+    it('gives two failures in one session two distinct ERCs', async () => {
+      const sessionId = 'session-two-failures';
+      await seedSession(sessionId);
+      await generator._runPromoDataGenerationStep(sessionId);
+      mockCtx.liferay.getAccountGroupByERC.mockReset();
+      mockCtx.liferay.getAccountGroupByERC.mockRejectedValue(
+        new Error('first')
+      );
+      mockCtx.liferay.getCatalogs.mockRejectedValue(new Error('second'));
+
+      await expect(
+        generator._runCreateUserSegmentsStep(sessionId)
+      ).rejects.toThrow('first');
+      await expect(
+        generator._runCreatePromotionsStep(sessionId)
+      ).rejects.toThrow('second');
+
+      const batches = await failedBatches(sessionId);
+      expect(batches).toHaveLength(2);
+      batches.forEach((batch) => expect(batch.erc).toMatch(/^AICA-BATCH/));
+      expect(new Set(batches.map((batch) => batch.erc)).size).toBe(2);
+      expect(batches.map((batch) => batch.status_reason).sort()).toEqual([
+        'first',
+        'second',
+      ]);
+    });
+  });
 });

@@ -88,6 +88,35 @@ if (command === '--help' || command === '-h') {
   process.exit(0);
 }
 
+/**
+ * A supplied value is either used or refused, never quietly replaced.
+ *
+ * `--accounts 0` reached the payload as 2, because the defaulting was
+ * `opts.accountCount || 2` and zero is falsy. Zero is the most useful value
+ * these flags have - products with no orders is the shape of a fixture, and
+ * accounts with no products is how an import target is prepared - so the
+ * defaults now use `??`, and only absence takes the default (#927).
+ *
+ * That only holds while what the parser stores is a number or nothing at all.
+ * `parseInt('abc', 10)` is `NaN`, which `??` would carry all the way to the
+ * API where `||` used to substitute the default and hide it, so a value that
+ * does not parse is refused here, naming the flag that carried it.
+ */
+function requireInteger(flag, raw, min) {
+  const value = Number(raw);
+
+  if (!Number.isInteger(value) || value < min) {
+    console.error(
+      `❌ ${flag} expects a whole number of ${min} or more, and was given ${
+        raw === undefined ? 'nothing' : `"${raw}"`
+      }.`
+    );
+    process.exit(1);
+  }
+
+  return value;
+}
+
 // Extract optional parameters
 const options = {};
 for (let i = 1; i < args.length; i++) {
@@ -98,16 +127,16 @@ for (let i = 1; i < args.length; i++) {
   if (arg === '-y' || arg === '--yes' || arg === '--non-interactive') {
     options.nonInteractive = true;
   }
-  if (arg === '--products' && args[i + 1]) {
-    options.productCount = parseInt(args[i + 1], 10);
+  if (arg === '--products') {
+    options.productCount = requireInteger(arg, args[i + 1], 0);
     i++;
   }
-  if (arg === '--accounts' && args[i + 1]) {
-    options.accountCount = parseInt(args[i + 1], 10);
+  if (arg === '--accounts') {
+    options.accountCount = requireInteger(arg, args[i + 1], 0);
     i++;
   }
-  if (arg === '--orders' && args[i + 1]) {
-    options.orderCount = parseInt(args[i + 1], 10);
+  if (arg === '--orders') {
+    options.orderCount = requireInteger(arg, args[i + 1], 0);
     i++;
   }
   if (arg === '--bulk-pricing') options.generateBulkPricing = true;
@@ -118,8 +147,8 @@ for (let i = 1; i < args.length; i++) {
   if (arg === '--no-specifications') options.generateSpecifications = false;
   if (arg === '--warehouses') options.createWarehouses = true;
   if (arg === '--no-warehouses') options.createWarehouses = false;
-  if (arg === '--warehouse-count' && args[i + 1]) {
-    options.warehouseCount = parseInt(args[i + 1], 10);
+  if (arg === '--warehouse-count') {
+    options.warehouseCount = requireInteger(arg, args[i + 1], 0);
     i++;
   }
   if ((arg === '--image-mode' || arg === '--images') && args[i + 1]) {
@@ -130,16 +159,20 @@ for (let i = 1; i < args.length; i++) {
     options.pdfMode = args[i + 1];
     i++;
   }
-  if ((arg === '--channel-id' || arg === '--channel') && args[i + 1]) {
-    options.channelId = parseInt(args[i + 1], 10);
+  // Liferay ids start at 1, so an id flag is refused below zero as well as at
+  // it: a `--channel-id abc` that parsed to NaN used to fall through to the
+  // environment and then to the interactive picker, which reads as the flag
+  // having been ignored rather than misspelt.
+  if (arg === '--channel-id' || arg === '--channel') {
+    options.channelId = requireInteger(arg, args[i + 1], 1);
     i++;
   }
-  if ((arg === '--site-group-id' || arg === '--site-group') && args[i + 1]) {
-    options.siteGroupId = parseInt(args[i + 1], 10);
+  if (arg === '--site-group-id' || arg === '--site-group') {
+    options.siteGroupId = requireInteger(arg, args[i + 1], 1);
     i++;
   }
-  if ((arg === '--catalog-id' || arg === '--catalog') && args[i + 1]) {
-    options.catalogId = parseInt(args[i + 1], 10);
+  if (arg === '--catalog-id' || arg === '--catalog') {
+    options.catalogId = requireInteger(arg, args[i + 1], 1);
     i++;
   }
   if (arg === '--docker') options.docker = true;
@@ -225,15 +258,15 @@ async function askQuestion(query) {
 
 async function resolveCommerceContext(opts) {
   let channelId =
-    opts.channelId ||
+    opts.channelId ??
     toNumber(process.env.AICA_CHANNEL_ID || process.env.LIFERAY_CHANNEL_ID);
   let siteGroupId =
-    opts.siteGroupId ||
+    opts.siteGroupId ??
     toNumber(
       process.env.AICA_SITE_GROUP_ID || process.env.LIFERAY_SITE_GROUP_ID
     );
   let catalogId =
-    opts.catalogId ||
+    opts.catalogId ??
     toNumber(process.env.AICA_CATALOG_ID || process.env.LIFERAY_CATALOG_ID);
 
   const isNonInteractive =
@@ -409,13 +442,13 @@ async function handleGenerate(opts) {
   const payload = {
     ...buildConnectionPayload(),
     demoMode: opts.demoMode || false,
-    productCount: opts.productCount || 2,
-    accountCount: opts.accountCount || 2,
-    orderCount: opts.orderCount || 5,
+    productCount: opts.productCount ?? 2,
+    accountCount: opts.accountCount ?? 2,
+    orderCount: opts.orderCount ?? 5,
     imageMode: opts.imageMode || 'default',
     pdfMode: opts.pdfMode || 'default',
     createWarehouses: opts.createWarehouses !== false,
-    warehouseCount: opts.warehouseCount || 1,
+    warehouseCount: opts.warehouseCount ?? 1,
     generatePriceLists: true,
     generateSkuVariants: true,
     generateSpecifications: opts.generateSpecifications !== false,
@@ -1087,9 +1120,9 @@ Options:
   --docker                               Force Option 2: local Docker/LDM reindex trigger
   --api                                  Force Option 1: REST API reindex trigger via microservice
   --demo                                 Use Mock Data instead of Gemini AI
-  --products N                           Specify product target volume
-  --accounts N                           Specify business accounts volume
-  --orders N                             Specify order target volume
+  --products N                           Specify product target volume [2]
+  --accounts N                           Specify business accounts volume [2]
+  --orders N                             Specify order target volume [5]
   --images <mode> / --image-mode <mode>  Specify image generation mode (none|default|picsum|ai) [default]
   --pdfs <mode> / --pdf-mode <mode>      Specify PDF generation mode (none|default|ai) [default]
   --[no-]bulk-pricing                    Enable/disable bulk pricing generation [true]
