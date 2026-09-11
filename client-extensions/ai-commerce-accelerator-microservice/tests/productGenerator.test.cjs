@@ -1,4 +1,5 @@
 const ProductGenerator = require('../generators/productGenerator.cjs');
+const products = require('../generators/product-steps/products.cjs');
 const { COMMERCE_CONSTRAINTS } = require('../utils/commerceConstants.cjs');
 const { WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
@@ -304,38 +305,39 @@ describe('ProductGenerator Workflow Steps', () => {
     const sentPayloads = () =>
       mockLiferay.createProductsBatch.mock.calls.flatMap(([, chunk]) => chunk);
 
-    // The guard is aimed at the *shared row*, not at productConfiguration as a
-    // whole. Read off two products in a live instance: the flat fields are
-    // keyed to the product - distinct configuration ids, allowBackOrder true on
-    // one and false on the other - while productTaxConfiguration comes back
-    // with id 0 on both, no per-product row. So the flat fields can be sent
-    // fifty times to fifty rows, and the tax configuration is the one that
-    // must be written once. See #695.
+    // The create payload carries no tax configuration at all. It used to carry
+    // it on the first product of a run, on the reading that Liferay stored it
+    // once for the catalogue - `productTaxConfiguration.id` came back 0 on
+    // every product, which looked like "no per-product row".
+    //
+    // Measured against a live 2026.q3.0 instance, that reading was wrong:
+    // PATCH one product to `taxable: false` and the next still reads `true`.
+    // The id is simply not populated in the response. So the old behaviour
+    // configured one product and left the rest on Liferay's default, silently.
+    //
+    // It cannot move into the create payload either - that is what raced on
+    // CPConfigurationEntrySetting and discarded whole batches (#695, #667).
+    // It is applied after the products exist instead. See #714.
     const taxCarrying = () =>
       sentPayloads().filter(
         (p) => p.productConfiguration?.productTaxConfiguration
       );
 
-    it('sends the shared tax configuration on exactly one product', async () => {
+    it('sends no tax configuration with the products themselves', async () => {
       mockSession.context.productDataList = Array.from({ length: 5 }, (_, i) =>
         productFixture(i)
       );
 
       await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
 
-      const payloads = sentPayloads();
-      expect(payloads).toHaveLength(5);
-
-      const carrying = taxCarrying();
-      expect(carrying).toHaveLength(1);
-      expect(carrying[0].productConfiguration.productTaxConfiguration).toEqual({
-        taxCategory: 'Standard',
-        taxable: true,
-      });
+      expect(sentPayloads()).toHaveLength(5);
+      // Sending it here is what raced; sending it on one product is what left
+      // four products misconfigured. Neither belongs in this payload.
+      expect(taxCarrying()).toHaveLength(0);
     });
 
     it('sends the per-product fields on every product', async () => {
-      // Not the shared row, so withholding these would leave 49 products
+      // Keyed to the product, so withholding these would leave 49 products
       // without a setting the run asked for.
       mockSession.context.productDataList = Array.from({ length: 5 }, (_, i) =>
         productFixture(i)
@@ -349,36 +351,98 @@ describe('ProductGenerator Workflow Steps', () => {
       payloads.forEach((p) =>
         expect(p.productConfiguration.allowBackOrder).toBe(false)
       );
-      // Only the first carries the shared half.
-      payloads
-        .slice(1)
-        .forEach((p) =>
-          expect(p.productConfiguration.productTaxConfiguration).toBeUndefined()
-        );
     });
 
-    it('still sends the tax configuration when there is only one product', async () => {
-      mockSession.context.productDataList = [productFixture(0)];
+    it('applies the tax configuration to every product, not to one', async () => {
+      const patched = [];
 
-      await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
+      mockLiferay.client = {
+        headlessCommerceAdminCatalog: {
+          v1_0: {
+            patchProductByExternalReferenceCode: async (_config, erc, data) => {
+              patched.push({ data, erc });
+              return {};
+            },
+          },
+        },
+      };
 
-      expect(taxCarrying()).toHaveLength(1);
+      const ercs = ['ERC1', 'ERC2', 'ERC3'];
+
+      await products.applyProductTaxConfiguration.call(
+        {
+          liferay: mockLiferay,
+          logger: mockLogger,
+        },
+        {
+          config: mockSession.context.config,
+          externalReferenceCodes: ercs,
+          sessionId: 'sess-123',
+        }
+      );
+
+      expect(patched.map((p) => p.erc)).toEqual(ercs);
+      patched.forEach(({ data }) =>
+        expect(data.productConfiguration.productTaxConfiguration).toEqual({
+          taxCategory: 'Standard',
+          taxable: true,
+        })
+      );
     });
 
-    it('does not depend on how the products are split into batches', async () => {
-      // The guarantee has to hold per run, not per batch: two batches each
-      // carrying the shared configuration would race exactly as before.
-      mockSession.context.config.batchSize = 2;
-      mockSession.context.productDataList = Array.from({ length: 7 }, (_, i) =>
-        productFixture(i)
+    it('lets one product keep its default rather than failing the run', async () => {
+      // #892's rule, applied here: a rejected entity is recorded and stepped
+      // over. A product with the default tax treatment is worth more than a
+      // run that stopped.
+      const patched = [];
+
+      mockLiferay.client = {
+        headlessCommerceAdminCatalog: {
+          v1_0: {
+            patchProductByExternalReferenceCode: async (_config, erc) => {
+              if (erc === 'ERC2') {
+                throw new Error('HTTP 400: nope');
+              }
+              patched.push(erc);
+              return {};
+            },
+          },
+        },
+      };
+
+      const result = await products.applyProductTaxConfiguration.call(
+        { liferay: mockLiferay, logger: mockLogger },
+        {
+          config: mockSession.context.config,
+          externalReferenceCodes: ['ERC1', 'ERC2', 'ERC3'],
+          sessionId: 'sess-123',
+        }
       );
 
-      await productGenerator.steps[WORKFLOW_STEPS.CREATE_PRODUCTS]('sess-123');
-
-      expect(mockLiferay.createProductsBatch.mock.calls.length).toBeGreaterThan(
-        1
+      expect(patched).toEqual(['ERC1', 'ERC3']);
+      expect(result.failures).toHaveLength(1);
+      expect(result.failures[0].subject).toBe('ERC2');
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('kept the default tax configuration'),
+        expect.anything()
       );
-      expect(taxCarrying()).toHaveLength(1);
+    });
+
+    it('says so rather than failing when the client cannot patch', async () => {
+      const result = await products.applyProductTaxConfiguration.call(
+        { liferay: { client: {} }, logger: mockLogger },
+        {
+          config: mockSession.context.config,
+          externalReferenceCodes: ['ERC1'],
+          sessionId: 'sess-123',
+        }
+      );
+
+      expect(result).toEqual({ failures: [], written: 0 });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('patchProductByExternalReferenceCode'),
+        expect.anything()
+      );
     });
   });
 

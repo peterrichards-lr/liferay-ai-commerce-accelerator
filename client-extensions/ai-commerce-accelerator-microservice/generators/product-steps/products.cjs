@@ -10,6 +10,10 @@ const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { PATH, byERC } = require('../../utils/liferayPaths.cjs');
 const { resolveRunChannelIds } = require('../../utils/runChannels.cjs');
 const { readCatalogExpiryFields } = require('../../utils/catalogExpiry.cjs');
+const {
+  summariseFailures,
+  writeEachEntity,
+} = require('../../utils/entityWrites.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -38,7 +42,7 @@ async function runProductCreationStep(sessionId) {
       config
     );
 
-    const prepared = productDataList.map((pd, productIndex) => {
+    const prepared = productDataList.map((pd) => {
       // Liferay Headless Commerce API (v1.0) requires all products to be 'simple' during initial creation.
       const productType = 'simple';
 
@@ -55,51 +59,12 @@ async function runProductCreationStep(sessionId) {
         // anyway: the SKU path defaults the same field the other way, and
         // leaving either side to a platform default is how #681 happened.
         ...expiryFields,
-        // The tax configuration below is sent on the first product only, and
-        // deliberately so.
-        //
-        // Liferay applies this to the definition's MASTER configuration entry
-        // (ProductResourceImpl._updateNestedResources), and
-        // CPConfigurationEntrySetting has no classNameId or classPK - it is
-        // keyed by CPConfigurationEntryId, company and group. So this is one
-        // shared row, not a per-product setting, and sending it with every
-        // product updated the same row once per item.
-        //
-        // Liferay's batch engine runs import tasks concurrently, so those
-        // updates raced: "Batch update returned unexpected row count from
-        // update [1]; actual row count: 0; expected: 1" - an optimistic-lock
-        // failure that discarded a whole batch and stopped the workflow. It
-        // appeared only once runs grew past a single import task, and raising
-        // the batch size so everything fitted in one task merely moved the
-        // threshold rather than removing it.
-        //
-        // One write applies the same value with no second writer to race.
-        //
-        // `allowBackOrder` goes on every product; the tax configuration still
-        // goes on the first alone. They live in the same object and are stored
-        // quite differently, which is the whole point:
-        //
-        //   GET .../products/{id}?nestedFields=productConfiguration
-        //     allowBackOrder              true / false, independently per product
-        //     id                          34962 / 34980  - its own persisted row
-        //     entityExternalReferenceCode the product's own ERC
-        //     productTaxConfiguration.id  0 on both - no per-product row
-        //
-        // Read off two products in a live instance. The flat fields are keyed
-        // to the product, so fifty concurrent writes touch fifty rows and have
-        // nothing to contend on. The nested tax configuration is the shared
-        // CPConfigurationEntrySetting the comment above describes, so it keeps
-        // the one-write guard (#695, #667).
+        // `allowBackOrder` is keyed to the product and is safe to send with
+        // every item. The tax configuration is not sent here at all - it is
+        // applied after the products exist, by applyProductTaxConfiguration
+        // below. See #714 for why, and for the measurement that settled it.
         productConfiguration: {
           allowBackOrder: pd.allowBackOrder === true,
-          ...(productIndex === 0
-            ? {
-                productTaxConfiguration: {
-                  taxCategory: 'Standard',
-                  taxable: true,
-                },
-              }
-            : {}),
         },
         externalReferenceCode: pd.externalReferenceCode,
         // `{ id: undefined }` serialises to `{}`, which Liferay rejects for the
@@ -281,6 +246,15 @@ async function runResolveProductIdsStep(sessionId) {
     await this.persistence.updateSessionContext(sessionId, {
       productDataList: updatedList,
     });
+
+    // The products exist now, which is the only moment this can be done. See
+    // applyProductTaxConfiguration.
+    await applyProductTaxConfiguration.call(this, {
+      config,
+      externalReferenceCodes: ercs,
+      sessionId,
+    });
+
     await this.completeSyncStep(
       sessionId,
       S.RESOLVE_PRODUCT_IDS,
@@ -304,6 +278,84 @@ async function runResolveProductIdsStep(sessionId) {
     });
     throw error;
   }
+}
+
+/**
+ * The tax configuration, applied to every product after they exist.
+ *
+ * It used to be sent with the **first product of a run and no other**, on the
+ * reading that Liferay stored it once for the catalogue. Measured against a
+ * live 2026.q3.0 instance, that is not so: setting `taxable: false` on one
+ * product leaves the next reading `true`. The row is keyed to the product, so
+ * the old approach configured one product and left every other on Liferay's
+ * default - silently, because nothing fails and a product with the wrong tax
+ * treatment looks exactly like one with the right treatment (#714).
+ *
+ * The reason it was sent once is real and is why this cannot simply move into
+ * the create payload. Sending it with every product made Liferay's batch
+ * engine race on `CPConfigurationEntrySetting`:
+ *
+ *   Batch update returned unexpected row count from update [1];
+ *   actual row count: 0; expected: 1
+ *
+ * an optimistic-lock failure that discarded a whole batch (#695, #667). The
+ * create path reaches that shared row through the **add** branch, which walks
+ * up to a parent configuration entry; the update path writes only the entry
+ * belonging to the product. Eight concurrent PATCHes against a live instance
+ * all returned 200 and all took effect, which is the evidence this step rests
+ * on - the contention belongs to creation, not to writing the value.
+ *
+ * A product that refuses the write keeps its default and is named; it does not
+ * take the run down with it. A rejected credential still stops the loop at
+ * once, because the fifty-first 401 tells nobody anything new (#890, #892).
+ */
+async function applyProductTaxConfiguration({
+  config,
+  externalReferenceCodes,
+  sessionId,
+}) {
+  const ercs = (externalReferenceCodes || []).filter(Boolean);
+
+  if (ercs.length === 0) {
+    return { failures: [], written: 0 };
+  }
+
+  const catalogClient =
+    this.liferay?.client?.headlessCommerceAdminCatalog?.v1_0;
+
+  if (!catalogClient?.patchProductByExternalReferenceCode) {
+    this.logger.warn(
+      'Product tax configuration was not applied: the catalog client does not expose patchProductByExternalReferenceCode',
+      { sessionId }
+    );
+
+    return { failures: [], written: 0 };
+  }
+
+  const result = await writeEachEntity({
+    describe: (erc) => erc,
+    entities: ercs,
+    write: (erc) =>
+      catalogClient.patchProductByExternalReferenceCode(config, erc, {
+        productConfiguration: {
+          productTaxConfiguration: { taxCategory: 'Standard', taxable: true },
+        },
+      }),
+  });
+
+  if (result.failures.length > 0) {
+    this.logger.warn(
+      `${result.failures.length} of ${ercs.length} products kept the default tax configuration: ${summariseFailures(result.failures)}`,
+      { sessionId }
+    );
+  } else {
+    this.logger.info(
+      `Tax configuration applied to ${result.written} product(s)`,
+      { sessionId }
+    );
+  }
+
+  return result;
 }
 
 /**
@@ -462,5 +514,6 @@ module.exports = {
   runLinkProductChannelsStep,
   runProductCreationStep,
   runResolveProductIdsStep,
+  applyProductTaxConfiguration,
   cleanProductForLiferay,
 };
