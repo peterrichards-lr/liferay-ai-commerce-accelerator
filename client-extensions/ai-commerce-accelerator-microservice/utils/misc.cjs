@@ -276,6 +276,57 @@ function ratioTrigger(ratio) {
   return n > 0 && Math.random() * 100 < n;
 }
 
+/**
+ * What the bytes say they are, when nothing else says.
+ *
+ * A content type that is declared is always believed - this is for the case
+ * where none was, and the alternative is inventing one. Default-mode images
+ * were archived, packaged and uploaded as `application/octet-stream` while
+ * being WebP, because the configured image is stored as bare base64 with no
+ * `data:` prefix and the fallback below answered for it (#928).
+ *
+ * Only formats this service actually moves are listed, and each is identified
+ * by a signature at a fixed offset rather than by guessing. An unrecognised
+ * signature returns null, which the caller reports as unknown rather than
+ * replacing with a plausible-sounding lie.
+ */
+const CONTENT_SIGNATURES = [
+  { bytes: [0x89, 0x50, 0x4e, 0x47], offset: 0, type: 'image/png' },
+  { bytes: [0xff, 0xd8, 0xff], offset: 0, type: 'image/jpeg' },
+  { bytes: [0x47, 0x49, 0x46, 0x38], offset: 0, type: 'image/gif' },
+  { bytes: [0x25, 0x50, 0x44, 0x46], offset: 0, type: 'application/pdf' },
+  // WEBP is a RIFF container: 'RIFF' at 0, then four bytes of length, then
+  // 'WEBP'. Both halves are checked, because RIFF alone is also WAV and AVI.
+  {
+    bytes: [0x52, 0x49, 0x46, 0x46],
+    offset: 0,
+    then: { bytes: [0x57, 0x45, 0x42, 0x50], offset: 8 },
+    type: 'image/webp',
+  },
+];
+
+function matchesAt(buffer, { bytes, offset }) {
+  if (buffer.length < offset + bytes.length) return false;
+
+  return bytes.every((byte, index) => buffer[offset + index] === byte);
+}
+
+function sniffContentType(input) {
+  const buffer = Buffer.isBuffer(input)
+    ? input
+    : Buffer.from(String(input || ''), 'base64');
+
+  if (buffer.length === 0) return null;
+
+  const found = CONTENT_SIGNATURES.find(
+    (signature) =>
+      matchesAt(buffer, signature) &&
+      (!signature.then || matchesAt(buffer, signature.then))
+  );
+
+  return found ? found.type : null;
+}
+
 function parseDataUrl(
   input,
   { defaultType = 'application/octet-stream', acceptPlainBase64 = true } = {}
@@ -307,19 +358,28 @@ function parseDataUrl(
       throw new Error('parseDataUrl: missing payload after comma');
     }
     const [maybeType] = meta.split(';');
-    const contentType = maybeType || defaultType;
-    if (hasBase64Param(meta)) {
-      return { contentType, base64: normalizeBase64(payload) };
-    }
-    if (acceptPlainBase64 && looksLikeBase64(payload)) {
-      return { contentType, base64: normalizeBase64(payload) };
+    const declared = maybeType || null;
+    if (
+      hasBase64Param(meta) ||
+      (acceptPlainBase64 && looksLikeBase64(payload))
+    ) {
+      const base64 = normalizeBase64(payload);
+
+      return {
+        base64,
+        contentType: declared || sniffContentType(base64) || defaultType,
+      };
     }
     throw new Error(
       `parseDataUrl: data URL is not base64 encoded (meta="${meta}")`
     );
   }
   if (acceptPlainBase64 && looksLikeBase64(data)) {
-    return { contentType: defaultType, base64: normalizeBase64(data) };
+    const base64 = normalizeBase64(data);
+
+    // The case that produced #928: a configured default image, stored as bare
+    // base64, declaring nothing.
+    return { base64, contentType: sniffContentType(base64) || defaultType };
   }
   throw new Error(
     'parseDataUrl: input is not a valid base64 string or data URL'
@@ -483,6 +543,7 @@ async function runWithConcurrencyLimit(items, limit, taskFn) {
 }
 
 module.exports = {
+  sniffContentType,
   runWithConcurrencyLimit,
   buildCategoryERC,
   buildDataUrl,
