@@ -9,7 +9,11 @@ process.env.MEDIA_ARCHIVE_ENABLED = 'true';
 process.env.MEDIA_ARCHIVE_PATH = ROOT;
 
 const exportRoutes = require('../routes/export.cjs');
-const { KIND, readMediaBundle } = require('../utils/mediaBundle.cjs');
+const {
+  KIND,
+  mediaFolder,
+  readMediaBundle,
+} = require('../utils/mediaBundle.cjs');
 const { MANIFEST_FILE } = require('../utils/mediaArchive.cjs');
 
 // #896: the archive has had a writer since #848 and nothing that reads it
@@ -54,10 +58,10 @@ function session({ images = [IMAGE], pdfs = [PDF] } = {}) {
 function writeArchive({ files, sessionId = SESSION_ID }) {
   const dir = path.join(ROOT, sessionId);
   fs.mkdirSync(path.join(dir, 'images'), { recursive: true });
-  fs.mkdirSync(path.join(dir, 'pdfs'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'attachments'), { recursive: true });
 
   const recorded = files.map(({ bytes, write = true, ...entry }) => {
-    const folder = entry.kind === KIND.PDF ? 'pdfs' : 'images';
+    const folder = mediaFolder(entry.kind);
     const extension = entry.kind === KIND.PDF ? 'pdf' : 'webp';
     const file = `${folder}/${entry.productERC}-${entry.priority}.${extension}`;
 

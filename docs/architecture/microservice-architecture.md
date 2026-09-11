@@ -71,7 +71,23 @@ no media.
 cheap route possible. `utils/mediaArchive.cjs` writes each binary to
 `~/.aica/media/<sessionId>/` — beside the workflow database, outside the
 repository, because state inside a checkout gets destroyed by ordinary tooling
-(#868, #869, #899). A generation run writes each file _before_ uploading it, so
+(#868, #869, #899):
+
+```text
+~/.aica/media/<sessionId>/
+  manifest.json
+  images/<productERC>-<priority>.webp
+  attachments/<productERC>-<sku>.pdf
+```
+
+Two directories, not one per format. The manifest carries each entry's `kind`
+and the counts keep images and PDFs apart, so the directory only has to be a
+place to put a file — and the next format to arrive (a CAD model, a
+high-resolution render, a 3D/AR asset) is an attachment as far as the disk is
+concerned (#901). A package unpacked beside a session directory reads the same,
+because both use the same rule. Packages written earlier name their entries
+`media/pdfs/…` and still import: a file is resolved by the path its own
+manifest gives. A generation run writes each file _before_ uploading it, so
 a rejected upload leaves something usable behind; an extract writes each
 binary as it arrives and releases it, so the peak is one attachment rather
 than the whole catalogue.

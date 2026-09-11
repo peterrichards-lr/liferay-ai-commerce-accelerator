@@ -112,7 +112,10 @@ describe('Generated media written to disk as it is made', () => {
     // The layout #848 asked for: the ERC and the priority for a picture, the
     // ERC and the SKU for a document.
     expect(image.file).toBe('images/P1-1.png');
-    expect(pdf.file).toBe('pdfs/P1-P1-SKU.pdf');
+    // 'attachments', not 'pdfs': the manifest carries the kind, so the
+    // directory only has to be a place - and the next format to arrive will
+    // not be a PDF.
+    expect(pdf.file).toBe('attachments/P1-P1-SKU.pdf');
 
     expect(
       fs.readFileSync(path.join(sessionDir(sessionId), image.file))
