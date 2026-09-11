@@ -3,6 +3,10 @@ const crypto = require('crypto');
 const BaseAIProvider = require('./baseProvider.cjs');
 const { tryParseJSON } = require('../../utils/misc.cjs');
 const {
+  requestOptions,
+  resolveMaxTokens,
+} = require('../../utils/aiRequestOptions.cjs');
+const {
   expandOpenMapsForPrompt,
   looksLikeSchemaRejection,
   projectGenerationSchema,
@@ -62,7 +66,9 @@ class GeminiProvider extends BaseAIProvider {
     try {
       return await this._generate(genAI, task, prompt, {
         languages: options.languages,
+        maxTokens: options.maxTokens,
         model: modelId,
+        requestTimeoutMs: options.requestTimeoutMs,
         responseSchema: projection.schema,
         schema,
       });
@@ -78,7 +84,9 @@ class GeminiProvider extends BaseAIProvider {
 
       return await this._generate(genAI, task, prompt, {
         languages: options.languages,
+        maxTokens: options.maxTokens,
         model: modelId,
+        requestTimeoutMs: options.requestTimeoutMs,
         responseSchema: null,
         schema,
       });
@@ -89,9 +97,17 @@ class GeminiProvider extends BaseAIProvider {
     genAI,
     task,
     prompt,
-    { languages, model, responseSchema, schema }
+    { languages, maxTokens, model, requestTimeoutMs, responseSchema, schema }
   ) {
-    const generationConfig = { responseMimeType: 'application/json' };
+    // Both through the shared helpers, so this provider is capped and timed by
+    // the same numbers as the other two rather than by the SDK's own defaults.
+    // Neither reached Gemini at all: the cap was never sent, and the request
+    // timeout an operator set in the configuration panel was resolved, carried
+    // into the options and then read by nobody (#861, #762, #823).
+    const generationConfig = {
+      maxOutputTokens: resolveMaxTokens(maxTokens),
+      responseMimeType: 'application/json',
+    };
     if (responseSchema) generationConfig.responseSchema = responseSchema;
 
     const generativeModel = genAI.getGenerativeModel({
@@ -109,8 +125,12 @@ class GeminiProvider extends BaseAIProvider {
         : ''
     }`;
 
+    // On the request rather than on the model: a timeout given to
+    // getGenerativeModel would be a client-level default, and clients here are
+    // cached per API key for the life of the process.
     const result = await generativeModel.generateContent(
-      `${systemInstruction}\n\n${prompt}`
+      `${systemInstruction}\n\n${prompt}`,
+      requestOptions({ requestTimeoutMs })
     );
     const response = await result.response;
 
