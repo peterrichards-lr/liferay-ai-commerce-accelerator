@@ -21,8 +21,36 @@ const exportJsonFile = (data, filename, root = document) => {
   }
 };
 
+/**
+ * Saves bytes that are already bytes.
+ *
+ * `exportJsonFile` stringifies whatever it is given, which turns a package
+ * into a text file full of replacement characters that still downloads, still
+ * carries the right name, and is unopenable. A zip has to reach the disk
+ * untouched.
+ */
+const saveBlobFile = (blob, filename, root = document) => {
+  const doc = root.ownerDocument || root;
+  const link = doc.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+
+  const container =
+    root && typeof root.appendChild === 'function' && root.nodeType === 1
+      ? root
+      : doc.body || doc.documentElement || doc;
+  container.appendChild(link);
+
+  try {
+    link.click();
+  } finally {
+    if (link.isConnected && link.parentNode) link.parentNode.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(link.href), 0);
+  }
+};
+
 const importJsonFile = (filename) => {
   if (!filename) return;
 };
 
-export { exportJsonFile, importJsonFile };
+export { exportJsonFile, importJsonFile, saveBlobFile };

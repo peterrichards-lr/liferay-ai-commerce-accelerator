@@ -9,14 +9,12 @@ import { useApp, useApi, AppProvider } from './context/AppContext';
 import { ConfirmProvider, useConfirm } from './components/ConfirmProvider';
 import notifyUser from './utils/notifications';
 import { isCancellable } from './utils/sessionStatus';
-import { exportJsonFile } from './utils/fileHelper';
-import { sessionExportFilename } from './utils/sessionFilename';
+import useDatasetIO from './hooks/useDatasetIO';
 import {
   WORKFLOW_SESSIONS,
   WORKFLOW_KPIS,
   CONFIG_HEALTH,
   HEALTH_DETAILED,
-  EXPORT_COMMERCE_DATA,
   WORKFLOW_CANCEL,
   WORKFLOW_CLEAR_ALL,
 } from './utils/microservicePaths';
@@ -154,18 +152,11 @@ function AdminUI() {
     }
   };
 
-  const handleExport = async (sessionId, name) => {
-    try {
-      const res = await api.get(
-        `${EXPORT_COMMERCE_DATA}?sessionId=${sessionId}`
-      );
-      const filename = sessionExportFilename('aica-dataset', name || sessionId);
-      exportJsonFile(res, filename);
-      notifyUser('Dataset exported successfully');
-    } catch {
-      notifyUser('Failed to export dataset', 'danger');
-    }
-  };
+  // One implementation, shared with the Dashboard. The two copies had already
+  // drifted - only one wrote to the activity log - and the session id they
+  // both pass is what keeps the export off a cache tier that silently returns
+  // products, accounts and orders alone.
+  const { exportSession } = useDatasetIO({ api });
 
   const filteredSessions = useMemo(() => {
     return sessions
@@ -609,10 +600,10 @@ function AdminUI() {
                                     size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleExport(
-                                        s.session_id,
-                                        s.session_name
-                                      );
+                                      exportSession({
+                                        id: s.session_id,
+                                        name: s.session_name,
+                                      });
                                     }}
                                     title="Export dataset"
                                   >

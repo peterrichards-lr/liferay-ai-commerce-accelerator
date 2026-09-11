@@ -7,6 +7,8 @@ const GENERATE_PATH = `${BASE_PATH}/generate`;
 const DELETE_COMMERCE_DATA = `${BASE_PATH}/delete-commerce-data`;
 const DELETE_SELECTED_COMMERCE_DATA = `${BASE_PATH}/delete-selected-commerce-data`;
 const EXPORT_COMMERCE_DATA = `${BASE_PATH}/export-commerce-data`;
+const EXPORT_COMMERCE_BUNDLE = `${BASE_PATH}/export-commerce-bundle`;
+const EXTRACT_COMMERCE_BUNDLE = `${BASE_PATH}/extract-commerce-bundle`;
 const GET_CATALOGS = `${BASE_PATH}/get-catalogs`;
 const GET_CHANNELS = `${BASE_PATH}/get-channels`;
 const GET_WAREHOUSES = `${BASE_PATH}/get-warehouses`;
@@ -47,7 +49,9 @@ const LOGS_SESSION = `${BASE_PATH}/logs/session/:sessionId`;
 export {
   DELETE_COMMERCE_DATA,
   DELETE_SELECTED_COMMERCE_DATA,
+  EXPORT_COMMERCE_BUNDLE,
   EXPORT_COMMERCE_DATA,
+  EXTRACT_COMMERCE_BUNDLE,
   GET_CATALOGS,
   GET_CATEGORIES,
   GET_CHANNELS,
