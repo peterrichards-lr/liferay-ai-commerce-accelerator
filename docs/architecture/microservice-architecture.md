@@ -67,6 +67,13 @@ what they produce:
 `GET /api/v1/export-commerce-data` remains the dataset-only JSON export, with
 no media.
 
+**All three are drivable from the Dashboard and the CLI** — `aica export
+--bundle`, `aica extract`, `aica import` — and `tests/surfaceParity.test.cjs`
+fails the build when any endpoint can be driven from no surface at all. Full
+parity is not the claim: some endpoints belong to a container probe, a callback
+or a support session. The claim is that every omission is a written reason
+rather than an oversight, which is what #880 asked for.
+
 **Both producers stage through the media archive**, and that is what makes the
 cheap route possible. `utils/mediaArchive.cjs` writes each binary to
 `~/.aica/media/<sessionId>/` — beside the workflow database, outside the
