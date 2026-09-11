@@ -39,17 +39,33 @@ describe('Pricing steps: catalog base price list adoption', () => {
     skus: [{ externalReferenceCode: 'SKU1', id: 'sku-123' }],
   });
 
-  const submittedEntries = () =>
-    mockLiferay.createPriceEntriesBatch.mock.calls.map(([, entries, opts]) => ({
-      entries,
-      opts,
-    }));
+  // Grouped back into the per-list shape the assertions read. The step posts
+  // each entry on its own now, because one rejected entry must not decide the
+  // fate of the rest (#892).
+  const submittedEntries = () => {
+    const byList = new Map();
+
+    mockLiferay.createPriceEntry.mock.calls.forEach(
+      ([, priceListKey, entry]) => {
+        if (!byList.has(priceListKey)) {
+          byList.set(priceListKey, {
+            entries: [],
+            opts: { priceListId: priceListKey },
+          });
+        }
+        byList.get(priceListKey).entries.push(entry);
+      }
+    );
+
+    return [...byList.values()];
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockLiferay = {
       createPriceEntriesBatch: vi.fn().mockResolvedValue({ batchId: 'b-1' }),
+      createPriceEntry: vi.fn().mockResolvedValue({ id: 'pe-1' }),
       createPriceList: vi
         .fn()
         .mockImplementation((_config, data) =>
@@ -78,13 +94,22 @@ describe('Pricing steps: catalog base price list adoption', () => {
         getSession: vi.fn(),
         updateBatch: vi.fn().mockResolvedValue({}),
       },
-      progress: { batchCompleted: vi.fn(), batchStarted: vi.fn() },
+      progress: {
+        batchCompleted: vi.fn(),
+        batchStarted: vi.fn(),
+        stepWarning: vi.fn(),
+      },
     });
 
     productGenerator.completeSyncStep = vi.fn().mockResolvedValue({});
     productGenerator.submitBatch = vi
       .fn()
-      .mockImplementation(async (_s, _k, _e, _o, fn) => fn('batch-erc'));
+      .mockImplementation(async (_s, _k, _e, _o, fn) => {
+        await fn('batch-erc');
+        // The real submitBatch hands back the row it wrote, which is how a
+        // step corrects a completed batch's processed count (#891).
+        return { batchERC: 'batch-erc', batchId: 'b-1' };
+      });
 
     mockSession = {
       correlationId: 'corr-1',
@@ -115,8 +140,12 @@ describe('Pricing steps: catalog base price list adoption', () => {
     const [standard] = submittedEntries();
     expect(standard.entries).toHaveLength(1);
     expect(standard.entries[0].priceListId).toBe('base-pl');
+    // Liferay creates the catalog's base list without an external reference
+    // code, so its entries are addressed by list id and never by a null ERC.
     expect(standard.opts.priceListId).toBe('base-pl');
-    expect(standard.opts.priceListExternalReferenceCode).toBeNull();
+    expect(
+      mockLiferay.createPriceEntry.mock.calls.map(([, key]) => key)
+    ).not.toContain(null);
   });
 
   it('creates its own list only for a purpose the catalog has no list for', async () => {

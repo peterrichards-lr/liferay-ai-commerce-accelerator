@@ -72,6 +72,7 @@ describe('update-inventory payloads', () => {
       .fn()
       .mockImplementation(async (_sessionId, _step, _kind, _op, send) => {
         await send('BATCH-ERC');
+        return { batchERC: 'BATCH-ERC', batchId: 'b-1' };
       });
 
     session = {
