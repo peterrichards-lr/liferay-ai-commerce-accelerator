@@ -341,7 +341,11 @@ const gracefulShutdown = async (signal) => {
     deleteCoordinatorService,
     configService,
   });
-  require('./routes/export.cjs')(apiV1Router, { ...routeCtx, cacheService });
+  require('./routes/export.cjs')(apiV1Router, {
+    ...routeCtx,
+    cacheService,
+    configService,
+  });
   require('./routes/logs.cjs')(apiV1Router, {
     ...routeCtx,
     persistenceService,

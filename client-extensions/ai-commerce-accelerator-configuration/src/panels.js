@@ -38,6 +38,12 @@ export const PANELS = [
     component: lazy(() => import('./components/panels/CatalogExpiryPanel')),
   },
   {
+    id: 'media-archive',
+    label: 'Media Archive',
+    icon: 'document-image',
+    component: lazy(() => import('./components/panels/MediaArchivePanel')),
+  },
+  {
     id: 'categories',
     label: 'Categories',
     icon: 'categories',

@@ -111,6 +111,14 @@ recorded media and the archive can supply none, the export **refuses with 409**
 and names extract — a package that quietly carries a catalogue with no pictures
 is the failure the whole feature exists to prevent.
 
+**Retention is an operational setting, not only a deployment one.** The Media
+Archive panel writes `media-archive-config`, and the microservice resolves
+**configuration → environment → default** — the `catalog-expiry-config` pattern,
+with the same rule that an absent or unreadable entry resolves to the shipped
+defaults rather than to zero, which would prune everything. The directory
+itself stays environment-only: it names a path on the machine running the
+service, and a form served from Liferay has no business setting one (#917).
+
 **Media outlives its session only until the next sweep.** A directory whose
 session id is no longer in `workflows.db` is garbage however it went —
 `clear-all`, `cleanup`, a row removed by hand — so it is swept at startup and
