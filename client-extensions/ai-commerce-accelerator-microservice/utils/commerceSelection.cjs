@@ -23,10 +23,21 @@
  *
  * 1. A substitution happens only when nothing was chosen, and is always
  *    reported.
- * 2. A refusal happens only on positive evidence that the chosen entity is
- *    absent. Lists that cannot be read prove nothing, so the supplied ids are
- *    used exactly as given - no run is ever quietly redirected.
+ * 2. A refusal happens on positive evidence that the chosen entity is absent,
+ *    and on a write also when no evidence could be gathered at all. STALE is
+ *    "I looked and it is not there"; UNCHECKED is "I could not look", and only
+ *    the first is proof. Reading the second as permission to proceed is how a
+ *    run that had already reported it could not read the channel list created
+ *    five warehouses on production and then failed for the reason it had
+ *    named, having never resolved the siteGroupId that only the channel record
+ *    carries (#889). A read is free to continue on an unverified id; a write
+ *    that cannot confirm where it is writing must not write.
  */
+
+const {
+  describeRequestFailure,
+  summariseRequestFailure,
+} = require('./requestFailure.cjs');
 
 const VERIFIED = 'verified';
 const DEFAULTED = 'defaulted';
@@ -103,10 +114,12 @@ function classifyCommerceSelection({ requestedId, items }) {
  */
 function describeCommerceSelection({
   candidateCount = 0,
+  failure = null,
   id,
   item,
   label,
   outcome,
+  writes = false,
 }) {
   const subject = label.toLowerCase();
 
@@ -131,13 +144,30 @@ function describeCommerceSelection({
         message: `No ${subject} was requested and this instance has no ${subject} to fall back to.`,
       };
 
-    case UNCHECKED:
+    case UNCHECKED: {
+      // The reason is part of the message rather than only the log, because
+      // the operator who has to act on it is reading the refusal, not the log
+      // (#890). "HTTP 403" names a scope; "could not be read" names nothing.
+      const because = failure
+        ? `the ${subject} list could not be read (${failure})`
+        : `the ${subject} list could not be read`;
+
+      if (!writes) {
+        return {
+          level: 'warn',
+          message: id
+            ? `${label} id ${id} could not be checked because ${because}. It will be used as supplied.`
+            : `No ${subject} was requested and ${because}, so none could be resolved.`,
+        };
+      }
+
       return {
-        level: 'warn',
+        level: 'error',
         message: id
-          ? `${label} id ${id} could not be checked because the ${subject} list could not be read. It will be used as supplied.`
-          : `No ${subject} was requested and the ${subject} list could not be read, so none could be resolved.`,
+          ? `${label} id ${id} could not be checked because ${because}. Refusing the run rather than writing to a ${subject} this run cannot confirm - restore access and try again.`
+          : `No ${subject} was requested and ${because}, so none could be resolved. Refusing the run rather than writing to an unknown ${subject}.`,
       };
+    }
 
     default:
       return {
@@ -147,16 +177,25 @@ function describeCommerceSelection({
   }
 }
 
-async function loadListOrNull({ label, load, logger, logContext }) {
+/**
+ * The list, or the reason there is no list.
+ *
+ * The failure is returned as well as logged because the run has to say why it
+ * is refusing, and `err.message` on a Liferay request failure is the
+ * operation's display name - "Get Channels Bulk" - which carries no status, no
+ * path and no response body (#890).
+ */
+async function loadListOrFailure({ label, load, logger, logContext }) {
   try {
     const items = await load();
-    return Array.isArray(items) ? items : null;
+    return { failure: null, items: Array.isArray(items) ? items : null };
   } catch (err) {
     logger?.error?.(
       `Failed to read the ${label.toLowerCase()} list from Liferay`,
-      { ...logContext, error: err.message }
+      { ...logContext, ...describeRequestFailure(err), error: err.message }
     );
-    return null;
+
+    return { failure: summariseRequestFailure(err), items: null };
   }
 }
 
@@ -165,11 +204,15 @@ async function loadListOrNull({ label, load, logger, logContext }) {
  *
  * The list endpoints return a single page, so absence from the list is strong
  * evidence but not proof. A by-id read settles it, and only a positive answer
- * counts - an error here is not evidence of presence, and the list has already
- * been read successfully by the time this runs.
+ * counts - an error here is not evidence of presence.
+ *
+ * It is asked for an unreadable list too. A list read can fail for reasons a
+ * single record read does not share - paging, a filter, a timeout on a large
+ * collection - so the cheap direct question is worth putting before a refusal
+ * rather than after it (#889).
  */
 async function confirmById({ id, load }) {
-  if (typeof load !== 'function') return null;
+  if (typeof load !== 'function' || !isUsableId(id)) return null;
 
   try {
     const item = await load(id);
@@ -186,8 +229,9 @@ async function resolveSelection({
   logContext,
   logger,
   requestedId,
+  writes = false,
 }) {
-  const items = await loadListOrNull({
+  const { failure, items } = await loadListOrFailure({
     label,
     load: loadList,
     logger,
@@ -195,7 +239,7 @@ async function resolveSelection({
   });
   let result = classifyCommerceSelection({ items, requestedId });
 
-  if (result.outcome === STALE) {
+  if (result.outcome === STALE || result.outcome === UNCHECKED) {
     const confirmed = await confirmById({ id: result.id, load: loadById });
 
     if (confirmed) {
@@ -210,10 +254,19 @@ async function resolveSelection({
   const { level, message } = describeCommerceSelection({
     ...result,
     candidateCount: items?.length ?? 0,
+    failure,
     label,
+    writes,
   });
 
-  return { ...result, label, level, message, name: readName(result.item) };
+  return {
+    ...result,
+    failure,
+    label,
+    level,
+    message,
+    name: readName(result.item),
+  };
 }
 
 /**
@@ -266,6 +319,7 @@ async function resolveRunCommerceSelection({
   liferayService,
   logger,
   operation,
+  writes = false,
 }) {
   const logContext = { correlationId, operation };
 
@@ -281,6 +335,7 @@ async function resolveRunCommerceSelection({
       logContext,
       logger,
       requestedId: config?.channelId,
+      writes,
     }),
     resolveSelection({
       label: CATALOG_LABEL,
@@ -289,6 +344,7 @@ async function resolveRunCommerceSelection({
       logContext,
       logger,
       requestedId: config?.catalogId,
+      writes,
     }),
   ]);
 
@@ -297,8 +353,15 @@ async function resolveRunCommerceSelection({
     message,
   }));
 
+  // A read may proceed on an id it could not verify - the worst it can do is
+  // return nothing. A write may not: `applyCommerceSelection` takes
+  // `siteGroupId` from the channel record, so an unverified channel is also a
+  // missing site, and the run would discover that only after its first writes
+  // had landed (#889).
+  const blocking = writes ? [STALE, UNCHECKED] : [STALE];
+
   const rejections = [channel, catalog]
-    .filter(({ outcome }) => outcome === STALE)
+    .filter(({ outcome }) => blocking.includes(outcome))
     .map(({ message }) => message);
 
   if (rejections.length === 0) {

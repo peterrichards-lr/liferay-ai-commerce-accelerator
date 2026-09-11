@@ -94,7 +94,16 @@ describe('Import route: bundle media coverage (#872)', () => {
         persistenceService,
         progressService: {},
         batchCallbackService: {},
-        liferayService: {},
+        liferayService: {
+          getCatalogs: vi
+            .fn()
+            .mockResolvedValue([{ id: 102, name: 'Catalog' }]),
+          getChannels: vi
+            .fn()
+            .mockResolvedValue([
+              { id: 301, name: 'Channel', siteGroupId: 900 },
+            ]),
+        },
         configService: {},
         workflowCoordinator: {},
         ws: {},

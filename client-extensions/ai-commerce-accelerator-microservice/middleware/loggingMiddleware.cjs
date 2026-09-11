@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const jwkToPem = require('jwk-to-pem');
 const axios = require('axios');
 const { logger } = require('../utils/logger.cjs');
+const { ENV } = require('../utils/constants.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
 
 const JWKS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -155,11 +156,9 @@ async function verifyBearerToken(token, liferayUrl) {
 }
 
 function resolveLiferayUrl(req) {
-  return (
-    req?.config?.liferayUrl ||
-    process.env.LIFERAY_URL ||
-    'http://localhost:8080'
-  );
+  // Through ENV so the LXC configuration layer is consulted as well as the
+  // environment, and so the localhost default is written once (#933).
+  return req?.config?.liferayUrl || ENV.LIFERAY_URL;
 }
 
 function userContextMiddleware(req, res, next) {

@@ -7,6 +7,7 @@ describe('Import Workflow Logic', () => {
   let mockProgress;
   let mockCoordinator;
   let mockBatchCallback;
+  let mockLiferay;
   let routeHandler;
 
   beforeEach(() => {
@@ -23,6 +24,7 @@ describe('Import Workflow Logic', () => {
       info: vi.fn(),
       error: vi.fn(),
       debug: vi.fn(),
+      warn: vi.fn(),
     };
 
     mockPersistence = {
@@ -41,6 +43,16 @@ describe('Import Workflow Logic', () => {
       _checkSessionCompletion: vi.fn(),
     };
 
+    // An import resolves its catalog and channel before it writes anything,
+    // and refuses the run when it cannot read them (#889), so the service has
+    // to answer.
+    mockLiferay = {
+      getCatalogs: vi.fn().mockResolvedValue([{ id: 102, name: 'Catalog' }]),
+      getChannels: vi
+        .fn()
+        .mockResolvedValue([{ id: 301, name: 'Channel', siteGroupId: 900 }]),
+    };
+
     // Initialize route
     importRoute(mockApp, {
       logger: mockLogger,
@@ -48,6 +60,7 @@ describe('Import Workflow Logic', () => {
       progressService: mockProgress,
       workflowCoordinator: mockCoordinator,
       batchCallbackService: mockBatchCallback,
+      liferayService: mockLiferay,
     });
   });
 

@@ -111,6 +111,7 @@ module.exports = (
         liferayService,
         logger,
         operation: 'generate-workflow',
+        writes: true,
       });
 
       logCommerceSelection({
