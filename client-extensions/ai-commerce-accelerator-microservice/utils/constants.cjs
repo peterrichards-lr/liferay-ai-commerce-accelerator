@@ -7,12 +7,51 @@ function toNumber(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : NaN;
 }
-function num(key, def, min) {
+
+/**
+ * Settings that were supplied and could not be used as supplied.
+ *
+ * These helpers run while this module is being loaded, and `logger.cjs`
+ * requires this file - so nothing here can log, which is why a misconfiguration
+ * has always been silent (#934). They are recorded instead, and `server.cjs`
+ * reports them once the logger exists.
+ *
+ * Only a value the operator actually set is recorded. An absent setting taking
+ * its default is the normal case and says nothing.
+ */
+const ENV_WARNINGS = [];
+
+function supplied(raw) {
+  return raw !== undefined && raw !== null && raw !== '';
+}
+// `min` defaults rather than being assumed. `Math.max(n, undefined)` is NaN, so
+// a caller that omitted it got NaN for every *valid* value while the default
+// path kept working - and a NaN REQUEST_MAX_BYTES meant `contentLength > limit`
+// was false for every request, so configuring the size limit removed it. See
+// #945.
+function num(key, def, min = -Infinity) {
   let raw = process.env[key];
   if (raw === undefined || raw === null || raw === '') raw = lookupConfig(key);
   const n = toNumber(raw);
-  if (!Number.isFinite(n)) return def;
-  return Math.max(n, min);
+
+  if (!Number.isFinite(n)) {
+    if (supplied(raw)) {
+      ENV_WARNINGS.push(
+        `${key} was set to "${raw}", which is not a number. Using ${def}.`
+      );
+    }
+    return def;
+  }
+
+  const clamped = Math.max(n, min);
+
+  if (clamped !== n) {
+    ENV_WARNINGS.push(
+      `${key} was set to ${n}, below the minimum of ${min}. Using ${clamped}.`
+    );
+  }
+
+  return clamped;
 }
 function str(key, def) {
   let v = process.env[key];
@@ -24,6 +63,13 @@ function bool(key, def) {
   if (v === undefined || v === null || v === '') v = lookupConfig(key);
   if (v === true || v === 'true' || v === '1') return true;
   if (v === false || v === 'false' || v === '0') return false;
+
+  if (supplied(v)) {
+    ENV_WARNINGS.push(
+      `${key} was set to "${v}", which is not true or false. Using ${def}.`
+    );
+  }
+
   return def;
 }
 function list(key, def) {
@@ -217,6 +263,20 @@ const ENV = {
   // the ENV layer of the chain, and `false` would be indistinguishable from a
   // deliberate opt-out and would shadow the target's own configuration.
   AI_NAME_FIRST_PRODUCTS: bool('AI_NAME_FIRST_PRODUCTS', null),
+  // The pre-flight guardrail: an estimated prompt above this many tokens is
+  // refused before the request is sent, and the refusal names the number.
+  //
+  // Read here rather than from `process.env` at the point of use, so that a
+  // deployment supplying it through Liferay's own configuration layer is
+  // honoured - `lookupConfig` is consulted by these helpers and was not by the
+  // original `parseInt(process.env...)`. A real minimum, because a limit of
+  // zero would refuse every prompt including the ones this exists to permit.
+  // See #934.
+  AICA_MAX_TOKEN_LIMIT: num('AICA_MAX_TOKEN_LIMIT', 15000, 1),
+  // The escape hatch the refusal message tells the operator to use. It is the
+  // remedy for the setting above, so it was equally undiscoverable while both
+  // lived only in `process.env`.
+  ALLOW_LARGE_PROMPTS: bool('ALLOW_LARGE_PROMPTS', false),
   WS_HEARTBEAT_MS: num(
     'WS_HEARTBEAT_INTERVAL_MS',
     30000,
@@ -449,6 +509,7 @@ module.exports = {
   APP_ERCS,
   EMPTY_PLACEHOLDER,
   ENV,
+  ENV_WARNINGS,
   ERC_PREFIX,
   ABS_MIN,
   QUEUE_CONFIG,
