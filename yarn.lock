@@ -1032,9 +1032,9 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.8.20":
-  version "0.8.20"
-  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#129f4a6d87ab336d622ad464b25ee398d88c70be"
+"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.8.22":
+  version "0.8.22"
+  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#bc5a5bbfe180b5a42c4e9a17645547bb6b089bb0"
   dependencies:
     "@modelcontextprotocol/sdk" "^1.30.0"
     "@rotty3000/config-node" "^0.4.1"
@@ -1042,7 +1042,7 @@
     ajv-formats "^3.0.1"
     axios "^1.18.0"
     better-sqlite3 "12.11.1"
-    csv-parse "^5.5.6"
+    csv-parse "^7.0.2"
     fast-uri "^3.1.4"
     form-data "^4.0.6"
     lodash "^4.18.1"
@@ -2583,11 +2583,6 @@ csstype@^3.0.2, csstype@^3.2.2:
   version "3.2.3"
   resolved "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz"
   integrity sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==
-
-csv-parse@^5.5.6:
-  version "5.6.0"
-  resolved "https://registry.yarnpkg.com/csv-parse/-/csv-parse-5.6.0.tgz#219beace2a3e9f28929999d2aa417d3fb3071c7f"
-  integrity sha512-l3nz3euub2QMg5ouu5U09Ew9Wf6/wQ8I++ch1loQ0ljmzhmfZYrH9fflS22i/PQEvsPvxCwxgz5q7UB8K1JO4Q==
 
 csv-parse@^7.0.2:
   version "7.0.2"

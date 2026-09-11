@@ -71,6 +71,7 @@ if (
     'generate',
     'delete',
     'export',
+    'extract',
     'import',
     'config',
     'reindex',
@@ -143,6 +144,8 @@ for (let i = 1; i < args.length; i++) {
   }
   if (arg === '--docker') options.docker = true;
   if (arg === '--api') options.api = true;
+  if (arg === '--bundle' || arg === '--with-media') options.bundle = true;
+  if (arg === '--instance') options.instance = true;
 }
 
 // --- 4. Main Command Routing Router ---
@@ -159,7 +162,10 @@ for (let i = 1; i < args.length; i++) {
         await handleDelete(options);
         break;
       case 'export':
-        await handleExport(args[1], args[2]);
+        await handleExport(args[1], args[2], options);
+        break;
+      case 'extract':
+        await handleExtract(args[1], args[2], options);
         break;
       case 'import':
         await handleImport(args[1]);
@@ -465,11 +471,83 @@ async function handleDelete(opts) {
   await pollProgress(sessionId);
 }
 
-async function handleExport(sessionId, outputPath) {
+/**
+ * What a package reports about itself, printed rather than swallowed.
+ *
+ * The counts are the result of an export or an extract, not decoration: a
+ * package that carries fewer pictures than its source still downloads, still
+ * imports, and still looks like success. Anything above zero is said out loud
+ * and the command exits non-zero on a required-field shortfall, so a script
+ * that promotes a catalogue can stop rather than promote a thin one.
+ */
+function reportPackageCounts(headers) {
+  const count = (name) => {
+    const value = headers.get(name);
+    return value === null ? null : Number(value);
+  };
+
+  const images = count('X-AICA-Media-Images');
+  const pdfs = count('X-AICA-Media-Pdfs');
+  const unresolved = count('X-AICA-Media-Unresolved');
+  const incomplete = count('X-AICA-Products-Incomplete');
+  const partial = count('X-AICA-Products-Partial');
+  const source = headers.get('X-AICA-Media-Source');
+
+  console.log(
+    `   Media: ${images ?? 0} image(s), ${pdfs ?? 0} attachment(s)${source ? ` (from the ${source})` : ''}`
+  );
+
+  if (partial) {
+    console.log(
+      `   ${partial} product(s) are missing optional fields only - usually blank on the source`
+    );
+  }
+
+  if (unresolved) {
+    console.warn(
+      `\n⚠️  ${unresolved} media item(s) could not be included. The package carries fewer pictures than its source.`
+    );
+  }
+
+  if (incomplete) {
+    console.warn(
+      `\n⚠️  ${incomplete} product(s) are missing a field the schema requires; see metadata.translationReport inside the package.`
+    );
+  }
+
+  return { images, incomplete, partial, pdfs, unresolved };
+}
+
+function packagePath(outputPath, fallbackName) {
+  return outputPath
+    ? path.resolve(process.cwd(), outputPath)
+    : path.resolve(process.cwd(), `${fallbackName}.aicap`);
+}
+
+async function handleExport(sessionId, outputPath, opts = {}) {
   if (!sessionId) {
     throw new Error(
-      'Please specify a sessionId to export (aica export <sessionId> [outputPath])'
+      'Please specify a sessionId to export (aica export <sessionId> [outputPath] [--bundle])'
     );
+  }
+
+  if (opts.bundle) {
+    const resolvedPath = packagePath(outputPath, `aica-package-${sessionId}`);
+
+    console.log(
+      `Building a dataset package for ${sessionId} at: ${resolvedPath}...`
+    );
+
+    // The cheap half of the pair: this reads the media this service already
+    // wrote to disk, so it calls no Liferay and needs no credentials.
+    const { buffer, headers } = await nativeDownload(
+      `${MICROSERVICE_URL}/api/v1/export-commerce-bundle?sessionId=${encodeURIComponent(sessionId)}`
+    );
+
+    fs.writeFileSync(resolvedPath, buffer);
+    console.log(`\n🟢 Package written to disk! (${buffer.length} bytes)`);
+    reportPackageCounts(headers);
+    return;
   }
 
   const defaultPath = path.resolve(
@@ -493,12 +571,75 @@ async function handleExport(sessionId, outputPath) {
   console.log(
     `\n🟢 Dataset successfully written to disk! (${res.products.length} Products, ${res.accounts.length} Accounts, ${res.orders.length} Orders)`
   );
+  console.log(
+    `   No media: this is the dataset alone. Use --bundle for a package carrying its images and attachments.`
+  );
+}
+
+/**
+ * Pull a package out of a live Liferay.
+ *
+ * The expensive half: it authenticates against an instance and fetches every
+ * binary across the network, where `export --bundle` reads a directory. Worth
+ * it when the media was never written locally - a dataset generated before the
+ * archive existed, or a catalogue this service did not build.
+ *
+ * The source is stated rather than inferred. `--instance` reads the whole
+ * catalogue; a session id reads that run and fills in its archive on the way
+ * through, so a later export of it is cheap.
+ */
+async function handleExtract(sessionId, outputPath, opts = {}) {
+  const fromInstance = Boolean(opts.instance);
+
+  if (!fromInstance && !sessionId) {
+    throw new Error(
+      'Please specify what to extract: aica extract <sessionId> [outputPath], or aica extract --instance [outputPath]'
+    );
+  }
+
+  const target = fromInstance ? 'instance' : sessionId;
+  const resolvedPath = packagePath(
+    fromInstance ? sessionId : outputPath,
+    `aica-extract-${target}`
+  );
+
+  console.log(
+    fromInstance
+      ? `Extracting a package from ${LIFERAY_URL} to: ${resolvedPath}...`
+      : `Extracting media for ${sessionId} from ${LIFERAY_URL} to: ${resolvedPath}...`
+  );
+  console.log(
+    '   This reads the instance over the network, one request per attachment.'
+  );
+
+  const { buffer, headers } = await nativeDownload(
+    `${MICROSERVICE_URL}/api/v1/extract-commerce-bundle`,
+    {
+      method: 'POST',
+      payload: {
+        ...buildConnectionPayload(),
+        source: fromInstance ? 'instance' : 'session',
+        ...(fromInstance ? {} : { sessionId }),
+      },
+    }
+  );
+
+  fs.writeFileSync(resolvedPath, buffer);
+  console.log(`\n🟢 Package written to disk! (${buffer.length} bytes)`);
+
+  const counts = reportPackageCounts(headers);
+
+  if (counts.incomplete) {
+    // A promotion built from this package would land products that cannot be
+    // sold. A script should stop here rather than carry on to the import.
+    process.exitCode = 1;
+  }
 }
 
 async function handleImport(inputPath) {
   if (!inputPath) {
     throw new Error(
-      'Please specify a path to the JSON dataset file (aica import <inputPath>)'
+      'Please specify a dataset (.json) or package (.aicap) to import (aica import <inputPath>)'
     );
   }
 
@@ -507,20 +648,45 @@ async function handleImport(inputPath) {
     throw new Error(`Dataset file not found at: ${resolvedPath}`);
   }
 
-  console.log(`Reading dataset from: ${resolvedPath}...`);
-  const fileContent = fs.readFileSync(resolvedPath, 'utf8');
-  const dataset = JSON.parse(fileContent);
+  const bytes = fs.readFileSync(resolvedPath);
+  // The same check the route makes, on the local file header rather than the
+  // name, so a renamed package is still recognised - and so the two cannot
+  // disagree about what is being sent.
+  const isPackage =
+    bytes.length > 4 &&
+    bytes[0] === 0x50 &&
+    bytes[1] === 0x4b &&
+    (bytes[2] === 0x03 || bytes[2] === 0x05 || bytes[2] === 0x07);
 
-  console.log(`Uploading dataset payload to target DXP...`);
-  const payload = {
-    ...buildConnectionPayload(),
-    dataset,
-  };
+  if (!isPackage) {
+    // Fails here rather than at the far end, where a malformed dataset is a
+    // 400 with a parse error and no mention of the file it came from.
+    try {
+      JSON.parse(bytes.toString('utf8'));
+    } catch (error) {
+      throw new Error(
+        `${resolvedPath} is neither a dataset package nor valid JSON: ${error.message}`
+      );
+    }
+  }
 
-  const res = await nativePost(
-    `${MICROSERVICE_URL}/api/v1/import-commerce-data`,
-    payload
+  console.log(
+    `Uploading ${isPackage ? 'package' : 'dataset'} (${bytes.length} bytes) to ${LIFERAY_URL}...`
   );
+
+  if (isPackage) {
+    console.log('   Media travels with it and is attached as part of the run.');
+  }
+
+  // Multipart rather than a JSON body: a package is a zip, and the route
+  // detects one by its header. Sending it as a field would make every
+  // promotion a dataset with no pictures.
+  const res = await nativeUpload(
+    `${MICROSERVICE_URL}/api/v1/import-commerce-data`,
+    buildConnectionPayload(),
+    { bytes, field: 'importFile', filename: path.basename(resolvedPath) }
+  );
+
   if (!res.success || !res.sessionId) {
     throw new Error(res.error || 'Failed to submit dataset import workflow.');
   }
@@ -744,6 +910,68 @@ async function nativePost(url, payload) {
   return res.json();
 }
 
+/**
+ * A response that is a file, with the headers that describe it.
+ *
+ * `nativeGet` and `nativePost` parse JSON, which turns a package into a string
+ * of replacement characters. The headers matter as much as the bytes here: for
+ * an export or an extract they carry what the package does and does not
+ * contain.
+ */
+async function nativeDownload(url, { method = 'GET', payload } = {}) {
+  const res = await fetch(url, {
+    method,
+    ...(payload
+      ? {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      : {}),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    let message = text;
+
+    try {
+      message = JSON.parse(text).error || text;
+    } catch {
+      // Not JSON. The body, whatever it is, beats the status code alone.
+    }
+
+    throw new Error(`HTTP ${res.status}: ${message}`);
+  }
+
+  return {
+    buffer: Buffer.from(await res.arrayBuffer()),
+    headers: res.headers,
+  };
+}
+
+/** A multipart upload, built from the runtime's own FormData - no dependency. */
+async function nativeUpload(url, fields, { bytes, field, filename }) {
+  const form = new FormData();
+
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    form.append(
+      key,
+      typeof value === 'object' ? JSON.stringify(value) : String(value)
+    );
+  });
+
+  form.append(field, new Blob([bytes]), filename);
+
+  const res = await fetch(url, { method: 'POST', body: form });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text}`);
+  }
+
+  return res.json();
+}
+
 async function nativeGet(url) {
   const res = await fetch(url, {
     method: 'GET',
@@ -761,7 +989,13 @@ async function handleReindex(className, opts) {
     return;
   }
 
-  const endpoint = className ? `reindex/${className}` : 'reindex';
+  // Built so the path appears literally rather than assembled from a fragment:
+  // tests/surfaceParity.test.cjs reads these sources to find an endpoint no
+  // surface can reach, and a path spelled `/api/v1/${endpoint}` is invisible
+  // to it - which would have read as "the CLI cannot reindex" when it can.
+  const endpoint = className
+    ? `/api/v1/reindex/${className}`
+    : '/api/v1/reindex';
   console.log(`Triggering search reindexing for: ${className || 'All'}`);
 
   const payload = {
@@ -769,10 +1003,7 @@ async function handleReindex(className, opts) {
   };
 
   try {
-    const res = await nativePost(
-      `${MICROSERVICE_URL}/api/v1/${endpoint}`,
-      payload
-    );
+    const res = await nativePost(`${MICROSERVICE_URL}${endpoint}`, payload);
 
     if (!res.success) {
       throw new Error(res.error || 'Failed to trigger reindexing.');
@@ -840,14 +1071,19 @@ Commands:
   connect                                Handshake with target DXP server
   generate [--demo] [--products N]       Trigger a new data generation
   delete [--all | --selected]            Tear down and delete generated data
-  export <sessionId> [outputPath]        Export completed dataset to a JSON file
-  import <inputPath>                     Import a saved dataset onto the target
+  export <sessionId> [outputPath]        Export a completed dataset as JSON, without media
+  export <sessionId> --bundle [path]     Export it as a package (.aicap) carrying its media
+  extract <sessionId> [outputPath]       Read a run's media back from the live instance
+  extract --instance [outputPath]        Read the whole catalogue from the live instance
+  import <inputPath>                     Import a dataset (.json) or package (.aicap)
   config get                             Retrieve active parameters from microservice
   config set <filePath>                  Import parameters from a JSON configuration file
   config set --key <name> --value <val>  Update a single configuration key dynamically
   reindex [className]                    Trigger search reindexing (defaults to all)
 
 Options:
+  --bundle / --with-media                Export a package (.aicap) rather than a JSON dataset
+  --instance                             Extract the whole catalogue rather than one run
   --docker                               Force Option 2: local Docker/LDM reindex trigger
   --api                                  Force Option 1: REST API reindex trigger via microservice
   --demo                                 Use Mock Data instead of Gemini AI
@@ -867,6 +1103,16 @@ Options:
   -y / --yes / --non-interactive         Bypass interactive prompts and exit on missing config
   --all                                  Perform global deletions
   --selected                             Perform selected channel deletions
+
+Moving a dataset between instances:
+  - 'export --bundle' reads the media this service already wrote to disk. It
+    calls no Liferay and needs no credentials, so it is the cheap route.
+  - 'extract' reads a live instance instead, one request per attachment. Use it
+    when the media was never held locally, and note that extracting a session
+    fills in its archive, so a later export of it is cheap.
+  - Both print what the package contains. A non-zero shortfall means it carries
+    less than its source, and 'extract' exits non-zero when products are
+    missing a field the schema requires.
 
 Convention Rules:
   - Scans current directory cascading up for standard local '.env' parameters.
