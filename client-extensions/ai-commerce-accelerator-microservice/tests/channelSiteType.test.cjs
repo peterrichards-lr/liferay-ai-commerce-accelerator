@@ -161,20 +161,39 @@ describe('channel site type', () => {
   });
 
   describe('evaluateGenerationRun', () => {
+    // Counts are part of the fixture, not decoration. A setting is judged only
+    // when it governs work the run will do, and `routes/generate.cjs` decides
+    // that on `accountCount > 0` / `orderCount > 0` - so a run asserting it is
+    // blocked has to be a run that would actually create something. These
+    // fixtures carried no counts before #926, which meant they described runs
+    // that in production add no account steps at all.
+    const WILL_GENERATE = { accountCount: 5, orderCount: 5 };
+
     it('checks the account type new accounts are generated with', () => {
       expect(
-        evaluateGenerationRun({ accountType: 'business' }, B2C).outcome
+        evaluateGenerationRun(
+          { ...WILL_GENERATE, accountType: 'business' },
+          B2C
+        ).outcome
       ).toBe('block');
     });
 
     it('checks the account type standalone order runs draw from', () => {
-      const run = { accountType: 'person', orderAccountType: 'business' };
+      const run = {
+        ...WILL_GENERATE,
+        accountType: 'person',
+        orderAccountType: 'business',
+      };
 
       expect(evaluateGenerationRun(run, B2C).outcome).toBe('block');
     });
 
     it('judges nothing when order runs accept any customer account', () => {
-      const run = { accountType: 'person', orderAccountType: undefined };
+      const run = {
+        ...WILL_GENERATE,
+        accountType: 'person',
+        orderAccountType: undefined,
+      };
 
       expect(evaluateGenerationRun(run, B2C).outcome).toBe('ok');
     });
@@ -183,19 +202,31 @@ describe('channel site type', () => {
       // Only reachable if the two settings disagree about a partly readable
       // response; the run should still be refused rather than merely flagged.
       const partial = { ...B2C, allowedAccountTypes: ['person'] };
-      const run = { accountType: 'business', orderAccountType: 'person' };
+      const run = {
+        ...WILL_GENERATE,
+        accountType: 'business',
+        orderAccountType: 'person',
+      };
 
       expect(evaluateGenerationRun(run, partial).outcome).toBe('block');
     });
 
     it('blocks a run whose accounts an unset, B2C-defaulted channel cannot hold', () => {
-      const run = { accountType: 'business', orderAccountType: 'person' };
+      const run = {
+        ...WILL_GENERATE,
+        accountType: 'business',
+        orderAccountType: 'person',
+      };
 
       expect(evaluateGenerationRun(run, UNSET).outcome).toBe('block');
     });
 
     it('passes a run an unset, B2C-defaulted channel can hold', () => {
-      const run = { accountType: 'person', orderAccountType: 'person' };
+      const run = {
+        ...WILL_GENERATE,
+        accountType: 'person',
+        orderAccountType: 'person',
+      };
 
       expect(evaluateGenerationRun(run, UNSET).outcome).toBe('ok');
     });
@@ -203,6 +234,66 @@ describe('channel site type', () => {
     it('passes a run with no account settings at all', () => {
       expect(evaluateGenerationRun({}, B2B).outcome).toBe('ok');
       expect(evaluateGenerationRun(undefined, B2B).outcome).toBe('ok');
+    });
+
+    // #926. The guard judged `accountType`, which carries its default whether
+    // or not it governs anything, so a run creating nothing was refused for
+    // the type it would have used. Reproduced against a live 2026.q3.0 bundle.
+    it('does not judge the account type when no accounts will be generated', () => {
+      const run = {
+        accountCount: 0,
+        accountType: 'business',
+        orderCount: 0,
+      };
+
+      expect(evaluateGenerationRun(run, UNSET).outcome).toBe('ok');
+    });
+
+    it('treats an absent count the same as zero, as the route does', () => {
+      // `routes/generate.cjs` gates on `accountCount > 0`, and `undefined > 0`
+      // is false - so an absent count adds no account steps and there is
+      // nothing for the guard to judge either.
+      expect(
+        evaluateGenerationRun({ accountType: 'business' }, UNSET).outcome
+      ).toBe('ok');
+    });
+
+    it('still judges the order account type when only orders will run', () => {
+      // Orders draw on accounts that already exist, so a zero account count
+      // does not make the order setting irrelevant.
+      const run = {
+        accountCount: 0,
+        accountType: 'business',
+        orderAccountType: 'business',
+        orderCount: 5,
+      };
+
+      expect(evaluateGenerationRun(run, UNSET).outcome).toBe('block');
+    });
+
+    it('judges a seed pack run, which brings accounts the count does not describe', () => {
+      // The pack supplies its own accounts and is not read until later in the
+      // route, so its types are unknown here. Judging conservatively keeps
+      // #640 rather than opening a hole under a zero count.
+      const run = {
+        accountCount: 0,
+        accountType: 'business',
+        orderCount: 0,
+        seedPack: 'industrial-power-tools',
+      };
+
+      expect(evaluateGenerationRun(run, UNSET).outcome).toBe('block');
+    });
+
+    it('keeps refusing the run the guard exists for', () => {
+      // #640, restated so the filter above cannot quietly swallow it: a run
+      // that really does generate business accounts into a B2C-defaulted
+      // channel is still blocked, with the same message.
+      const run = { accountCount: 25, accountType: 'business', orderCount: 0 };
+      const verdict = evaluateGenerationRun(run, UNSET);
+
+      expect(verdict.outcome).toBe('block');
+      expect(verdict.message).toContain('does not accept');
     });
   });
 });
