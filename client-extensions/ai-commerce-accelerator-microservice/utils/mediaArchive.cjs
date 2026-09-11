@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { BUNDLE_VERSION, KIND } = require('./mediaBundle.cjs');
+const { BUNDLE_VERSION, KIND, mediaFolder } = require('./mediaBundle.cjs');
 const { ENV } = require('./constants.cjs');
 
 /**
@@ -84,7 +84,10 @@ function extensionFor(contentType, kind) {
 
 /**
  * The relative path an entry gets, in the layout #848 asked for:
- * `images/<productERC>-<priority>.<ext>` and `pdfs/<productERC>-<sku>.pdf`.
+ * `images/<productERC>-<priority>.<ext>` and
+ * `attachments/<productERC>-<sku>.pdf`. The directory names are the package's
+ * own, from `mediaFolder`, so a session directory and a package unpacked
+ * beside it read the same.
  *
  * `taken` disambiguates rather than letting a second entry overwrite the
  * first: bundle mode can carry several pictures for one product at the same
@@ -92,7 +95,7 @@ function extensionFor(contentType, kind) {
  * feature exists to stop.
  */
 function entryPath({ contentType, kind, priority, productERC, sku }, taken) {
-  const folder = kind === KIND.PDF ? 'pdfs' : 'images';
+  const folder = mediaFolder(kind);
   const qualifier =
     kind === KIND.PDF
       ? safeSegment(sku, 'sku')

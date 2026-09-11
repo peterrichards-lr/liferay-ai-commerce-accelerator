@@ -38,6 +38,32 @@ const BUNDLE_VERSION = 1;
 
 const KIND = { IMAGE: 'image', PDF: 'pdf' };
 
+/**
+ * Which directory a binary goes in, in the package and in the archive alike.
+ *
+ * Two buckets rather than one per kind, and the second one is named for what
+ * it will hold rather than for what it holds today. PDFs are what generation
+ * produces now; CAD models, high-resolution renders and 3D/AR assets are the
+ * kind of thing that arrives next, and none of them wants a directory called
+ * `pdfs` - nor a directory of its own, since the manifest already carries the
+ * kind and the tool keeps its own separation from it.
+ *
+ * Keyed on "is it a picture" rather than "is it a PDF", so a kind added later
+ * lands in `attachments` without this needing to be edited again.
+ *
+ * Packages written before this named their entries `media/pdfs/...`. Nothing
+ * translates them and nothing needs to: both readers resolve a file by the
+ * path its own manifest gives, never by rebuilding the directory name.
+ */
+const MEDIA_FOLDERS = Object.freeze({
+  ATTACHMENTS: 'attachments',
+  IMAGES: 'images',
+});
+
+function mediaFolder(kind) {
+  return kind === KIND.IMAGE ? MEDIA_FOLDERS.IMAGES : MEDIA_FOLDERS.ATTACHMENTS;
+}
+
 const EXTENSIONS = {
   'application/pdf': 'pdf',
   'image/gif': 'gif',
@@ -59,9 +85,8 @@ function entryName(kind, index, productERC, contentType) {
     .replace(/[^A-Za-z0-9._-]/g, '-')
     .slice(0, 60);
   const extension = EXTENSIONS[contentType] || 'bin';
-  const folder = kind === KIND.PDF ? 'pdfs' : 'images';
 
-  return `media/${folder}/${String(index).padStart(4, '0')}-${safe}.${extension}`;
+  return `media/${mediaFolder(kind)}/${String(index).padStart(4, '0')}-${safe}.${extension}`;
 }
 
 /**
@@ -188,6 +213,8 @@ module.exports = {
   PACKAGE_EXTENSION,
   DATASET_ENTRY,
   KIND,
+  MEDIA_FOLDERS,
+  mediaFolder,
   MANIFEST_ENTRY,
   buildMediaBundle,
   looksLikeZip,
