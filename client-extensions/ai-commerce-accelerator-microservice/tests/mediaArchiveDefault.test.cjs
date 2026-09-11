@@ -6,9 +6,11 @@ const path = require('path');
 // layer at require time and `tests/mediaArchive.test.cjs` turns the feature on.
 //
 // Off is the default because the archive is the only thing here that writes
-// hundreds of megabytes to a volume a PaaS restart may not preserve, and
-// nothing reads the directory back yet - the export still resolves media from
-// the source instance (#814). See #848.
+// hundreds of megabytes to a volume a PaaS restart may not preserve. It is no
+// longer true that nothing reads the directory back: GET
+// /export-commerce-bundle packages it (#896), and switching the archive on is
+// what that route needs. Extract remains the route for media this service
+// never held (#814). See #848.
 
 const MediaGenerator = require('../generators/mediaGenerator.cjs');
 const { ENV } = require('../utils/constants.cjs');

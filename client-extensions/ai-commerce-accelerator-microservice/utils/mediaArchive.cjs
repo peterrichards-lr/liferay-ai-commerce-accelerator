@@ -403,6 +403,91 @@ function openMediaArchive({ correlationId, logger, sessionId, ...overrides }) {
   return archive;
 }
 
+/**
+ * Everything a session's archive directory holds, ready for `buildMediaBundle`.
+ *
+ * The manifest is the authority, not the directory listing, for the same
+ * reason the import trusts the bundle's manifest over its entries (#878): the
+ * manifest carries the identity - product, kind, title, priority, content type
+ * - and a file on its own carries only a name. An entry naming a file that is
+ * no longer there is returned in `missing` rather than skipped, because a
+ * package that is quietly short is the failure this feature exists to prevent.
+ *
+ * Returns `null` when the archive is switched off or the session was never
+ * written, which the caller must be able to tell apart from a session that
+ * genuinely generated no media. The first cannot produce a package and has to
+ * say so; the second produces an honest empty one.
+ */
+function readMediaArchive({ sessionId, ...overrides } = {}) {
+  const settings = mediaArchiveSettings(overrides);
+
+  if (!settings.enabled || !sessionId) return null;
+
+  const dir = path.join(settings.root, safeSegment(sessionId, 'session'));
+
+  let manifest;
+
+  try {
+    manifest = JSON.parse(
+      fs.readFileSync(path.join(dir, MANIFEST_FILE), 'utf8')
+    );
+  } catch {
+    return null;
+  }
+
+  const entries = [];
+  const missing = [];
+
+  for (const file of Array.isArray(manifest.files) ? manifest.files : []) {
+    const target = path.resolve(dir, String(file.file || ''));
+
+    // The writer flattens every name, so a manifest that points outside its
+    // own session directory was not written by this service. Treating it as
+    // missing rather than reading it keeps a package built from a tampered or
+    // hand-edited archive to the bytes that archive actually owns.
+    if (
+      target !== dir &&
+      !target.startsWith(`${path.resolve(dir)}${path.sep}`)
+    ) {
+      missing.push({
+        ...file,
+        reason: 'the manifest names a file outside the session directory',
+      });
+      continue;
+    }
+
+    let buffer;
+
+    try {
+      buffer = fs.readFileSync(target);
+    } catch (error) {
+      // The code, not the message: the message carries the absolute path,
+      // and this reason travels inside a package that goes to other people.
+      missing.push({
+        ...file,
+        reason:
+          error.code === 'ENOENT'
+            ? `the media archive no longer holds ${file.file}`
+            : `${file.file} could not be read from the media archive (${error.code || 'unknown error'})`,
+      });
+      continue;
+    }
+
+    entries.push({ ...file, buffer });
+  }
+
+  return {
+    dir,
+    entries,
+    manifest: {
+      counts: manifest.counts || null,
+      unresolved: Array.isArray(manifest.unresolved) ? manifest.unresolved : [],
+      version: manifest.version ?? null,
+    },
+    missing,
+  };
+}
+
 /** Test seam: the open-archive cache is process-wide and outlives a test. */
 function resetMediaArchives() {
   openArchives.clear();
@@ -415,5 +500,6 @@ module.exports = {
   mediaArchiveSettings,
   openMediaArchive,
   pruneArchiveRoot,
+  readMediaArchive,
   resetMediaArchives,
 };
