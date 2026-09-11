@@ -1,4 +1,5 @@
 const HealthService = require('../services/healthService.cjs');
+const { ENV } = require('../utils/constants.cjs');
 
 describe('HealthService', () => {
   let healthService;
@@ -59,31 +60,64 @@ describe('HealthService', () => {
     expect(report.checks.ai.status).toBe('healthy');
   });
 
-  it('should fall back to LIFERAY_URL/LIFERAY_CLIENT_ID/LIFERAY_CLIENT_SECRET when getOAuthConfig resolves an empty config', async () => {
-    // getOAuthConfig() falls back to {} on failure rather than throwing (e.g.
-    // no persisted OAuth config yet, or OAuth intentionally disabled in favor
-    // of basic auth) - the env var fallback must apply even though nothing
-    // actually threw.
+  // The credentials half of this fallback read LIFERAY_CLIENT_ID and
+  // LIFERAY_CLIENT_SECRET, which nothing in this project defines - AICA's are
+  // LIFERAY_OAUTH_CLIENT_ID and LIFERAY_OAUTH_CLIENT_SECRET - so the check
+  // connected with a URL and no credentials, which is the one case the
+  // fallback exists for. The test that should have caught it set the names the
+  // code read, so it pinned the typo and would have stayed green had they been
+  // BANANA_CLIENT_ID (#933).
+  //
+  // This drives the configuration the service itself resolves, so it asserts
+  // that whatever the deployment supplied reaches the connection, and says
+  // nothing about which variable carried it there.
+  it('connects with the credentials the service resolved, when getOAuthConfig returns nothing', async () => {
     mockCtx.config.getOAuthConfig.mockResolvedValue({});
-    const originalUrl = process.env.LIFERAY_URL;
-    const originalClientId = process.env.LIFERAY_CLIENT_ID;
-    const originalClientSecret = process.env.LIFERAY_CLIENT_SECRET;
-    process.env.LIFERAY_URL = 'https://aica-e2e.local';
-    process.env.LIFERAY_CLIENT_ID = 'env-client-id';
-    process.env.LIFERAY_CLIENT_SECRET = 'env-client-secret';
+    const resolved = {
+      LIFERAY_OAUTH_CLIENT_ID: 'resolved-client-id',
+      LIFERAY_OAUTH_CLIENT_SECRET: 'resolved-client-secret',
+      LIFERAY_URL: 'https://aica-e2e.demo',
+    };
+    const original = Object.fromEntries(
+      Object.keys(resolved).map((key) => [key, ENV[key]])
+    );
+    Object.assign(ENV, resolved);
 
-    const result = await healthService.runHealthCheck('liferay');
+    try {
+      const result = await healthService.runHealthCheck('liferay');
 
-    expect(result.status).toBe('healthy');
-    expect(mockCtx.liferay.rest.testConnection).toHaveBeenCalledWith({
-      liferayUrl: 'https://aica-e2e.local',
-      clientId: 'env-client-id',
-      clientSecret: 'env-client-secret',
+      expect(result.status).toBe('healthy');
+      expect(mockCtx.liferay.rest.testConnection).toHaveBeenCalledWith({
+        clientId: resolved.LIFERAY_OAUTH_CLIENT_ID,
+        clientSecret: resolved.LIFERAY_OAUTH_CLIENT_SECRET,
+        liferayUrl: resolved.LIFERAY_URL,
+      });
+    } finally {
+      Object.assign(ENV, original);
+    }
+  });
+
+  it('prefers a persisted OAuth config over the resolved environment', async () => {
+    const original = {
+      LIFERAY_OAUTH_CLIENT_ID: ENV.LIFERAY_OAUTH_CLIENT_ID,
+      LIFERAY_OAUTH_CLIENT_SECRET: ENV.LIFERAY_OAUTH_CLIENT_SECRET,
+    };
+    Object.assign(ENV, {
+      LIFERAY_OAUTH_CLIENT_ID: 'resolved-client-id',
+      LIFERAY_OAUTH_CLIENT_SECRET: 'resolved-client-secret',
     });
 
-    process.env.LIFERAY_URL = originalUrl;
-    process.env.LIFERAY_CLIENT_ID = originalClientId;
-    process.env.LIFERAY_CLIENT_SECRET = originalClientSecret;
+    try {
+      await healthService.runHealthCheck('liferay');
+
+      expect(mockCtx.liferay.rest.testConnection).toHaveBeenCalledWith({
+        clientId: 'mock-id',
+        clientSecret: 'mock-secret',
+        liferayUrl: 'http://localhost:8080',
+      });
+    } finally {
+      Object.assign(ENV, original);
+    }
   });
 
   it('should return unhealthy if memory check fails', async () => {
