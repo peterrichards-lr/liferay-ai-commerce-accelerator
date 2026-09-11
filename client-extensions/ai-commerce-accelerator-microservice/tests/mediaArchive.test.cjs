@@ -6,7 +6,6 @@ const path = require('path');
 // defaults at require time, the same way `tests/setup.mjs` redirects
 // PERSISTENCE_DB_PATH before the persistence layer loads.
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'aica-media-archive-'));
-process.env.MEDIA_ARCHIVE_ENABLED = 'true';
 process.env.MEDIA_ARCHIVE_PATH = ROOT;
 
 const MediaGenerator = require('../generators/mediaGenerator.cjs');
@@ -453,24 +452,16 @@ describe('Retention', () => {
   });
 });
 
-describe('Switched off', () => {
+describe('Without a session to write for', () => {
   it('writes nothing and still returns a usable archive', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'aica-media-off-'));
+    // A no-op rather than a null, so the generator has no `if (archive)` at
+    // every call site. There is no feature switch left to reach this state -
+    // only a missing session id or a directory that cannot be created, both
+    // of which are failures rather than choices (#898).
+    const archive = openMediaArchive({ root: ROOT, sessionId: null });
 
-    try {
-      const archive = openMediaArchive({
-        enabled: false,
-        root,
-        sessionId: 'off',
-      });
-
-      // A no-op rather than a null, so the generator has no `if (archive)` at
-      // every call site.
-      expect(archive.record({ base64: 'AA==', kind: KIND.IMAGE })).toBeNull();
-      expect(() => archive.link(null, {})).not.toThrow();
-      expect(fs.readdirSync(root)).toEqual([]);
-    } finally {
-      fs.rmSync(root, { force: true, recursive: true });
-    }
+    expect(archive.enabled).toBe(false);
+    expect(archive.record({ base64: 'AA==', kind: KIND.IMAGE })).toBeNull();
+    expect(() => archive.link(null, {})).not.toThrow();
   });
 });

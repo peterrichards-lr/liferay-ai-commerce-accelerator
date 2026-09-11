@@ -67,18 +67,33 @@ what they produce:
 `GET /api/v1/export-commerce-data` remains the dataset-only JSON export, with
 no media.
 
-**Export needs the media archive switched on.** `MEDIA_ARCHIVE_ENABLED` is off
-by default; with it on, `utils/mediaArchive.cjs` writes each binary to
-`data/media/<sessionId>/` _before_ uploading it, under the same manifest the
-package format uses. When the run recorded media and the archive can supply
-none, the export **refuses with 409** and names extract — a package that
-quietly carries a catalogue with no pictures is the failure the whole feature
-exists to prevent.
+**Both producers stage through the media archive**, and that is what makes the
+cheap route possible. `utils/mediaArchive.cjs` writes each binary to
+`~/.aica/media/<sessionId>/` — beside the workflow database, outside the
+repository, because state inside a checkout gets destroyed by ordinary tooling
+(#868, #869, #899). A generation run writes each file _before_ uploading it, so
+a rejected upload leaves something usable behind; an extract writes each
+binary as it arrives and releases it, so the peak is one attachment rather
+than the whole catalogue.
 
-**Extract is the route for media this service never held**: a dataset
-generated before the archive existed, or one whose media now lives only in
-Liferay. It resolves attachments by product ERC rather than by anything the
-run recorded, which is why a historic session can still be promoted.
+There is no switch that stops the writing: staging is how a package is built,
+so skipping it would produce a package with no pictures and no error.
+`MEDIA_ARCHIVE_RETAIN` decides only whether a directory staged _purely to build
+a package_ — an extract against a live instance, which has no session behind it
+— survives the package it produced.
+
+**An extract against a session repairs that session's archive.** Pull the
+binaries once, and every later export of it is a directory read. When the run
+recorded media and the archive can supply none, the export **refuses with 409**
+and names extract — a package that quietly carries a catalogue with no pictures
+is the failure the whole feature exists to prevent.
+
+**Media outlives its session only until the next sweep.** A directory whose
+session id is no longer in `workflows.db` is garbage however it went —
+`clear-all`, `cleanup`, a row removed by hand — so it is swept at startup and
+after both routes, alongside the age (`MEDIA_ARCHIVE_RETENTION_HOURS`) and
+count (`MEDIA_ARCHIVE_MAX_SESSIONS`) prune. Extract staging directories are
+exempt by name: having no session is what they are.
 
 **Both producers report the same four counts**, as response headers and inside
 `media/manifest.json`:

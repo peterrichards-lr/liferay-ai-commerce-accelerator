@@ -4,6 +4,10 @@ const {
   recordReindexFailure,
   recordReindexSuccess,
 } = require('./utils/reindexStatus.cjs');
+const {
+  migrateLegacyMediaRoot,
+  sweepOrphanMediaArchives,
+} = require('./utils/mediaArchive.cjs');
 
 const { AIService } = require('./services/aiService.cjs');
 const BatchCallbackService = require('./services/batch/callback.cjs');
@@ -39,6 +43,36 @@ const WorkflowCoordinator = require('./generators/workflowCoordinator.cjs');
 
 const registerDataGenerationWorkers = require('./workers/dataGenerationWorkers.cjs');
 const registerBatchWorkers = require('./workers/registerBatchWorkers.cjs');
+
+/**
+ * Bring the media directory back into agreement with the database.
+ *
+ * Two things can be out of step at startup and neither announces itself. Media
+ * may still be at the old in-repository path, where a `gradle clean` can take
+ * it (#899); and directories may belong to sessions that no longer exist,
+ * because the routes that remove sessions cannot remove media the SDK has
+ * never heard of (#898).
+ *
+ * Neither is allowed to stop the service. Media is what a package is built
+ * from, not what the service runs on, so a failure here costs a package and
+ * must not cost a boot.
+ */
+async function reconcileMediaArchive(ctx) {
+  try {
+    migrateLegacyMediaRoot({ logger: ctx.logger });
+
+    const sessions = await ctx.persistence.getAllSessions();
+
+    sweepOrphanMediaArchives({
+      knownSessionIds: sessions.map((session) => session.session_id),
+      logger: ctx.logger,
+    });
+  } catch (error) {
+    ctx.logger.warn(
+      `Could not reconcile the media archive at startup: ${error.message}. Media is unaffected; orphaned directories stay until the next start.`
+    );
+  }
+}
 
 module.exports = async (ws) => {
   const ctx = { logger, ws };
@@ -211,6 +245,8 @@ module.exports = async (ws) => {
     logger,
     batchCallbackService: ctx.batchCallback,
   });
+
+  await reconcileMediaArchive(ctx);
 
   return {
     accountGenerator: ctx.accountGenerator,

@@ -143,6 +143,30 @@ describe('Media bundle round trip', () => {
   });
 });
 
+/**
+ * What the extractor writes into, without a disk.
+ *
+ * The extractor no longer returns binaries - it stages each one as it arrives
+ * and releases it (#898) - so what it did is read back off the archive it was
+ * given rather than off a return value.
+ */
+function collectingArchive() {
+  const staged = [];
+
+  return {
+    enabled: true,
+    staged,
+    link() {},
+    record(item) {
+      staged.push(item);
+
+      return item.buffer && item.buffer.length > 0
+        ? { ...item, file: `media/${staged.length}` }
+        : null;
+    },
+  };
+}
+
 describe('Extracting media from the source instance', () => {
   const liferayService = {
     getProductImages: async (_config, erc) =>
@@ -167,19 +191,23 @@ describe('Extracting media from the source instance', () => {
   const logger = { warn: () => {}, info: () => {} };
 
   it('resolves each product by its external reference code', async () => {
-    const media = await extractDatasetMedia({
+    const archive = collectingArchive();
+
+    const counts = await extractDatasetMedia({
+      archive,
       config: {},
       liferayService,
       logger,
       products: DATASET.products,
     });
 
-    expect(media).toHaveLength(1);
-    expect(media[0]).toMatchObject({
+    expect(counts).toEqual({ staged: 1, unresolved: 0 });
+    expect(archive.staged).toHaveLength(1);
+    expect(archive.staged[0]).toMatchObject({
       kind: 'image',
       productERC: 'AICA-PRD-1',
     });
-    expect(media[0].buffer.toString()).toBe('resolved-bytes');
+    expect(archive.staged[0].buffer.toString()).toBe('resolved-bytes');
   });
 
   it('costs one product its pictures when a lookup fails, not the promotion', async () => {
@@ -191,7 +219,10 @@ describe('Extracting media from the source instance', () => {
       },
     };
 
-    const media = await extractDatasetMedia({
+    const archive = collectingArchive();
+
+    await extractDatasetMedia({
+      archive,
       config: {},
       liferayService: failing,
       logger,
@@ -200,8 +231,8 @@ describe('Extracting media from the source instance', () => {
 
     // The second product still resolves. Throwing would abandon a promotion
     // partway and leave the target an arbitrary prefix of the catalogue.
-    const failed = media.find((m) => m.productERC === 'AICA-PRD-1');
-    const ok = media.find((m) => m.productERC === 'AICA-PRD-2');
+    const failed = archive.staged.find((m) => m.productERC === 'AICA-PRD-1');
+    const ok = archive.staged.find((m) => m.productERC === 'AICA-PRD-2');
 
     expect(failed.reason).toContain('403');
     expect(failed.buffer).toBeUndefined();
@@ -226,6 +257,7 @@ describe('Extracting media from the source instance', () => {
     };
 
     await extractDatasetMedia({
+      archive: collectingArchive(),
       config: {},
       liferayService: byErc,
       logger,
@@ -275,6 +307,7 @@ describe('The src Liferay returns', () => {
     };
 
     await extractDatasetMedia({
+      archive: collectingArchive(),
       config: {},
       liferayService,
       logger: { warn: () => {}, info: () => {} },

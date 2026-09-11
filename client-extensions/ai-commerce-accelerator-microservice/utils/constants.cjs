@@ -1,5 +1,7 @@
 const { lookupConfig } = require('@rotty3000/config-node');
 const crypto = require('crypto');
+const os = require('os');
+const path = require('path');
 
 function toNumber(v) {
   const n = Number(v);
@@ -149,20 +151,39 @@ const ENV = {
     'PERSISTENCE_DB_PATH',
     process.env.NODE_ENV === 'test' ? ':memory:' : './data/workflows.db'
   ),
-  // Generated media on disk (#848).
+  // Media on disk is no longer optional, because it is how a package is built.
   //
-  // Off by default, and deliberately so. The recovery it buys is real - the
-  // bytes are written before the upload, so a rejection leaves a usable file
-  // instead of a log line - but it is the only feature here that writes
-  // hundreds of megabytes to a volume that, on the PaaS instances, a restart
-  // may not preserve. Nothing reads the directory back yet either: the export
-  // still resolves media from the source instance (#814). Costing every
-  // deployment disk for a consumer that has not landed is the wrong default,
-  // so it is one switch away rather than on.
-  MEDIA_ARCHIVE_ENABLED: bool('MEDIA_ARCHIVE_ENABLED', false),
-  // Beside workflows.db, for the same reason it is there: a single directory
-  // the microservice owns, already gitignored, already redirectable.
-  MEDIA_ARCHIVE_PATH: str('MEDIA_ARCHIVE_PATH', './data/media'),
+  // It began as a recovery aid with no consumer, so it shipped off (#848).
+  // Both producers now stage through it - a generation run as it uploads, an
+  // extract as it pulls from the instance - and `GET /export-commerce-bundle`
+  // builds the package by reading it back (#896). A switch that stopped the
+  // writing would be a switch that silently produced empty packages.
+  //
+  // What remains is how long a directory stays, and that is what these three
+  // answer. `MEDIA_ARCHIVE_RETAIN` governs a directory staged purely to build
+  // a package: with it off, the staging directory goes as soon as the package
+  // it produced has been sent. A run's own media is not staging - it is the
+  // run's - so it lives under the age and session-count prune below, and under
+  // the orphan sweep once its session is gone (#898).
+  MEDIA_ARCHIVE_RETAIN: bool(
+    'MEDIA_ARCHIVE_RETAIN',
+    // The name this setting had when it meant something else. Honoured so a
+    // deployment carrying MEDIA_ARCHIVE_ENABLED=false gets what it asked for -
+    // the least media this service can keep - rather than silently flipping.
+    bool('MEDIA_ARCHIVE_ENABLED', true)
+  ),
+  // Beside workflows.db, and for exactly the reason it is there: `./data` is
+  // inside the repository, next to build/ and dist/, which is where state gets
+  // destroyed by ordinary tooling (#868, #869). A package built from media
+  // that a `gradle clean` can remove is a promotion waiting to arrive without
+  // its pictures (#899).
+  MEDIA_ARCHIVE_PATH: str(
+    'MEDIA_ARCHIVE_PATH',
+    path.join(os.homedir(), '.aica', 'media')
+  ),
+  // Where it used to be, so a checkout that ran with the old default can be
+  // moved rather than quietly ignored.
+  MEDIA_ARCHIVE_LEGACY_PATH: './data/media',
   // Logs at least rotate. Binaries do not, so the retention policy is the
   // whole answer to "is this a disk leak". Three days keeps a run recoverable
   // across a weekend and no longer; the session cap behind it is what stops a

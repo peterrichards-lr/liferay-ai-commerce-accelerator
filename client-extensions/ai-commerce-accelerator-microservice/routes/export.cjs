@@ -6,7 +6,13 @@ const {
   PACKAGE_EXTENSION,
   buildMediaBundle,
 } = require('../utils/mediaBundle.cjs');
-const { readMediaArchive } = require('../utils/mediaArchive.cjs');
+const {
+  extractStagingId,
+  mediaArchiveSettings,
+  openMediaArchive,
+  readMediaArchive,
+  removeMediaArchive,
+} = require('../utils/mediaArchive.cjs');
 const { extractDatasetMedia } = require('../utils/mediaExtractor.cjs');
 const { buildInstanceDataset } = require('../utils/instanceExtractor.cjs');
 const { buildConfigAndOptions } = require('../utils/normalize.cjs');
@@ -98,22 +104,23 @@ function mediaExpectations(dataset) {
  * whichever producer built it, and the counts in the headers are arrived at
  * the same way.
  */
-function archiveGaps({ dataset, entries, missing }) {
-  // The reader's own reason is kept: a manifest pointing outside its
-  // directory is a different problem from a file that was deleted, and the
-  // package is where whoever imports it finds out which.
-  const gaps = missing.map((entry) => ({
-    contentType: entry.contentType,
+function archiveGaps({ dataset, entries, missing, unresolved = [] }) {
+  // Each carries its own reason and they are different events: a file the
+  // archive no longer holds, a manifest pointing outside its own directory,
+  // and a binary the source could not answer for at all. The package is where
+  // whoever imports it finds out which.
+  const gaps = [...missing, ...unresolved].map((entry) => ({
+    contentType: entry.contentType ?? null,
     kind: entry.kind,
     priority: entry.priority,
     productERC: entry.productERC,
     reason: entry.reason,
-    title: entry.title,
+    title: entry.title ?? null,
   }));
 
   const recorded = new Map();
 
-  for (const entry of [...entries, ...missing]) {
+  for (const entry of [...entries, ...missing, ...unresolved]) {
     const key = `${entry.kind}|${entry.productERC}`;
     recorded.set(key, (recorded.get(key) || 0) + 1);
   }
@@ -330,6 +337,7 @@ module.exports = (
           dataset,
           entries: archive?.entries || [],
           missing: archive?.missing || [],
+          unresolved: archive?.manifest?.unresolved || [],
         }),
       ];
 
@@ -491,15 +499,38 @@ module.exports = (
         dataset = datasetFromSession(session, 'session-db');
       }
 
+      // An extract against a session fills in that session's own archive - so
+      // the expensive read repairs what the run never wrote, and every later
+      // export of it is a directory read. An instance read has no session
+      // behind it, so it stages under a minted id instead (#898).
+      const stagingId = sessionId || extractStagingId();
+      const stagingIsScratch = stagingId !== sessionId;
+
       logger.info('Extracting media from the source instance', {
         correlationId,
         operation: 'extract-commerce-bundle',
         productCount: dataset.products.length,
         sessionId,
         source,
+        stagingId,
       });
 
-      const media = await extractDatasetMedia({
+      const archive = openMediaArchive({
+        correlationId,
+        logger,
+        sessionId: stagingId,
+      });
+
+      if (!archive.enabled) {
+        return res.status(500).json({
+          success: false,
+          error:
+            'The media archive could not be opened, so there is nowhere to stage the binaries this extract reads. The directory is named in the log; a package is not built without one, because it would carry no pictures.',
+        });
+      }
+
+      await extractDatasetMedia({
+        archive,
         config,
         correlationId,
         liferayService,
@@ -507,7 +538,22 @@ module.exports = (
         products: dataset.products,
       });
 
-      const { buffer, manifest } = await buildMediaBundle({ dataset, media });
+      // Built from the archive, exactly as the export route builds it. One
+      // packaging step from one place, whichever producer staged the bytes.
+      const staged = readMediaArchive({ sessionId: stagingId });
+
+      const { buffer, manifest } = await buildMediaBundle({
+        dataset,
+        media: [
+          ...(staged?.entries || []),
+          ...archiveGaps({
+            dataset,
+            entries: staged?.entries || [],
+            missing: staged?.missing || [],
+            unresolved: staged?.manifest?.unresolved || [],
+          }),
+        ],
+      });
 
       // Said plainly, because a bundle that carries fewer pictures than the
       // source still imports cleanly and still looks like success.
@@ -546,6 +592,14 @@ module.exports = (
       }
 
       res.status(200).send(buffer);
+
+      // The package is sent; the staging directory has done its job. It goes
+      // only when it was scratch and retention is off - a session's own
+      // directory is the session's, not this request's, and is governed by the
+      // prune and the orphan sweep instead.
+      if (stagingIsScratch && !mediaArchiveSettings().retain) {
+        removeMediaArchive({ logger, sessionId: stagingId });
+      }
     } catch (error) {
       const errorReference = createERC(ERC_PREFIX.ERROR);
       logger.error('Failed to extract commerce bundle', {
