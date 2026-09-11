@@ -6,6 +6,10 @@ const {
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { coverPriceEntries } = require('../../utils/priceEntryCoverage.cjs');
+const {
+  summariseFailures,
+  writeEachEntity,
+} = require('../../utils/entityWrites.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -351,11 +355,19 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
     );
   }
 
+  const rejected = [];
+
   for (const pl of priceListTemplates) {
     const priceEntries = pl.priceEntries;
     if (!priceEntries || priceEntries.length === 0) continue;
 
-    await this.submitBatch(
+    // A catalog's own base list is created by Liferay without an external
+    // reference code, so those entries have to be addressed by list id.
+    const priceListKey = pl.externalReferenceCode || pl.id;
+
+    let outcome = { failures: [], written: 0 };
+
+    const { batchERC } = await this.submitBatch(
       sessionId,
       stepKey,
       'priceLists',
@@ -365,21 +377,60 @@ async function _runPricingStep(sessionId, stepKey, filterFn) {
           `Simulating batch creation of ${priceEntries.length} price entries for list ${pl.id} directly from ProductGenerator to bypass DXP platform bugs...`,
           { sessionId }
         );
-        // A catalog's own base list is created by Liferay without an external
-        // reference code, so the entries have to be addressed by list id.
-        return await this.liferay.createPriceEntriesBatch(
-          config,
-          priceEntries,
-          {
-            sessionId,
-            externalReferenceCode: pl.externalReferenceCode || pl.ercKey,
-            priceListExternalReferenceCode: pl.externalReferenceCode,
-            priceListId: pl.id,
-          }
-        );
+
+        outcome = await writeEachEntity({
+          describe: (entry) => entry.skuExternalReferenceCode,
+          entities: priceEntries,
+          write: (entry) =>
+            this.liferay.createPriceEntry(config, priceListKey, entry),
+        });
+
+        outcome.failures.forEach(({ reason, subject }) => {
+          this.logger.warn(
+            `Failed to create the price entry for SKU ${subject} in list ${pl.id}: ${reason}`,
+            { sessionId }
+          );
+        });
+
+        return {
+          batchId: `simulated-batch-${Date.now()}`,
+          count: outcome.written,
+          status: 'completed',
+        };
       },
       priceEntries.length
     );
+
+    rejected.push(...outcome.failures);
+
+    // `submitBatch` records a completed batch as having processed everything it
+    // was handed, which is the requested count rather than the achieved one.
+    // Left uncorrected, a list that lost an entry reports having written them
+    // all, and the counter an operator watches says the step went perfectly
+    // (#891).
+    await this.persistence.updateBatch(batchERC, {
+      errorCount: outcome.failures.length,
+      processedCount: outcome.written,
+    });
+  }
+
+  if (rejected.length > 0) {
+    const named = summariseFailures(rejected);
+
+    this.logger.warn(
+      `${rejected.length} of ${totalEntries} price entries were rejected: ${named}. The run continues - the products they belong to are created and their media is unaffected (#892).`,
+      { sessionId }
+    );
+
+    this.progress.stepWarning({
+      correlationId: session.correlationId,
+      entityType: 'priceLists',
+      errorReference: createERC(ERC_PREFIX.ERROR),
+      message: `${rejected.length} of ${totalEntries} price entries could not be created: ${named}. Every other price, product and attachment in this run is unaffected.`,
+      operation: session.flow_type || session.flowType,
+      sessionId,
+      step: stepKey,
+    });
   }
 
   if (totalEntries === 0) {

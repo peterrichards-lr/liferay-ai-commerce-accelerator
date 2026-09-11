@@ -310,15 +310,16 @@ describe('the pricing step files tiers for every variant of an AI product', () =
   let mockLiferay;
 
   const submittedEntries = () =>
-    mockLiferay.createPriceEntriesBatch.mock.calls
-      .filter(([, , opts]) => opts.priceListId === 'base-pl')
-      .flatMap(([, entries]) => entries);
+    mockLiferay.createPriceEntry.mock.calls
+      .filter(([, priceListKey]) => priceListKey === 'base-pl')
+      .map(([, , entry]) => entry);
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockLiferay = {
       createPriceEntriesBatch: vi.fn().mockResolvedValue({ batchId: 'b-1' }),
+      createPriceEntry: vi.fn().mockResolvedValue({ id: 'pe-1' }),
       createPriceList: vi
         .fn()
         .mockImplementation((_config, data) =>
@@ -356,13 +357,22 @@ describe('the pricing step files tiers for every variant of an AI product', () =
         getSession: vi.fn(),
         updateBatch: vi.fn().mockResolvedValue({}),
       },
-      progress: { batchCompleted: vi.fn(), batchStarted: vi.fn() },
+      progress: {
+        batchCompleted: vi.fn(),
+        batchStarted: vi.fn(),
+        stepWarning: vi.fn(),
+      },
     });
 
     productGenerator.completeSyncStep = vi.fn().mockResolvedValue({});
     productGenerator.submitBatch = vi
       .fn()
-      .mockImplementation(async (_s, _k, _e, _o, fn) => fn('batch-erc'));
+      .mockImplementation(async (_s, _k, _e, _o, fn) => {
+        await fn('batch-erc');
+        // The real submitBatch hands back the row it wrote, which is how a
+        // step corrects a completed batch's processed count (#891).
+        return { batchERC: 'batch-erc', batchId: 'b-1' };
+      });
   });
 
   const runTierStep = (products) => {

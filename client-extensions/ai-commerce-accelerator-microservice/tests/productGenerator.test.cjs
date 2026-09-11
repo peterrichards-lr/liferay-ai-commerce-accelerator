@@ -36,6 +36,7 @@ describe('ProductGenerator Workflow Steps', () => {
       createPriceEntriesBatch: vi
         .fn()
         .mockResolvedValue({ batchId: 'batch-pe-1' }),
+      createPriceEntry: vi.fn().mockResolvedValue({ id: 'pe-1' }),
       getPriceListByERC: vi
         .fn()
         .mockResolvedValue({ id: 'pl-123', externalReferenceCode: 'erc-pl' }),
@@ -66,6 +67,7 @@ describe('ProductGenerator Workflow Steps', () => {
       progress: {
         batchStarted: vi.fn(),
         batchCompleted: vi.fn(),
+        stepWarning: vi.fn(),
       },
     };
 
@@ -278,7 +280,7 @@ describe('ProductGenerator Workflow Steps', () => {
         'sess-123'
       );
 
-      expect(mockLiferay.createPriceEntriesBatch).toHaveBeenCalled();
+      expect(mockLiferay.createPriceEntry).toHaveBeenCalled();
     });
   });
 
