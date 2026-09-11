@@ -15,6 +15,7 @@ const {
 } = require('../utils/mediaArchive.cjs');
 const { extractDatasetMedia } = require('../utils/mediaExtractor.cjs');
 const { buildInstanceDataset } = require('../utils/instanceExtractor.cjs');
+const { toPortableDataset } = require('../utils/datasetPortability.cjs');
 const { buildConfigAndOptions } = require('../utils/normalize.cjs');
 const {
   logCommerceSelection,
@@ -42,7 +43,12 @@ const DATASET_SOURCE = Object.freeze({
 function datasetFromSession(session, source) {
   const ctx = session.context;
 
-  return {
+  // Normalised on the way out, not stored differently: the session is a
+  // record of what happened on one instance and is right to hold Liferay's
+  // answers, while a dataset is something another instance has to accept.
+  // Exporting the context verbatim made a package that created no warehouses
+  // and said it had (#929).
+  return toPortableDataset({
     metadata: {
       source,
       sessionId: session.session_id,
@@ -61,7 +67,7 @@ function datasetFromSession(session, source) {
     pdfs: ctx.createdPdfs || [],
     groundingMetadata: ctx.groundingMetadata || null,
     exportedAt: new Date().toISOString(),
-  };
+  });
 }
 
 /**
