@@ -54,7 +54,7 @@ const { checkAndRebuild } = require('./scripts/ensure-native-modules.cjs');
 checkAndRebuild();
 
 const { connectionSchema } = require('./utils/schemas.cjs');
-const { ENV } = require('./utils/constants.cjs');
+const { ENV, ENV_WARNINGS } = require('./utils/constants.cjs');
 const { INTERNAL_API_PATHS } = require('./utils/internalApiPaths.cjs');
 const { mediaProviderIssue } = require('./utils/providerCapabilities.cjs');
 const { createWebSocketService } = require('./services/webSocketService.cjs');
@@ -601,6 +601,13 @@ const gracefulShutdown = async (signal) => {
   cycleLogsForThisRun();
 
   server.listen(PORT, '0.0.0.0', () => {
+    // Reported here because the helpers that collect them run while
+    // constants.cjs is loading, before any logger exists - which is why a
+    // mistyped setting used to take its default in silence (#934).
+    ENV_WARNINGS.forEach((warning) =>
+      logger.warn(warning, { operation: 'server-start' })
+    );
+
     logger.success('Server started successfully', {
       operation: 'server-start',
       port: PORT,

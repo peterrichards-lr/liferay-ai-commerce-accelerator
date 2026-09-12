@@ -434,12 +434,12 @@ class AIService {
 
       const fullPromptText = `${systemInstruction}\n\n${effectivePrompt}`;
       const estimatedTokens = estimateTokens(fullPromptText, runtime.model);
-      const limit = parseInt(process.env.AICA_MAX_TOKEN_LIMIT, 10) || 15000;
+      // Both read through ENV rather than process.env, so that a value set
+      // through Liferay's configuration layer is honoured and a mistyped one
+      // is reported rather than silently becoming 15000. See #934.
+      const limit = ENV.AICA_MAX_TOKEN_LIMIT;
 
-      if (
-        estimatedTokens > limit &&
-        process.env.ALLOW_LARGE_PROMPTS !== 'true'
-      ) {
+      if (estimatedTokens > limit && !ENV.ALLOW_LARGE_PROMPTS) {
         const tokenErr = new Error(
           `Pre-flight Guardrail Aborted: Estimated prompt token size (${estimatedTokens} tokens) exceeds the safety threshold limit of ${limit} tokens. Please reduce your generation sizes, or set ALLOW_LARGE_PROMPTS=true in your environment to bypass.`
         );

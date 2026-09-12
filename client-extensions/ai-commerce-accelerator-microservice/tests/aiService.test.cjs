@@ -1,5 +1,6 @@
 const { AIService } = require('../services/aiService.cjs');
 const { DEFAULT_MAX_TOKENS } = require('../utils/aiRequestOptions.cjs');
+const { ENV } = require('../utils/constants.cjs');
 
 describe('AIService (Multi-Provider)', () => {
   let aiService;
@@ -297,20 +298,62 @@ describe('AIService (Multi-Provider)', () => {
   });
 
   it('should abort and throw pre-flight guardrail error if token count exceeds safety limit', async () => {
-    process.env.AICA_MAX_TOKEN_LIMIT = '5';
-    process.env.ALLOW_LARGE_PROMPTS = 'false';
+    // Set on ENV rather than process.env: since #934 both values are resolved
+    // once, while constants.cjs loads, so that a deployment supplying them
+    // through Liferay's configuration layer is honoured. Assigning to
+    // process.env here would no longer reach the guardrail - and the test
+    // would pass for the wrong reason if the throw came from anywhere else.
+    const limit = ENV.AICA_MAX_TOKEN_LIMIT;
+    const allow = ENV.ALLOW_LARGE_PROMPTS;
+
+    ENV.AICA_MAX_TOKEN_LIMIT = 5;
+    ENV.ALLOW_LARGE_PROMPTS = false;
 
     const provider = {
       generateJSON: vi.fn().mockResolvedValue({}),
     };
     vi.spyOn(aiService, 'getAIProvider').mockResolvedValue(provider);
 
-    await expect(
-      aiService._chatJson('test', 'This prompt exceeds five tokens easily', {})
-    ).rejects.toThrow(/Pre-flight Guardrail Aborted/);
+    try {
+      await expect(
+        aiService._chatJson(
+          'test',
+          'This prompt exceeds five tokens easily',
+          {}
+        )
+      ).rejects.toThrow(/Pre-flight Guardrail Aborted/);
+    } finally {
+      ENV.AICA_MAX_TOKEN_LIMIT = limit;
+      ENV.ALLOW_LARGE_PROMPTS = allow;
+    }
+  });
 
-    delete process.env.AICA_MAX_TOKEN_LIMIT;
-    delete process.env.ALLOW_LARGE_PROMPTS;
+  it('lets the escape hatch through when it is set', async () => {
+    // ALLOW_LARGE_PROMPTS is what the refusal message tells the operator to
+    // use, so it is worth pinning that it actually bypasses the limit.
+    const limit = ENV.AICA_MAX_TOKEN_LIMIT;
+    const allow = ENV.ALLOW_LARGE_PROMPTS;
+
+    ENV.AICA_MAX_TOKEN_LIMIT = 5;
+    ENV.ALLOW_LARGE_PROMPTS = true;
+
+    const provider = {
+      generateJSON: vi.fn().mockResolvedValue({ ok: true }),
+    };
+    vi.spyOn(aiService, 'getAIProvider').mockResolvedValue(provider);
+
+    try {
+      await expect(
+        aiService._chatJson(
+          'test',
+          'This prompt exceeds five tokens easily',
+          {}
+        )
+      ).resolves.toBeDefined();
+    } finally {
+      ENV.AICA_MAX_TOKEN_LIMIT = limit;
+      ENV.ALLOW_LARGE_PROMPTS = allow;
+    }
   });
 
   it('should chunk product generation when count exceeds chunkSize', async () => {
