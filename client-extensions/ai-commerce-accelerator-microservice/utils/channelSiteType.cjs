@@ -186,18 +186,55 @@ function evaluateChannelSiteType(accountType, info) {
 }
 
 /**
+ * Whether this run will put newly generated accounts into the channel.
+ *
+ * `routes/generate.cjs` gates the account steps on exactly `accountCount > 0`,
+ * so that is the authoritative answer and this asks the same question rather
+ * than a similar one. An absent count is not a zero the caller chose, but it
+ * reaches the same place: `undefined > 0` is false, and the route adds no
+ * account steps for it either.
+ *
+ * A seed pack brings its own accounts and ignores the count, so that path is
+ * judged rather than skipped. The pack is not read until later in the route,
+ * so the types it holds are not knowable here - judging the run's `accountType`
+ * is the conservative reading, and it is what happened before this filter
+ * existed.
+ */
+function generatesAccounts(options) {
+  return options?.accountCount > 0 || Boolean(options?.seedPack);
+}
+
+/**
  * Judges a whole generation run against the channel it targets.
  *
- * Two settings put account types into a channel and both are checked. Newly
- * generated accounts come from `accountType`; standalone order runs draw on
- * existing accounts narrowed by `orderAccountType`, which is left undefined
- * when any customer will do - see #611 - and is then nothing to judge.
+ * Two settings put account types into a channel and both are checked - but
+ * only when they govern work the run will actually perform. Newly generated
+ * accounts come from `accountType`; standalone order runs draw on existing
+ * accounts narrowed by `orderAccountType`, which is left undefined when any
+ * customer will do - see #611 - and is then nothing to judge.
+ *
+ * A setting governing nothing is passed as undefined, which is already the
+ * idiom `orderAccountType` relies on. `accountType` never had the same
+ * treatment: it carries its default whether or not an account will be
+ * generated, so a run creating no accounts at all was refused for the type it
+ * would have used (#926). A fresh channel is always NOT_CONFIGURED (#622,
+ * #745), so that refusal was the first thing a new user met - about work the
+ * run was not going to do, for a reason they cannot act on from inside AICA.
+ *
+ * What this must not lose is the case the guard exists for: a run that really
+ * does generate business accounts into a B2C-defaulted channel is still
+ * blocked, with the same message (#640).
  *
  * The strongest outcome wins: one confirmed mismatch blocks the run even if the
  * other setting is fine, because it is the one that would fail.
  */
 function evaluateGenerationRun(options, info) {
-  const results = [options?.accountType, options?.orderAccountType]
+  const governing = [
+    generatesAccounts(options) ? options?.accountType : undefined,
+    options?.orderCount > 0 ? options?.orderAccountType : undefined,
+  ];
+
+  const results = governing
     .map((accountType) => evaluateChannelSiteType(accountType, info))
     .filter((result) => result.outcome !== 'ok');
 
