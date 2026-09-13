@@ -242,6 +242,7 @@ function buildConfigAndOptions(req) {
     liferayUrl: effectiveUrl,
     clientId: effectiveClientId,
     clientSecret: effectiveClientSecret,
+    authMethod: effectiveAuthMethod,
     isColocated,
   } = resolveEffectiveLiferayConnection(
     rawConfig,
@@ -260,6 +261,11 @@ function buildConfigAndOptions(req) {
     liferayUrl: effectiveUrl,
     clientId: effectiveClientId,
     clientSecret: effectiveClientSecret,
+    // Overrides rawConfig's own value only by carrying it forward or filling
+    // it in - resolveEffectiveLiferayConnection returns the caller's when the
+    // caller stated one. Since SDK v0.10.0 an undeclared Basic fallback is
+    // refused rather than inferred, so this has to reach the SDK.
+    authMethod: effectiveAuthMethod,
     isColocated,
   };
 

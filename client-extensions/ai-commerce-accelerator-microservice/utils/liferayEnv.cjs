@@ -227,6 +227,23 @@ function resolveEffectiveLiferayConnection(
     clientId,
     clientSecret,
     isColocated: hasRouteCredentials,
+    // Declared, because since SDK v0.10.0 it has to be.
+    //
+    // The check above has always treated LIFERAY_API_USERNAME and
+    // LIFERAY_API_PASSWORD as sufficient to proceed, then said nothing about
+    // them - it returned a config with no clientId and left the SDK to notice
+    // the two variables and choose Basic on its own. SDK #236 removed that
+    // inference: a process-wide pair of variables could change the auth
+    // mechanism of every unrelated caller, and a config read returning no
+    // clientId produced a request authenticated as somebody else rather than
+    // the error it should have raised.
+    //
+    // So the decision this function already makes is now stated. An explicit
+    // authMethod from the caller wins; this only fills the gap where the code
+    // above resolved no OAuth credentials and accepted Basic instead.
+    authMethod:
+      config.authMethod ||
+      (!hasRouteCredentials && !hasOAuth && hasBasic ? 'basic' : undefined),
   };
 }
 
