@@ -20,7 +20,14 @@ const { ObjectStorageService } = require('./services/objectStorageService.cjs');
 const PersistenceService = require('./services/persistenceService.cjs');
 const ContractValidator = require('./services/contractValidator.cjs');
 
-const OAuthService = require('./services/liferay/oauth.cjs');
+// The SDK's own, since v0.10.0. The subclass that used to stand here fixed two
+// SDK defects locally: the token endpoint ignoring the instance the caller
+// named (SDK #227, fixed in v0.9.0), and a rejected token losing the response
+// every retry classifier reads (SDK #238, fixed in v0.10.0). Both are upstream
+// now, and the upstream token-URL fix is the better one - it still honours an
+// LXC-registered application's own tokenUri, which the local override
+// discarded. See #925.
+const { OAuthService } = require('@liferay/accelerator-sdk');
 const HealthService = require('./services/healthService.cjs');
 const {
   ClientExtensionEntryService,

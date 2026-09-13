@@ -278,3 +278,87 @@ describe('an inferred Liferay target announces itself (#815)', () => {
     expect(warning.meta?.liferayUrl).toBe(REMOTE_URL);
   });
 });
+
+/**
+ * Basic authentication must be declared, not inferred.
+ *
+ * Until SDK #236, `HttpCoreService` and `graphql.cjs` each decided on their own
+ * to authenticate with Basic whenever a config carried no `clientId` and the
+ * process environment happened to hold LIFERAY_API_USERNAME and
+ * LIFERAY_API_PASSWORD. This service leaned on exactly that: the resolver has
+ * always accepted those two variables as sufficient to proceed, then returned a
+ * config that said nothing about them.
+ *
+ * SDK v0.10.0 refuses an undeclared fallback, because process-wide variables
+ * could silently change the auth mechanism of every unrelated caller, and a
+ * config read returning no `clientId` produced a request authenticated as
+ * somebody else rather than the error it should have raised. So the decision
+ * this resolver already makes is now stated on the way out. See #925.
+ */
+describe('the resolved connection declares how it will authenticate', () => {
+  const {
+    resolveEffectiveLiferayConnection,
+  } = require('../utils/liferayEnv.cjs');
+  const { ENV } = require('../utils/constants.cjs');
+
+  // Set on ENV, not process.env. These are resolved once while constants.cjs
+  // loads, so assigning to process.env here would not reach the branch under
+  // test - and the basic case would pass for the wrong reason, by falling
+  // through to "no credentials at all".
+  const saved = {};
+
+  beforeEach(() => {
+    for (const key of ['LIFERAY_API_USERNAME', 'LIFERAY_API_PASSWORD']) {
+      saved[key] = ENV[key];
+      ENV[key] = undefined;
+    }
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(saved)) ENV[key] = value;
+  });
+
+  it('says nothing when OAuth credentials were supplied', () => {
+    const resolved = resolveEffectiveLiferayConnection(
+      { clientId: 'c', clientSecret: 's', liferayUrl: 'http://liferay' },
+      null
+    );
+
+    // Undefined rather than 'oauth': the SDK's own default. Naming it here
+    // would shadow a caller that meant something else.
+    expect(resolved.authMethod).toBeUndefined();
+    expect(resolved.clientId).toBe('c');
+  });
+
+  it('declares basic when that is what it fell back to', () => {
+    ENV.LIFERAY_API_USERNAME = 'someone';
+    ENV.LIFERAY_API_PASSWORD = 'secret';
+
+    const resolved = resolveEffectiveLiferayConnection(
+      { liferayUrl: 'http://liferay' },
+      null
+    );
+
+    // Without this the SDK now refuses the call outright rather than inferring
+    // Basic from the same two variables this branch just accepted.
+    expect(resolved.authMethod).toBe('basic');
+    expect(resolved.clientId).toBeUndefined();
+  });
+
+  it('keeps a method the caller stated, rather than overruling it', () => {
+    ENV.LIFERAY_API_USERNAME = 'someone';
+    ENV.LIFERAY_API_PASSWORD = 'secret';
+
+    const resolved = resolveEffectiveLiferayConnection(
+      {
+        authMethod: 'oauth',
+        clientId: 'c',
+        clientSecret: 's',
+        liferayUrl: 'http://liferay',
+      },
+      null
+    );
+
+    expect(resolved.authMethod).toBe('oauth');
+  });
+});
