@@ -1,5 +1,7 @@
 # LDM CLI fails to patch fragment overrides via Headless API when SSL (Traefik) is active
 
+**Status:** DRAFT (PENDING SUBMISSION)
+
 ## Environment
 
 - LDM CLI: 2.15.14
@@ -42,4 +44,4 @@ Fragment overrides are skipped, causing Client Extension routing configurations 
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-13_ | _Last Reviewed: 2026-09-13_

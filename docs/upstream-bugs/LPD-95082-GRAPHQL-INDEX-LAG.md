@@ -1,5 +1,9 @@
 # Liferay DXP Bug Report: GraphQL Queries Fail to Return Newly Created Entities Due to Search Index Lag
 
+**Status:** RESOLVED / CLOSED UPSTREAM
+
+**LPD-95082** - (Closed / Resolved in Liferay DXP 2024.q4)
+
 LPD-95082 - https://liferay.atlassian.net/browse/LPD-95082
 
 ## Component
@@ -70,4 +74,4 @@ REST calls scoped by `externalReferenceCode` bypass search index indexation queu
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-13_ | _Last Reviewed: 2026-09-13_
