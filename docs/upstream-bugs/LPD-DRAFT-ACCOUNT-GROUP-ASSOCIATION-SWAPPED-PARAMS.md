@@ -1,5 +1,7 @@
 # Liferay DXP Bug Report: Account Group Association Endpoint Parameter Swapping
 
+**Status:** DRAFT (PENDING SUBMISSION)
+
 LPD-DRAFT - (Not yet submitted to Liferay JIRA)
 
 ## Component
@@ -105,4 +107,4 @@ In our client extension SDK, we swap the variables when constructing the URL:
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-13_ | _Last Reviewed: 2026-09-13_

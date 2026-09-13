@@ -1,5 +1,7 @@
 # Liferay DXP Bug Report: Site Initializer Client Extension NPE when Deployed Before HTTP Initialization
 
+**Status:** DRAFT (PENDING SUBMISSION)
+
 [JIRA-KEY] - https://liferay.atlassian.net/browse/[JIRA-KEY]
 
 ## Component
@@ -52,4 +54,4 @@ This guarantees the Site Initializer only runs after Liferay is fully initialize
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-13_ | _Last Reviewed: 2026-09-13_
