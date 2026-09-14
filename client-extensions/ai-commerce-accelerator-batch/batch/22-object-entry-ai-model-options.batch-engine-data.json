@@ -16,7 +16,7 @@
             "configStatus": {
                 "key": "Active"
             },
-            "configValue": "[{\"label\":\"GPT-4o Mini\",\"value\":\"gpt-4o-mini\",\"provider\":\"openai\"},{\"label\":\"GPT-4o\",\"value\":\"gpt-4o\",\"provider\":\"openai\"},{\"label\":\"GPT-4.1 Mini\",\"value\":\"gpt-4.1-mini\",\"provider\":\"openai\"},{\"label\":\"Claude Opus 5\",\"value\":\"claude-opus-5\",\"provider\":\"anthropic\"},{\"label\":\"Claude Sonnet 5\",\"value\":\"claude-sonnet-5\",\"provider\":\"anthropic\"},{\"label\":\"Claude Haiku 4.5\",\"value\":\"claude-haiku-4-5\",\"provider\":\"anthropic\"},{\"label\":\"Gemini 2.5 Pro\",\"value\":\"gemini-2.5-pro\",\"provider\":\"gemini\"},{\"label\":\"Gemini 2.5 Flash\",\"value\":\"gemini-2.5-flash\",\"provider\":\"gemini\"}]",
+            "configValue": "[{\"label\":\"GPT Live 1\",\"value\":\"gpt-live-1\",\"provider\":\"openai\"},{\"label\":\"GPT-6 Astra\",\"value\":\"gpt-6-astra\",\"provider\":\"openai\"},{\"label\":\"GPT-5.6 Luna\",\"value\":\"gpt-5.6-luna\",\"provider\":\"openai\"},{\"label\":\"Claude Opus 5\",\"value\":\"claude-opus-5\",\"provider\":\"anthropic\"},{\"label\":\"Claude Sonnet 5\",\"value\":\"claude-sonnet-5\",\"provider\":\"anthropic\"},{\"label\":\"Claude Haiku 4.5\",\"value\":\"claude-haiku-4-5\",\"provider\":\"anthropic\"},{\"label\":\"Gemini 3.8 Flash\",\"value\":\"gemini-3.8-flash\",\"provider\":\"gemini\"},{\"label\":\"Gemini 3.7 Flash\",\"value\":\"gemini-3.7-flash\",\"provider\":\"gemini\"},{\"label\":\"Gemini 3.6 Flash\",\"value\":\"gemini-3.6-flash\",\"provider\":\"gemini\"}]",
             "description": "AI Model Options",
             "externalReferenceCode": "AI-MODEL-OPTIONS"
         }
