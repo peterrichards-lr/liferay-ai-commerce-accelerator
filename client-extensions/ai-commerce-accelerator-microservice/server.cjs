@@ -57,6 +57,7 @@ const { connectionSchema } = require('./utils/schemas.cjs');
 const { ENV, ENV_WARNINGS } = require('./utils/constants.cjs');
 const { INTERNAL_API_PATHS } = require('./utils/internalApiPaths.cjs');
 const { mediaProviderIssue } = require('./utils/providerCapabilities.cjs');
+const { verifyBasicCredentialAtStartup } = require('./utils/liferayEnv.cjs');
 const { createWebSocketService } = require('./services/webSocketService.cjs');
 
 const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
@@ -633,6 +634,28 @@ const gracefulShutdown = async (signal) => {
       if (liferayService?.waitForLiferay) {
         // Wait up to 300 seconds (60 attempts * 5000ms) for Liferay to boot
         await liferayService.waitForLiferay(60, 5000);
+      }
+
+      // A Basic credential that has never been exercised does not find out it
+      // is wrong until the day OAuth is unavailable and a request needs it.
+      // Only makes the call when the default resolution would actually use
+      // Basic (see verifyBasicCredentialAtStartup); does nothing on an
+      // OAuth-authenticated deployment. See #950.
+      try {
+        const basicCredentialIssue = await verifyBasicCredentialAtStartup(
+          oauthService,
+          persistence,
+          liferayService
+        );
+        if (basicCredentialIssue) {
+          logger.warn(basicCredentialIssue, {
+            operation: 'startup-basic-credential-check',
+          });
+        }
+      } catch (error) {
+        logger.debug?.('Could not verify Basic auth credential at startup', {
+          error: error?.message,
+        });
       }
 
       if (configService?.syncEnvironmentKeys) {

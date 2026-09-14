@@ -173,6 +173,17 @@ const ENV = {
   LIFERAY_COMPANY_ID: num('LIFERAY_COMPANY_ID', 20101),
   LIFERAY_OAUTH_CLIENT_ID: str('LIFERAY_OAUTH_CLIENT_ID', ''),
   LIFERAY_OAUTH_CLIENT_SECRET: str('LIFERAY_OAUTH_CLIENT_SECRET', ''),
+  // Application base of the search-reindex OSGi module this deployment
+  // targets. Left blank by default rather than defaulted here to
+  // '/o/search-reindex' - that literal belongs to the SDK's own
+  // DEFAULT_REINDEX_BASE_PATH (utils/liferayUtils.cjs resolves the value that
+  // actually reaches LiferayRestService.triggerReindex from this and that
+  // constant), and AICA keeping a second copy is exactly what #675 removed.
+  //
+  // Same name the SDK's own ENV layer already falls back to inside
+  // triggerReindex, so one value drives both instead of two names that could
+  // disagree. See #674, accelerator-sdk#166, SDK PR #168.
+  LIFERAY_REINDEX_BASE_PATH: str('LIFERAY_REINDEX_BASE_PATH', ''),
 
   // Request size ceilings (#887).
   //
