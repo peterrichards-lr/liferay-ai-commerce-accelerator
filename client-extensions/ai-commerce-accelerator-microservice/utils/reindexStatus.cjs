@@ -40,16 +40,19 @@ const MISSING_MESSAGE =
 // 401 or 403 here means the call was refused at that gate rather than by the
 // module - a scope problem, not a missing deployment, with a different
 // remedy. Its body is empty either way, so the status is the only signal:
-// this cannot also rule out a plain authentication failure (an expired or
-// revoked token would look identical), which is why the message says "likely"
-// rather than naming the scope as a certainty. See #675.
+// this cannot rule out a plain authentication failure (an expired or revoked
+// token looks identical from here), which is why the message ends by naming
+// that possibility rather than only the scope-shaped ones ahead of it - in
+// likelihood order, not in the order a developer would think to check them.
+// See #675.
 const SCOPE_DENIED_MESSAGE =
   `Reindexing at ${REINDEX_BASE_PATH} was refused before the search-reindex ` +
-  'module saw the request, so generated content has not been indexed and may ' +
-  'not appear in the storefront. This likely means the base path and the ' +
-  `OAuth scope name different deployments: this call used ${REINDEX_BASE_PATH} ` +
-  `and the ${REINDEX_SCOPE} scope - check that client-extension.yaml grants ` +
-  'that scope for a module deployed at this path.';
+  "module saw the request - the call reached Liferay's OAuth gate, not the " +
+  'module itself - so generated content has not been indexed and may not ' +
+  'appear in the storefront. Check first that client-extension.yaml grants ' +
+  `${REINDEX_SCOPE}. If it does, check that the grant is for a module ` +
+  `deployed at ${REINDEX_BASE_PATH}, not a different one. An expired or ` +
+  'revoked token would look identical from here, so rule that out too.';
 
 let last = { state: NOT_ATTEMPTED, message: null, at: null, detail: null };
 

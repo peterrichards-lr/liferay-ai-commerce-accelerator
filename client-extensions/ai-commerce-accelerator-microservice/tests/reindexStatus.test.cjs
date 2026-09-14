@@ -70,6 +70,30 @@ describe('reindex status', () => {
       expect(message).not.toMatch(/probably not deployed/);
     });
 
+    it("checks the scope grant before the base path, in likelihood order rather than a developer's check order", () => {
+      // The grant simply not existing is the ordinary case; the base path and
+      // the scope naming different deployments is the exotic one. Leading
+      // with the exotic explanation sends an operator to compare paths when
+      // they should first confirm the grant exists at all.
+      const { message } = classifyReindexError(httpError(403));
+
+      const grantCheckIndex = message.indexOf('client-extension.yaml grants');
+      const pathCheckIndex = message.indexOf('deployed at');
+
+      expect(grantCheckIndex).toBeGreaterThan(-1);
+      expect(pathCheckIndex).toBeGreaterThan(-1);
+      expect(grantCheckIndex).toBeLessThan(pathCheckIndex);
+    });
+
+    it('admits an expired or revoked token would look identical, rather than asserting a scope cause with false confidence', () => {
+      // #675: this repository prefers admitting uncertainty to asserting a
+      // plausible cause. A 403 here cannot rule out a token problem that has
+      // nothing to do with scope, and the message must not imply otherwise.
+      const { message } = classifyReindexError(httpError(403));
+
+      expect(message).toMatch(/expired or revoked token/);
+    });
+
     it('handles an error with no HTTP status', () => {
       const result = classifyReindexError(new Error('socket hang up'));
       expect(result.state).toBe(FAILED);
