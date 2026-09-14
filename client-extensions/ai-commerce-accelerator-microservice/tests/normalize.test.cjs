@@ -2,8 +2,8 @@
 
 const {
   sanitizeValue,
-  redactUrl,
   sanitizedObject,
+  redactUrl,
   buildConfigAndOptions,
 } = require('../utils/normalize.cjs');
 
@@ -436,5 +436,73 @@ describe('buildConfigAndOptions - reindex base path (#674)', () => {
 
     expect(config.reindexBasePath).toBe(REINDEX_BASE_PATH);
     expect(config.reindexBasePath).not.toBe('/attacker-supplied-path');
+  });
+});
+
+/**
+ * The callback URL is logged in full, twice per batch submission, and once it
+ * carries a signature that is a credential in the log.
+ *
+ * Two things hid it from the existing redaction. The submission is logged as a
+ * *relative* path, so an `^https?://` guard returned it untouched; and the
+ * callback URL is percent-encoded as the value of `callbackURL`, so its own
+ * parameters are not query parameters to a single pass. See #812.
+ */
+describe('redacting the nested callback URL (#812)', () => {
+  const TOKEN = 'a'.repeat(64);
+  const inner = `http://localhost:3001/api/v1/batch/callback?batchERC=AICA-B-1&exp=1789405764877&token=${TOKEN}`;
+  const outer = `/o/headless-commerce-admin-catalog/v1.0/products/batch?callbackURL=${encodeURIComponent(inner)}`;
+
+  it('masks a token nested inside a query parameter', () => {
+    const redacted = redactUrl(outer);
+
+    expect(redacted).not.toContain(TOKEN);
+    expect(redacted).toContain('REDACTED');
+  });
+
+  it('keeps the batch reference, which is what makes the line useful', () => {
+    // Redaction that removed the identifier would trade one diagnostic problem
+    // for another.
+    expect(redactUrl(outer)).toContain('AICA-B-1');
+  });
+
+  it('redacts a relative path at all, which it previously skipped', () => {
+    const relative = `/api/v1/thing?token=${TOKEN}`;
+
+    expect(redactUrl(relative)).not.toContain(TOKEN);
+    // Returned as a path, not rewritten to an absolute URL naming a
+    // placeholder host.
+    expect(redactUrl(relative).startsWith('/api/v1/thing')).toBe(true);
+  });
+
+  it('leaves an ordinary relative path alone', () => {
+    expect(redactUrl('/api/v1/health')).toBe('/api/v1/health');
+  });
+
+  it('still returns anything it cannot parse unchanged', () => {
+    expect(redactUrl('not a url at all')).toBe('not a url at all');
+    expect(redactUrl(null)).toBeNull();
+  });
+
+  it('reaches the nested token through sanitizeValue, not just redactUrl', () => {
+    // Through the deep sanitiser rather than the helper, because the gate that
+    // hid this lives in `redactStringGeneric` - it tested for an absolute URL
+    // before delegating, so a relative request path never reached the redactor
+    // however well the redactor handled one. Calling `redactUrl` directly
+    // passes with that gate still in place, which is why this test exists.
+    const sanitised = sanitizeValue({ callbackUrl: outer, url: outer });
+
+    expect(JSON.stringify(sanitised)).not.toContain(TOKEN);
+    expect(JSON.stringify(sanitised)).toContain('AICA-B-1');
+  });
+
+  it('bounds its own recursion', () => {
+    // A value that nests URLs repeatedly must not turn logging into a loop.
+    let nested = `http://x.invalid/?token=${TOKEN}`;
+    for (let i = 0; i < 8; i++) {
+      nested = `http://x.invalid/?next=${encodeURIComponent(nested)}`;
+    }
+
+    expect(() => redactUrl(nested)).not.toThrow();
   });
 });
