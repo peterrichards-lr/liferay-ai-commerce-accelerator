@@ -6,6 +6,7 @@ const {
   VERIFIED,
   classifyCommerceSelection,
   describeCommerceSelection,
+  resolveChannelIdList,
   resolveRunCommerceSelection,
 } = require('../utils/commerceSelection.cjs');
 const generateRoute = require('../routes/generate.cjs');
@@ -174,6 +175,116 @@ describe('describeCommerceSelection', () => {
     expect(level).toBe('warn');
     expect(message).toContain('could not be checked');
     expect(message).toContain('used as supplied');
+  });
+});
+
+describe('resolveChannelIdList', () => {
+  const channel = { id: 301 };
+
+  it('returns nothing to check when channelIds is absent or empty', () => {
+    expect(
+      resolveChannelIdList({ channel, channelIds: undefined, items: CHANNELS })
+    ).toEqual({ ids: [], logs: [] });
+    expect(
+      resolveChannelIdList({ channel, channelIds: [], items: CHANNELS })
+    ).toEqual({ ids: [], logs: [] });
+  });
+
+  it('keeps every entry the list contains', () => {
+    const result = resolveChannelIdList({
+      channel,
+      channelIds: [402],
+      items: CHANNELS,
+    });
+
+    expect(result.ids).toEqual([402]);
+    expect(result.logs).toEqual([]);
+  });
+
+  it('drops an entry the list does not contain, and reports it by id', () => {
+    const result = resolveChannelIdList({
+      channel,
+      channelIds: [402, 90909],
+      items: CHANNELS,
+    });
+
+    expect(result.ids).toEqual([402]);
+    expect(result.logs).toHaveLength(1);
+    expect(result.logs[0].level).toBe('warn');
+    expect(result.logs[0].message).toContain(
+      'Channel id 90909 in channelIds does not exist'
+    );
+    // Unlike channelId, a stale extra channel does not misdirect the
+    // dataset, so it is dropped rather than refusing the run - #704.
+    expect(result.logs[0].message).toContain('rather than refusing the run');
+  });
+
+  it('keeps a duplicate of the primary channel without checking it against the list', () => {
+    // channel.id 5001 was confirmed by a by-id read, so it is not on this
+    // page of `items` - listing it again in channelIds must not call it
+    // stale on that account.
+    const result = resolveChannelIdList({
+      channel: { id: 5001 },
+      channelIds: [5001, 402],
+      items: CHANNELS,
+    });
+
+    expect(result.ids).toEqual([5001, 402]);
+    expect(result.logs).toEqual([]);
+  });
+
+  it('de-duplicates repeated entries', () => {
+    const result = resolveChannelIdList({
+      channel,
+      channelIds: [402, 402],
+      items: CHANNELS,
+    });
+
+    expect(result.ids).toEqual([402]);
+  });
+
+  it('keeps an id it could not check when the list failed to load', () => {
+    const result = resolveChannelIdList({
+      channel,
+      channelIds: [90909],
+      items: null,
+    });
+
+    expect(result.ids).toEqual([90909]);
+    expect(result.logs[0].message).toContain('could not be checked');
+    expect(result.logs[0].message).toContain('used as supplied');
+  });
+
+  it('drops a non-positive id rather than reading it as "nothing requested"', () => {
+    // channelIds is only integer-filtered by normalize.cjs's toNumberList,
+    // not filtered for being positive - classifyCommerceSelection would
+    // otherwise read 0 as no id supplied and default it into the list.
+    const result = resolveChannelIdList({
+      channel,
+      channelIds: [0, 402],
+      items: CHANNELS,
+    });
+
+    expect(result.ids).toEqual([402]);
+    expect(result.logs[0].message).toContain(
+      'Channel id 0 in channelIds does not exist'
+    );
+  });
+
+  it('drops a non-positive id even when the list could not be read', () => {
+    // Without its own guard, a non-positive id would fall into
+    // classifyCommerceSelection's "no id was requested" branch, which reads
+    // an unreadable list (items: null) as UNCHECKED rather than STALE - and
+    // an UNCHECKED id is kept, not dropped. 0 was never a real id regardless
+    // of whether the list could be read, so it must be dropped either way.
+    const result = resolveChannelIdList({
+      channel,
+      channelIds: [0],
+      items: null,
+    });
+
+    expect(result.ids).toEqual([]);
+    expect(result.logs[0].message).toContain('does not exist');
   });
 });
 
@@ -397,6 +508,76 @@ describe('resolveRunCommerceSelection', () => {
     expect(result.logs.map(({ message }) => message).join(' ')).toContain(
       'is not the site of channel 301'
     );
+  });
+
+  it('drops a stale channelIds entry and lets the run proceed', async () => {
+    const config = { catalogId: 205, channelId: 402, channelIds: [301, 90909] };
+
+    const result = await resolveRunCommerceSelection({
+      config,
+      liferayService: liferayService(),
+      logger: makeLogger(),
+      writes: true,
+    });
+
+    expect(result.rejection).toBeNull();
+    expect(config.channelIds).toEqual([301]);
+    expect(result.logs.map(({ message }) => message).join(' ')).toContain(
+      'Channel id 90909 in channelIds does not exist'
+    );
+  });
+
+  it('leaves channelIds untouched when the run never set it', async () => {
+    const config = { catalogId: 205, channelId: 402 };
+
+    await resolveRunCommerceSelection({
+      config,
+      liferayService: liferayService(),
+      logger: makeLogger(),
+    });
+
+    expect(config.channelIds).toBeUndefined();
+  });
+
+  it('keeps a channelIds entry that duplicates a channelId confirmed only by id', async () => {
+    // 5001 is not on the CHANNELS page - the primary channel only resolves
+    // by the getChannel fallback. Listing it again in channelIds must not
+    // call it stale for that reason (#704).
+    const getChannel = vi
+      .fn()
+      .mockResolvedValue({ id: 5001, name: 'Page Two', siteGroupId: 950 });
+
+    const config = { catalogId: 102, channelId: 5001, channelIds: [5001] };
+
+    const result = await resolveRunCommerceSelection({
+      config,
+      liferayService: liferayService({
+        client: { headlessCommerceAdminChannel: { v1_0: { getChannel } } },
+      }),
+      logger: makeLogger(),
+      writes: true,
+    });
+
+    expect(result.rejection).toBeNull();
+    expect(config.channelIds).toEqual([5001]);
+  });
+
+  it('does not refuse a run over channelIds when the primary catalog is stale', async () => {
+    // channelIds is verified only after the write target itself clears -
+    // a stale catalogId must refuse for its own reason, not get a second,
+    // unrelated one appended about channelIds.
+    const config = { catalogId: 34205, channelId: 301, channelIds: [90909] };
+
+    const result = await resolveRunCommerceSelection({
+      config,
+      liferayService: liferayService(),
+      logger: makeLogger(),
+      writes: true,
+    });
+
+    expect(result.rejections).toHaveLength(1);
+    expect(result.rejection).toContain('Catalog id 34205 does not exist');
+    expect(config.channelIds).toEqual([90909]);
   });
 });
 
