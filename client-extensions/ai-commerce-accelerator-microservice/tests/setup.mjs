@@ -23,6 +23,18 @@ const MEDIA_ROOT = fs.mkdtempSync(
 );
 process.env.MEDIA_ARCHIVE_PATH = MEDIA_ROOT;
 
+// utils/logger.cjs writes logsDir/app.log unconditionally, and that file is
+// the record an operator reads to diagnose a live run. Left pointed at the
+// checkout's own logs/, a suite run interleaves fixture warnings - and
+// literal fixture strings like "not_a_valid_url" - into that same file,
+// indistinguishable from the run's own diagnostics (#794). Same isolation as
+// MEDIA_ARCHIVE_PATH above, for the same reason: nothing in the suite asserts
+// on the real app.log, so writing it has no upside and only a downside.
+const LOGS_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), `aica-test-logs-${process.pid}-`)
+);
+process.env.LOGS_DIR = LOGS_ROOT;
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => {
@@ -42,6 +54,12 @@ afterAll(() => {
 
   try {
     fs.rmSync(MEDIA_ROOT, { force: true, recursive: true });
+  } catch (_e) {
+    // Ignore cleanup errors
+  }
+
+  try {
+    fs.rmSync(LOGS_ROOT, { force: true, recursive: true });
   } catch (_e) {
     // Ignore cleanup errors
   }

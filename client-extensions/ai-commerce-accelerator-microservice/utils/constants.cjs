@@ -205,6 +205,13 @@ const ENV = {
   SERVER_HOST: str('SERVER_HOST', '0.0.0.0'),
   LOGGER_LEVEL: str('logger.level', 'info'),
   LOGGER_PRETTY: bool('logger.pretty', false),
+  // Read here, the same way PERSISTENCE_DB_PATH and MEDIA_ARCHIVE_PATH are,
+  // so tests/setup.mjs can redirect it before utils/logger.cjs resolves
+  // logsDir at require time. A suite run wrote 37 fixture "reads as a
+  // fraction" warnings and real XSS-probe/signature-rejection lines into this
+  // same file while a live generate run was mid-flight, indistinguishable
+  // from that run's own diagnostics (#794).
+  LOGS_DIR: str('LOGS_DIR', path.join(__dirname, '..', 'logs')),
   NODE_ENV: str('NODE_ENV', 'development'),
   SERVICE_NAME: str('SERVICE_NAME', 'liferay-ai-data-microservice'),
   SERVICE_VERSION: str('SERVICE_VERSION', '1.0.0'),
