@@ -8,6 +8,7 @@ const {
 const { liferayInstanceStub } = require('./fixtures/liferayInstanceStub.cjs');
 const { readMediaBundle } = require('../utils/mediaBundle.cjs');
 const { OWNERSHIP_SCOPE_CONFIRMATION } = require('../utils/ownershipScope.cjs');
+const { createHttpResponse } = require('./fixtures/httpResponse.cjs');
 
 // #849: POST /extract-commerce-bundle could only build a package from a
 // session. These cover the choice of where the dataset half comes from - and
@@ -66,33 +67,6 @@ function instance() {
   };
 }
 
-function response() {
-  const headers = {};
-  const res = {
-    body: null,
-    headers,
-    setHeader: (name, value) => {
-      headers[name] = value;
-    },
-    statusCode: 200,
-  };
-
-  res.json = (body) => {
-    res.body = body;
-    return res;
-  };
-  res.send = (body) => {
-    res.body = body;
-    return res;
-  };
-  res.status = (code) => {
-    res.statusCode = code;
-    return res;
-  };
-
-  return res;
-}
-
 const request = (body) => ({
   body: {
     clientId: 'client-id',
@@ -107,7 +81,7 @@ const request = (body) => ({
 describe('POST /extract-commerce-bundle', () => {
   it('builds a package from the instance when the source says so', async () => {
     const handler = routes({ liferayService: instance() });
-    const res = response();
+    const res = createHttpResponse();
 
     await handler(request({ source: 'instance' }), res);
 
@@ -129,7 +103,7 @@ describe('POST /extract-commerce-bundle', () => {
 
   it('still requires a sessionId for a session-sourced package', async () => {
     const handler = routes({ liferayService: instance() });
-    const res = response();
+    const res = createHttpResponse();
 
     await handler(request({}), res);
 
@@ -141,7 +115,7 @@ describe('POST /extract-commerce-bundle', () => {
     // The failure this prevents: a typo'd or renamed source silently falling
     // through to whichever branch happens to be the default.
     const handler = routes({ liferayService: instance() });
-    const res = response();
+    const res = createHttpResponse();
 
     await handler(request({ source: 'workflows.db' }), res);
 
@@ -151,7 +125,7 @@ describe('POST /extract-commerce-bundle', () => {
 
   it('scopes to AICA-owned data unless the confirmation phrase is typed out', async () => {
     const handler = routes({ liferayService: instance() });
-    const res = response();
+    const res = createHttpResponse();
 
     await handler(
       request({ source: 'instance', ownershipScopeConfirmation: 'yes' }),
@@ -168,7 +142,7 @@ describe('POST /extract-commerce-bundle', () => {
 
   it('takes in a catalogue AICA did not create when the phrase is exact', async () => {
     const handler = routes({ liferayService: instance() });
-    const res = response();
+    const res = createHttpResponse();
 
     await handler(
       request({
@@ -207,7 +181,7 @@ describe('POST /extract-commerce-bundle', () => {
     };
 
     const handler = routes({ liferayService });
-    const res = response();
+    const res = createHttpResponse();
 
     await handler(request({ source: 'instance' }), res);
 
@@ -250,7 +224,7 @@ describe('POST /extract-commerce-bundle', () => {
     };
 
     const handler = routes({ liferayService });
-    const res = response();
+    const res = createHttpResponse();
 
     await handler(request({ source: 'instance' }), res);
 
@@ -272,7 +246,7 @@ describe('POST /extract-commerce-bundle', () => {
     };
 
     const handler = routes({ liferayService });
-    const res = response();
+    const res = createHttpResponse();
 
     await handler(request({ source: 'instance' }), res);
 

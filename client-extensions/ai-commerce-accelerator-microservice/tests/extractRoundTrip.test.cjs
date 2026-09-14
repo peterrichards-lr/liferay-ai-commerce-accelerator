@@ -19,6 +19,7 @@ const {
   looksLikeZip,
   readMediaBundle,
 } = require('../utils/mediaBundle.cjs');
+const { streamToBuffer } = require('./fixtures/streamToBuffer.cjs');
 
 /**
  * extract -> import -> extract again -> compare.
@@ -276,7 +277,7 @@ describe('the package an instance extract produces', () => {
 
     // The binaries come from mediaExtractor against the same instance; here
     // they stand in for it, because what is being asserted is the container.
-    const { buffer, manifest } = await buildMediaBundle({
+    const { stream, manifest } = await buildMediaBundle({
       dataset,
       media: dataset.images.map((image) => ({
         buffer: Buffer.from(`bytes for ${image.productERC}`),
@@ -287,6 +288,7 @@ describe('the package an instance extract produces', () => {
         title: image.title,
       })),
     });
+    const buffer = await streamToBuffer(stream);
 
     expect(looksLikeZip(buffer)).toBe(true);
     expect(manifest.counts.images).toBe(2);

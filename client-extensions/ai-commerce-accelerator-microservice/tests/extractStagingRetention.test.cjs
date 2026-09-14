@@ -17,6 +17,7 @@ const {
 } = require('./fixtures/solaraMotoInstance.cjs');
 const { liferayInstanceStub } = require('./fixtures/liferayInstanceStub.cjs');
 const { EXTRACT_STAGING_PREFIX } = require('../utils/mediaArchive.cjs');
+const { createHttpResponse } = require('./fixtures/httpResponse.cjs');
 
 // Retention off means a directory staged purely to build a package goes as
 // soon as the package has been sent. A session's own directory is not staging
@@ -58,29 +59,6 @@ function instance() {
   };
 }
 
-function response() {
-  const headers = {};
-  const res = { body: null, headers, statusCode: 200 };
-
-  res.setHeader = (name, value) => {
-    headers[name] = value;
-  };
-  res.json = (body) => {
-    res.body = body;
-    return res;
-  };
-  res.send = (body) => {
-    res.body = body;
-    return res;
-  };
-  res.status = (code) => {
-    res.statusCode = code;
-    return res;
-  };
-
-  return res;
-}
-
 function handlerFor() {
   const handlers = {};
   const app = {
@@ -118,7 +96,7 @@ const request = (body) => ({
 
 describe('With retention off', () => {
   it('drops a staging directory once its package is sent', async () => {
-    const res = response();
+    const res = createHttpResponse();
 
     await handlerFor()(request({ source: 'instance' }), res);
 
@@ -130,7 +108,10 @@ describe('With retention off', () => {
   });
 
   it("keeps a session's own directory, which is not staging", async () => {
-    await handlerFor()(request({ sessionId: SESSION_ID }), response());
+    await handlerFor()(
+      request({ sessionId: SESSION_ID }),
+      createHttpResponse()
+    );
 
     expect(fs.existsSync(path.join(ROOT, SESSION_ID))).toBe(true);
   });

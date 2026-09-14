@@ -1,4 +1,8 @@
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const JSZip = require('jszip');
+const StreamZip = require('node-stream-zip');
 
 /**
  * The dataset export, plus the binaries its media entries point at.
@@ -92,8 +96,19 @@ function entryName(kind, index, productERC, contentType) {
 /**
  * Packs a dataset and its resolved media into a zip.
  *
- * `media` is `[{ kind, productERC, title, contentType, priority, buffer }]`.
- * An entry whose buffer is missing is recorded in `manifest.unresolved` rather
+ * `media` is `[{ kind, productERC, title, contentType, priority, buffer? ,
+ * path? }]`. `path` is how every real caller supplies a binary now: the
+ * archive on disk (`utils/mediaArchive.cjs`) and the export routes both hand
+ * over a file location rather than its bytes, and the entry is added to the
+ * zip as a read stream instead of a `Buffer` - for a catalogue with hundreds
+ * of megabytes of media, holding every one of them in memory at once just to
+ * copy them into the zip was the whole of #877. `buffer` still works, for a
+ * caller that only ever had the bytes in hand (a test fixture, a small
+ * in-memory dataset asset) - this is which route is cheaper, not a
+ * requirement that every caller change.
+ *
+ * An entry whose content cannot be found - no buffer, no path, or a path that
+ * no longer resolves to a file - is recorded in `manifest.unresolved` rather
  * than dropped: an export that quietly carries fewer pictures than the source
  * is the failure this feature exists to prevent, and it must be visible in the
  * artefact itself rather than only in a log the importer never sees.
@@ -112,7 +127,18 @@ async function buildMediaBundle({ dataset, media = [] }) {
       title: item.title ?? null,
     };
 
-    if (!item.buffer || item.buffer.length === 0) {
+    const hasBuffer = Buffer.isBuffer(item.buffer) && item.buffer.length > 0;
+    const hasPath = typeof item.path === 'string' && item.path.length > 0;
+
+    if (hasPath && !fs.existsSync(item.path)) {
+      unresolved.push({
+        ...base,
+        reason: 'the file this entry pointed at is no longer on disk',
+      });
+      return;
+    }
+
+    if (!hasBuffer && !hasPath) {
       unresolved.push({
         ...base,
         reason: item.reason || 'no content resolved',
@@ -121,7 +147,7 @@ async function buildMediaBundle({ dataset, media = [] }) {
     }
 
     const file = entryName(item.kind, index, item.productERC, item.contentType);
-    zip.file(file, item.buffer);
+    zip.file(file, hasPath ? fs.createReadStream(item.path) : item.buffer);
     files.push({ ...base, file });
   });
 
@@ -140,11 +166,18 @@ async function buildMediaBundle({ dataset, media = [] }) {
   zip.file(MANIFEST_ENTRY, JSON.stringify(manifest, null, 2));
 
   return {
-    buffer: await zip.generateAsync({
+    manifest,
+    // `streamFiles: true` is what makes the read streams above actually pay
+    // off: JSZip compresses and emits each entry as it is read rather than
+    // waiting to hold every one of them before producing anything. A caller
+    // that still wants one `Buffer` can drain this itself - the difference
+    // is that doing so is now the caller's choice to hold the whole payload
+    // in memory, not this function's.
+    stream: zip.generateNodeStream({
       compression: 'DEFLATE',
+      streamFiles: true,
       type: 'nodebuffer',
     }),
-    manifest,
   };
 }
 
@@ -159,8 +192,37 @@ function looksLikeZip(buffer) {
   );
 }
 
+const ENTRY_NOT_FOUND = 'Entry not found';
+
+/**
+ * A JSON entry from the archive, or `undefined` when the archive holds none
+ * by that name. Any other failure - a corrupt entry, a truncated archive -
+ * is left to propagate, the same as a `.file()` lookup that found something
+ * unreadable used to.
+ */
+async function readJsonEntry(zip, name) {
+  let data;
+
+  try {
+    data = await zip.entryData(name);
+  } catch (error) {
+    if (error.message === ENTRY_NOT_FOUND) return undefined;
+    throw error;
+  }
+
+  return JSON.parse(data.toString('utf8'));
+}
+
 /**
  * Unpacks a bundle into the dataset and the media the importer can attach.
+ *
+ * The upload is written to a temporary file and read back from there with
+ * `node-stream-zip` rather than parsed with `JSZip.loadAsync(buffer)` - which
+ * held the whole archive a second time, as its own parsed copy, for as long
+ * as the read took (#877). `node-stream-zip` opens by path and never holds
+ * more than the entry it was asked for, which is what "read entries from it"
+ * means here: the temporary file is the archive for the rest of this call,
+ * not a buffer standing in for it.
  *
  * A manifest entry naming a file the zip does not contain is reported rather
  * than skipped, for the same reason the export records what it could not
@@ -168,44 +230,65 @@ function looksLikeZip(buffer) {
  * and "some of them" must not read as success.
  */
 async function readMediaBundle(buffer) {
-  const zip = await JSZip.loadAsync(buffer);
+  const stagingDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'aica-import-bundle-')
+  );
+  const archivePath = path.join(stagingDir, 'upload.zip');
 
-  const datasetEntry = zip.file(DATASET_ENTRY);
-  if (!datasetEntry) {
-    throw new Error(
-      `Not an AICA dataset bundle: no ${DATASET_ENTRY} inside the archive`
-    );
-  }
+  try {
+    fs.writeFileSync(archivePath, buffer);
 
-  const dataset = JSON.parse(await datasetEntry.async('string'));
+    const zip = new StreamZip.async({ file: archivePath });
 
-  const manifestEntry = zip.file(MANIFEST_ENTRY);
-  const manifest = manifestEntry
-    ? JSON.parse(await manifestEntry.async('string'))
-    : { files: [], unresolved: [], version: null };
+    try {
+      const dataset = await readJsonEntry(zip, DATASET_ENTRY);
 
-  const media = [];
-  const missing = [];
+      if (dataset === undefined) {
+        throw new Error(
+          `Not an AICA dataset bundle: no ${DATASET_ENTRY} inside the archive`
+        );
+      }
 
-  for (const entry of manifest.files || []) {
-    const file = zip.file(entry.file);
+      const manifest = (await readJsonEntry(zip, MANIFEST_ENTRY)) ?? {
+        files: [],
+        unresolved: [],
+        version: null,
+      };
 
-    if (!file) {
-      missing.push(entry);
-      continue;
+      const media = [];
+      const missing = [];
+
+      for (const entry of manifest.files || []) {
+        let content;
+
+        try {
+          content = await zip.entryData(entry.file);
+        } catch (error) {
+          if (error.message !== ENTRY_NOT_FOUND) throw error;
+          missing.push(entry);
+          continue;
+        }
+
+        media.push({
+          contentType: entry.contentType,
+          kind: entry.kind,
+          priority: entry.priority,
+          productERC: entry.productERC,
+          title: entry.title,
+          buffer: content,
+        });
+      }
+
+      return { dataset, manifest, media, missing };
+    } finally {
+      // A close failure here is an echo of whatever already went wrong above
+      // - the file is about to be deleted either way - so it must not
+      // replace the error this call is actually failing with.
+      await zip.close().catch(() => {});
     }
-
-    media.push({
-      contentType: entry.contentType,
-      kind: entry.kind,
-      priority: entry.priority,
-      productERC: entry.productERC,
-      title: entry.title,
-      buffer: await file.async('nodebuffer'),
-    });
+  } finally {
+    fs.rmSync(stagingDir, { force: true, recursive: true });
   }
-
-  return { dataset, manifest, media, missing };
 }
 
 module.exports = {
