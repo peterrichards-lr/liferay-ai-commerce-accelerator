@@ -99,7 +99,7 @@ describe('verifyBasicCredentialAtStartup', () => {
     expect(testConnection).toHaveBeenCalledWith({ authMethod: 'basic' });
   });
 
-  it('names the variables in a warning when the credential does not authenticate', async () => {
+  it('names the variables when the credential is rejected with a 401', async () => {
     ENV.LIFERAY_API_USERNAME = 'someone';
     ENV.LIFERAY_API_PASSWORD = 'wrong-password';
 
@@ -107,9 +107,14 @@ describe('verifyBasicCredentialAtStartup', () => {
       isLiferayRouteAvailable: () => false,
       getDefaultLiferayUrl: () => LIFERAY_URL,
     };
-    const testConnection = vi
-      .fn()
-      .mockRejectedValue(new Error('Request failed with status code 401'));
+    // The shape HttpCoreService.testConnection actually throws - see
+    // oauthFailureStatus.test.cjs - not a bare Error, which would carry no
+    // status for this check to read.
+    const rejected = Object.assign(
+      new Error('Request failed with status code 401'),
+      { response: { status: 401, data: {} } }
+    );
+    const testConnection = vi.fn().mockRejectedValue(rejected);
 
     const result = await verifyBasicCredentialAtStartup(oauthService, null, {
       testConnection,
@@ -118,5 +123,60 @@ describe('verifyBasicCredentialAtStartup', () => {
     expect(result).toMatch(/LIFERAY_API_USERNAME/);
     expect(result).toMatch(/LIFERAY_API_PASSWORD/);
     expect(result).toMatch(/401/);
+  });
+
+  it('names the variables when the credential is rejected with a 403', async () => {
+    ENV.LIFERAY_API_USERNAME = 'someone';
+    ENV.LIFERAY_API_PASSWORD = 'wrong-password';
+
+    const oauthService = {
+      isLiferayRouteAvailable: () => false,
+      getDefaultLiferayUrl: () => LIFERAY_URL,
+    };
+    const rejected = Object.assign(
+      new Error('Request failed with status code 403'),
+      { response: { status: 403, data: {} } }
+    );
+    const testConnection = vi.fn().mockRejectedValue(rejected);
+
+    const result = await verifyBasicCredentialAtStartup(oauthService, null, {
+      testConnection,
+    });
+
+    expect(result).toMatch(/LIFERAY_API_USERNAME/);
+    expect(result).toMatch(/LIFERAY_API_PASSWORD/);
+  });
+
+  it('does not blame the credentials when the probe itself cannot complete', async () => {
+    ENV.LIFERAY_API_USERNAME = 'someone';
+    ENV.LIFERAY_API_PASSWORD = 'secret';
+
+    const oauthService = {
+      isLiferayRouteAvailable: () => false,
+      getDefaultLiferayUrl: () => LIFERAY_URL,
+    };
+    // A transport failure - DNS, a refused connection, a timeout - never
+    // reaches Liferay, so there is no response and nothing here entitles
+    // this check to a verdict on the credential. See testConnection's own
+    // "connection" branch in HttpCoreService, which never returns 401/403
+    // for exactly this reason.
+    const transportFailure = Object.assign(
+      new Error('connect ECONNREFUSED 127.0.0.1:8080'),
+      { code: 'ECONNREFUSED' }
+    );
+    const testConnection = vi.fn().mockRejectedValue(transportFailure);
+
+    const result = await verifyBasicCredentialAtStartup(oauthService, null, {
+      testConnection,
+    });
+
+    expect(result).not.toBeNull();
+    // The defect #950 exists to remove: a message asserting a cause it never
+    // established. A transport failure must not read as "the credential is
+    // wrong".
+    expect(result).not.toMatch(/LIFERAY_API_USERNAME/);
+    expect(result).not.toMatch(/LIFERAY_API_PASSWORD/);
+    expect(result).toMatch(/did not complete/i);
+    expect(result).toMatch(/ECONNREFUSED/);
   });
 });

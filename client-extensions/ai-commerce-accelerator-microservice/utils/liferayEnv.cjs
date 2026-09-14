@@ -273,8 +273,15 @@ function resolveEffectiveLiferayConnection(
  *   asked.
  * @param {object} persistence Ditto.
  * @param {{testConnection: Function}} liferayService Makes the probe call.
- * @returns {Promise<string|null>} A warning naming the variables, or null
- *   when Basic is not in use or the credentials authenticated.
+ * @returns {Promise<string|null>} A warning, or null when Basic is not in use
+ *   or the credentials authenticated. `testConnection` can fail for reasons
+ *   that have nothing to do with the credential - an unresolved URL, a
+ *   refused connection, a timeout - and the SDK normalises all of them into
+ *   an Error carrying `.response.status` when there was an HTTP response at
+ *   all (the same field `ErrorHandler.isRetryableError` reads). Only 401 and
+ *   403 mean the credential was sent and rejected; anything else says so
+ *   without naming the variables, because asserting a cause this check has
+ *   not established is the exact defect #950 exists to remove.
  */
 async function verifyBasicCredentialAtStartup(
   oauthService,
@@ -296,9 +303,24 @@ async function verifyBasicCredentialAtStartup(
     await liferayService.testConnection({ authMethod: 'basic' });
     return null;
   } catch (error) {
+    const status = error?.response?.status;
+
+    if (status === 401 || status === 403) {
+      return (
+        'Basic auth credentials did not authenticate - check LIFERAY_API_USERNAME ' +
+        `and LIFERAY_API_PASSWORD: ${error.message}`
+      );
+    }
+
+    // Not a rejected credential - the probe itself did not complete (DNS,
+    // a refused connection, a timeout, or a URL the resolver could not
+    // build). Deliberately does not name LIFERAY_API_USERNAME or
+    // LIFERAY_API_PASSWORD: this check never got far enough to say anything
+    // about them, and a warning that mentions them anyway reads as an
+    // accusation this check has not earned.
     return (
-      'Basic auth credentials did not authenticate - check LIFERAY_API_USERNAME ' +
-      `and LIFERAY_API_PASSWORD: ${error.message}`
+      'Basic auth could not be verified at startup - the check itself did ' +
+      `not complete (this is not a rejected credential): ${error.message}`
     );
   }
 }
