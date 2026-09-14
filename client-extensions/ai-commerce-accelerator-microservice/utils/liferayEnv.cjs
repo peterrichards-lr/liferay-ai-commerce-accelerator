@@ -247,8 +247,65 @@ function resolveEffectiveLiferayConnection(
   };
 }
 
+/**
+ * A single authenticated call, made once at startup, and only when the
+ * default resolution is actually going to authenticate this way.
+ *
+ * The validation above has always accepted LIFERAY_API_USERNAME and
+ * LIFERAY_API_PASSWORD as sufficient to proceed and never exercised them. On
+ * a colocated deployment OAuth resolves through the routes tree, so the
+ * Basic pair sits untouched - a wrong password there stays invisible until
+ * the one day OAuth is unavailable and a request actually needs Basic, which
+ * is the worst possible day to learn it. See #950, and #714/#934/#945 for the
+ * same shape: a value that is present, plausible, and wrong, with nothing
+ * saying so.
+ *
+ * Gated on `authMethod` coming back as `'basic'` from the same resolution a
+ * real request would get, not merely on the variables being set: a
+ * deployment authenticating by OAuth has no use for this probe, and running
+ * it anyway would be a pointless request on every boot that could fail for a
+ * reason the operator never chose.
+ *
+ * @param {object} oauthService Passed straight through to
+ *   `resolveEffectiveLiferayConnection` and, unused here otherwise, kept as a
+ *   parameter rather than required internally so the caller's own instance -
+ *   the one whose routes tree state this decision depends on - is what gets
+ *   asked.
+ * @param {object} persistence Ditto.
+ * @param {{testConnection: Function}} liferayService Makes the probe call.
+ * @returns {Promise<string|null>} A warning naming the variables, or null
+ *   when Basic is not in use or the credentials authenticated.
+ */
+async function verifyBasicCredentialAtStartup(
+  oauthService,
+  persistence,
+  liferayService
+) {
+  let resolved;
+  try {
+    resolved = resolveEffectiveLiferayConnection({}, oauthService, persistence);
+  } catch {
+    // No authentication configured at all - a different, already-surfaced
+    // problem than a Basic credential that is present but wrong.
+    return null;
+  }
+
+  if (resolved.authMethod !== 'basic') return null;
+
+  try {
+    await liferayService.testConnection({ authMethod: 'basic' });
+    return null;
+  } catch (error) {
+    return (
+      'Basic auth credentials did not authenticate - check LIFERAY_API_USERNAME ' +
+      `and LIFERAY_API_PASSWORD: ${error.message}`
+    );
+  }
+}
+
 module.exports = {
   isValidAbsoluteUrl,
   tryBuildColocatedLiferayUrl,
   resolveEffectiveLiferayConnection,
+  verifyBasicCredentialAtStartup,
 };
