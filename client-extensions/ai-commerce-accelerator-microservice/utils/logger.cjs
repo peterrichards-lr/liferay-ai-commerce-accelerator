@@ -5,7 +5,11 @@ const EventEmitter = require('events');
 
 const { ENV } = require('./constants.cjs');
 
-const logsDir = path.join(__dirname, '../logs');
+// ENV.LOGS_DIR, not a literal '../logs': tests/setup.mjs points this at a
+// throwaway directory before anything else requires this module, so a suite
+// run cannot interleave fixture output into the running service's own
+// app.log (#794).
+const logsDir = ENV.LOGS_DIR;
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }

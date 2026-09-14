@@ -12,6 +12,14 @@ const MEDIA_ROOT = fs.mkdtempSync(
 );
 process.env.MEDIA_ARCHIVE_PATH = MEDIA_ROOT;
 
+// See tests/setup.mjs: the same redirect for utils/logger.cjs's
+// logsDir/app.log, kept in sync here for whichever runner loads this file
+// instead of the .mjs one (#794).
+const LOGS_ROOT = fs.mkdtempSync(
+  path.join(os.tmpdir(), `aica-test-logs-${process.pid}-`)
+);
+process.env.LOGS_DIR = LOGS_ROOT;
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => {
@@ -31,6 +39,12 @@ afterAll(() => {
 
   try {
     fs.rmSync(MEDIA_ROOT, { force: true, recursive: true });
+  } catch (_e) {
+    // Ignore cleanup errors
+  }
+
+  try {
+    fs.rmSync(LOGS_ROOT, { force: true, recursive: true });
   } catch (_e) {
     // Ignore cleanup errors
   }
