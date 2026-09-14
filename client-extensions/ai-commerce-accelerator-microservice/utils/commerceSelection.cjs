@@ -32,6 +32,13 @@
  *    named, having never resolved the siteGroupId that only the channel record
  *    carries (#889). A read is free to continue on an unverified id; a write
  *    that cannot confirm where it is writing must not write.
+ *
+ * `config.channelIds` (see utils/runChannels.cjs) follows a narrower third
+ * rule instead of these two: it names the *extra* channels an order backfill
+ * runs against, not where the run itself writes, so a stale entry there
+ * cannot misdirect the dataset the way a stale `channelId` or `catalogId`
+ * can. It is dropped and reported rather than refusing the whole run - see
+ * resolveChannelIdList below, and #704.
  */
 
 const {
@@ -262,11 +269,69 @@ async function resolveSelection({
   return {
     ...result,
     failure,
+    items,
     label,
     level,
     message,
     name: readName(result.item),
   };
+}
+
+/**
+ * Classifies `config.channelIds` against the channel list `resolveSelection`
+ * already read for the primary channel - the list is already in hand, so
+ * this is a classification pass, not another request. See #704.
+ *
+ * Every entry is checked against the same list, with one exception: an entry
+ * equal to the already-resolved `channel.id` is kept without being looked up
+ * again. `channel` may have been confirmed by a by-id read that the list
+ * page never carried (`resolveSelection`'s `confirmById`), so matching it
+ * against `items` a second time could call a channel stale only because it
+ * is named twice - once as `channelId`, once inside `channelIds`.
+ */
+function resolveChannelIdList({ channel, channelIds, items }) {
+  const requested = Array.isArray(channelIds) ? channelIds : [];
+
+  if (requested.length === 0) {
+    return { ids: [], logs: [] };
+  }
+
+  const ids = [];
+  const logs = [];
+
+  for (const requestedId of requested) {
+    const id = Number(requestedId);
+
+    if (id === channel.id) {
+      ids.push(id);
+      continue;
+    }
+
+    const outcome = isUsableId(id)
+      ? classifyCommerceSelection({ requestedId: id, items }).outcome
+      : STALE;
+
+    // UNCHECKED keeps the id, on the same reasoning a read keeps an
+    // unverified channelId: the list could not be read, which is not
+    // evidence the channel is gone. This only happens on a read - a write
+    // with an unreadable channel list has already refused the whole run
+    // above, before this function runs.
+    if (outcome === VERIFIED || outcome === UNCHECKED) {
+      ids.push(id);
+    }
+
+    if (outcome !== VERIFIED) {
+      logs.push({
+        level: 'warn',
+        message:
+          outcome === UNCHECKED
+            ? `Channel id ${id} in channelIds could not be checked because the channel list could not be read. It will be used as supplied.`
+            : `Channel id ${id} in channelIds does not exist on this instance. Dropping it from the backfill list rather than refusing the run - it only widens which channels products and warehouses are backfilled onto, it does not choose where the run writes.`,
+      });
+    }
+  }
+
+  return { ids: [...new Set(ids)], logs };
 }
 
 /**
@@ -366,6 +431,20 @@ async function resolveRunCommerceSelection({
 
   if (rejections.length === 0) {
     applyCommerceSelection({ catalog, channel, config, logs });
+
+    // config.channelIds names extra backfill channels, not where the run
+    // writes, so it is verified after the write target is settled rather
+    // than as a condition of settling it. See #704.
+    if (Array.isArray(config.channelIds)) {
+      const { ids, logs: channelIdLogs } = resolveChannelIdList({
+        channel,
+        channelIds: config.channelIds,
+        items: channel.items,
+      });
+
+      config.channelIds = ids;
+      logs.push(...channelIdLogs);
+    }
   }
 
   return {
@@ -411,5 +490,6 @@ module.exports = {
   classifyCommerceSelection,
   describeCommerceSelection,
   logCommerceSelection,
+  resolveChannelIdList,
   resolveRunCommerceSelection,
 };
