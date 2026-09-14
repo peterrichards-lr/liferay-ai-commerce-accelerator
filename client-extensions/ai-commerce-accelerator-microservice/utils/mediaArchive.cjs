@@ -468,6 +468,13 @@ function openMediaArchive({ correlationId, logger, sessionId, ...overrides }) {
  * no longer there is returned in `missing` rather than skipped, because a
  * package that is quietly short is the failure this feature exists to prevent.
  *
+ * Each surviving entry carries `path`, not the bytes. This used to read every
+ * file into a `Buffer` here and hand the whole array to `buildMediaBundle`,
+ * which is fine for the 22 images this route was built for and is hundreds of
+ * megabytes held in memory - twice, once here and once while the zip is
+ * generated - for a catalogue's worth (#877). `buildMediaBundle` streams each
+ * file from the path instead, so this only has to confirm it is still there.
+ *
  * Returns `null` when the archive is switched off or the session was never
  * written, which the caller must be able to tell apart from a session that
  * genuinely generated no media. The first cannot produce a package and has to
@@ -511,10 +518,12 @@ function readMediaArchive({ sessionId, ...overrides } = {}) {
       continue;
     }
 
-    let buffer;
-
     try {
-      buffer = fs.readFileSync(target);
+      // Existence and readability only - never the content. Whatever reads
+      // this entry next (`buildMediaBundle`) opens its own stream from
+      // `path`, so a `Buffer` here would exist for no reason but to be
+      // copied once more before it is thrown away (#877).
+      fs.accessSync(target, fs.constants.R_OK);
     } catch (error) {
       // The code, not the message: the message carries the absolute path,
       // and this reason travels inside a package that goes to other people.
@@ -528,7 +537,7 @@ function readMediaArchive({ sessionId, ...overrides } = {}) {
       continue;
     }
 
-    entries.push({ ...file, buffer });
+    entries.push({ ...file, path: target });
   }
 
   return {
