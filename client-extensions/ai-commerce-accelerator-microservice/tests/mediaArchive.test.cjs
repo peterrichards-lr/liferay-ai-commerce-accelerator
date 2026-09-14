@@ -21,6 +21,7 @@ const {
   openMediaArchive,
   pruneArchiveRoot,
 } = require('../utils/mediaArchive.cjs');
+const { streamToBuffer } = require('./fixtures/streamToBuffer.cjs');
 
 // Generated media used to exist for exactly as long as the upload call, so a
 // rejected upload cost a picture that had already been paid for and an export
@@ -344,12 +345,12 @@ describe('The manifest is the one the bundle already builds', () => {
       buffer: fs.readFileSync(path.join(sessionDir(sessionId), file.file)),
     }));
 
-    const { buffer } = await buildMediaBundle({
+    const { stream } = await buildMediaBundle({
       dataset: { products: [product('P9')] },
       media,
     });
 
-    const unpacked = await readMediaBundle(buffer);
+    const unpacked = await readMediaBundle(await streamToBuffer(stream));
 
     expect(unpacked.missing).toEqual([]);
     expect(unpacked.manifest.counts).toEqual({

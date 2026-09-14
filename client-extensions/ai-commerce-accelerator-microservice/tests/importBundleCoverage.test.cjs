@@ -1,6 +1,7 @@
 const importRoutes = require('../routes/import.cjs');
 const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 const { buildMediaBundle } = require('../utils/mediaBundle.cjs');
+const { streamToBuffer } = require('./fixtures/streamToBuffer.cjs');
 
 /**
  * What the import route hands the media steps (#872).
@@ -19,25 +20,26 @@ describe('Import route: bundle media coverage (#872)', () => {
   let registeredRoutes;
   let persistenceService;
 
-  const bundleFor = async (ercs) =>
-    (
-      await buildMediaBundle({
-        dataset: {
-          products: ercs.map((erc) => ({
-            externalReferenceCode: erc,
-            name: { en_US: erc },
-          })),
-        },
-        media: ercs.map((erc) => ({
-          buffer: Buffer.from(`${erc}-bytes`),
-          contentType: 'image/webp',
-          kind: 'image',
-          priority: 1,
-          productERC: erc,
-          title: { en_US: erc },
+  const bundleFor = async (ercs) => {
+    const { stream } = await buildMediaBundle({
+      dataset: {
+        products: ercs.map((erc) => ({
+          externalReferenceCode: erc,
+          name: { en_US: erc },
         })),
-      })
-    ).buffer;
+      },
+      media: ercs.map((erc) => ({
+        buffer: Buffer.from(`${erc}-bytes`),
+        contentType: 'image/webp',
+        kind: 'image',
+        priority: 1,
+        productERC: erc,
+        title: { en_US: erc },
+      })),
+    });
+
+    return streamToBuffer(stream);
+  };
 
   const invoke = async (fileBuffer) => {
     const req = {

@@ -1,3 +1,7 @@
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const JSZip = require('jszip');
 const {
   DATASET_ENTRY,
   PACKAGE_EXTENSION,
@@ -7,6 +11,7 @@ const {
   readMediaBundle,
 } = require('../utils/mediaBundle.cjs');
 const { extractDatasetMedia, srcPath } = require('../utils/mediaExtractor.cjs');
+const { streamToBuffer } = require('./fixtures/streamToBuffer.cjs');
 
 // #814: a promotion must land the same pictures, not equivalent ones. The
 // round trip is the assertion that matters - everything else can pass while
@@ -29,9 +34,22 @@ const image = (productERC, bytes) => ({
   title: { en_US: `${productERC} image` },
 });
 
+/**
+ * `buildMediaBundle` hands back a stream rather than a `Buffer` (#877), so
+ * that a real caller (routes/export.cjs) never has to hold the whole archive
+ * in memory just to send it. Most of what follows only cares about the bytes
+ * once they exist, so this collects them the way `routes/export.cjs` used to
+ * do it for the caller - a test convenience, not something production code
+ * does any more.
+ */
+async function packMediaBundle(args) {
+  const { manifest, stream } = await buildMediaBundle(args);
+  return { buffer: await streamToBuffer(stream), manifest };
+}
+
 describe('Media bundle round trip', () => {
   it('carries the dataset and every binary back out unchanged', async () => {
-    const { buffer } = await buildMediaBundle({
+    const { buffer } = await packMediaBundle({
       dataset: DATASET,
       media: [
         image('AICA-PRD-1', 'first-image-bytes'),
@@ -66,8 +84,41 @@ describe('Media bundle round trip', () => {
     expect(pdf.buffer.toString()).toBe('pdf-bytes');
   });
 
+  it('carries a binary supplied by path exactly as it carries one supplied by buffer', async () => {
+    // The real producer of `path` entries is `readMediaArchive`, staging a
+    // session's own directory - this stands in for that with a plain temp
+    // file, because what is under test is `buildMediaBundle`'s own handling
+    // of the two shapes, not the archive that usually supplies one of them.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aica-mediabundle-'));
+    const file = path.join(dir, 'from-disk.webp');
+    fs.writeFileSync(file, 'bytes read off disk');
+
+    try {
+      const { buffer } = await packMediaBundle({
+        dataset: DATASET,
+        media: [
+          {
+            contentType: 'image/webp',
+            kind: 'image',
+            path: file,
+            priority: 1,
+            productERC: 'AICA-PRD-1',
+            title: { en_US: 'from disk' },
+          },
+        ],
+      });
+
+      const read = await readMediaBundle(buffer);
+
+      expect(read.media).toHaveLength(1);
+      expect(read.media[0].buffer.toString()).toBe('bytes read off disk');
+    } finally {
+      fs.rmSync(dir, { force: true, recursive: true });
+    }
+  });
+
   it('records what it could not resolve instead of dropping it', async () => {
-    const { manifest } = await buildMediaBundle({
+    const { manifest } = await packMediaBundle({
       dataset: DATASET,
       media: [
         image('AICA-PRD-1', 'ok'),
@@ -89,13 +140,26 @@ describe('Media bundle round trip', () => {
     });
   });
 
+  it('records a path that no longer resolves to a file the same way as no content at all', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aica-mediabundle-'));
+    const gone = path.join(dir, 'never-written.webp');
+    fs.rmSync(dir, { force: true, recursive: true });
+
+    const { manifest } = await packMediaBundle({
+      dataset: DATASET,
+      media: [{ ...image('AICA-PRD-1', 'x'), buffer: undefined, path: gone }],
+    });
+
+    expect(manifest.counts).toMatchObject({ images: 0, unresolved: 1 });
+    expect(manifest.unresolved[0].reason).toContain('no longer on disk');
+  });
+
   it('reports a manifest entry whose file is absent from the archive', async () => {
-    const { buffer } = await buildMediaBundle({
+    const { buffer } = await packMediaBundle({
       dataset: DATASET,
       media: [image('AICA-PRD-1', 'ok')],
     });
 
-    const JSZip = require('jszip');
     const zip = await JSZip.loadAsync(buffer);
     const manifest = JSON.parse(await zip.file(MANIFEST_ENTRY).async('string'));
     zip.remove(manifest.files[0].file);
@@ -108,7 +172,7 @@ describe('Media bundle round trip', () => {
   });
 
   it('gives distinct entry names to two products with awkward codes', async () => {
-    const { manifest } = await buildMediaBundle({
+    const { manifest } = await packMediaBundle({
       dataset: DATASET,
       media: [
         image('AICA/PRD 1', 'a'),
@@ -125,7 +189,6 @@ describe('Media bundle round trip', () => {
   });
 
   it('refuses an archive that is not a dataset bundle', async () => {
-    const JSZip = require('jszip');
     const zip = new JSZip();
     zip.file('something-else.txt', 'not a dataset');
 
@@ -135,11 +198,127 @@ describe('Media bundle round trip', () => {
   });
 
   it('recognises a zip by its header, not its name', async () => {
-    const { buffer } = await buildMediaBundle({ dataset: DATASET, media: [] });
+    const { buffer } = await packMediaBundle({ dataset: DATASET, media: [] });
 
     expect(looksLikeZip(buffer)).toBe(true);
     expect(looksLikeZip(Buffer.from(JSON.stringify(DATASET)))).toBe(false);
     expect(looksLikeZip(undefined)).toBe(false);
+  });
+});
+
+// #877: building used to collect every binary as a Buffer and hand the whole
+// set to JSZip before generating one more Buffer for the archive, so the
+// payload existed twice at the moment it was produced. Reading did the
+// mirror image: the whole upload parsed into one more in-memory copy before
+// any entry was touched. These assert the mechanism that replaced both -
+// nothing here measures process memory directly, which vitest workers make
+// unreliable, so what is checked is *how* the bytes reach the archive and
+// come back out of it.
+describe('Streaming rather than buffering the whole package (#877)', () => {
+  function stagedFiles(count, sizeBytes) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aica-mediabundle-'));
+    const files = [];
+
+    for (let i = 0; i < count; i += 1) {
+      const file = path.join(dir, `staged-${i}.pdf`);
+      // A distinct fill byte per file, so a mix-up between entries would show
+      // up as wrong content rather than merely a wrong count.
+      fs.writeFileSync(file, Buffer.alloc(sizeBytes, 65 + i));
+      files.push(file);
+    }
+
+    return { dir, files };
+  }
+
+  it('reads staged binaries as streams, never as a whole Buffer, on the way into the archive', async () => {
+    const { dir, files } = stagedFiles(3, 2 * 1024 * 1024);
+
+    const readFileSyncSpy = vi.spyOn(fs, 'readFileSync');
+    const createReadStreamSpy = vi.spyOn(fs, 'createReadStream');
+
+    try {
+      const media = files.map((file, index) => ({
+        contentType: 'application/pdf',
+        kind: 'pdf',
+        path: file,
+        priority: 1,
+        productERC: `AICA-PRD-${index}`,
+        title: null,
+      }));
+
+      const { manifest, stream } = await buildMediaBundle({
+        dataset: DATASET,
+        media,
+      });
+
+      // A `generateAsync({type:'nodebuffer'})` implementation would need to
+      // have read every one of those 6MB by the time this line runs, because
+      // it cannot produce a `Buffer` without them. This runs immediately
+      // after, and the assertions below still find none of the files
+      // consumed with `readFileSync`.
+      for (const file of files) {
+        expect(createReadStreamSpy).toHaveBeenCalledWith(file);
+        expect(readFileSyncSpy).not.toHaveBeenCalledWith(file);
+      }
+
+      // Draining the stream is what actually reads the bytes - proof the
+      // entries are real, not merely proof nothing was read yet.
+      const buffer = await streamToBuffer(stream);
+      const read = await readMediaBundle(buffer);
+
+      expect(manifest.counts.pdfs).toBe(3);
+      expect(read.media).toHaveLength(3);
+      expect(
+        read.media
+          .sort((a, b) => a.productERC.localeCompare(b.productERC))
+          .map((item) => item.buffer[0])
+      ).toEqual([65, 66, 67]);
+    } finally {
+      readFileSyncSpy.mockRestore();
+      createReadStreamSpy.mockRestore();
+      fs.rmSync(dir, { force: true, recursive: true });
+    }
+  });
+
+  it('reads the uploaded archive from a temporary file rather than parsing a Buffer in memory', async () => {
+    const { buffer } = await packMediaBundle({
+      dataset: DATASET,
+      media: [image('AICA-PRD-1', 'bytes for the round trip')],
+    });
+
+    const loadAsyncSpy = vi.spyOn(JSZip.prototype, 'loadAsync');
+    const writeFileSyncSpy = vi.spyOn(fs, 'writeFileSync');
+
+    try {
+      const read = await readMediaBundle(buffer);
+
+      // JSZip.loadAsync is how the old implementation held the archive a
+      // second time as its own parsed copy; this never calls it at all.
+      expect(loadAsyncSpy).not.toHaveBeenCalled();
+      // The upload went to disk before anything tried to read an entry out
+      // of it.
+      expect(writeFileSyncSpy).toHaveBeenCalled();
+      expect(read.dataset).toEqual(DATASET);
+    } finally {
+      loadAsyncSpy.mockRestore();
+      writeFileSyncSpy.mockRestore();
+    }
+  });
+
+  it('cleans up its temporary file whether or not the upload turns out to be a bundle', async () => {
+    const before = fs
+      .readdirSync(os.tmpdir())
+      .filter((name) => name.startsWith('aica-import-bundle-'));
+
+    await expect(
+      readMediaBundle(Buffer.from('not a zip at all'))
+    ).rejects.toThrow();
+
+    const after = fs
+      .readdirSync(os.tmpdir())
+      .filter((name) => name.startsWith('aica-import-bundle-'));
+
+    expect(after).toEqual(before);
   });
 });
 
@@ -332,7 +511,7 @@ describe('The package extension (#878)', () => {
     // that then refused to import would be a trap. Detection reads the local
     // file header, so the name is decoration - this exists so nobody
     // "helpfully" adds an extension check later.
-    const { buffer } = await buildMediaBundle({ dataset: DATASET, media: [] });
+    const { buffer } = await packMediaBundle({ dataset: DATASET, media: [] });
 
     expect(looksLikeZip(buffer)).toBe(true);
 

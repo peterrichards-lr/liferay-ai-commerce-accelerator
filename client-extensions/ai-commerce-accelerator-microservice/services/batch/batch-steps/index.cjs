@@ -17,8 +17,6 @@ module.exports = {
   deleteProductRelatedEntities: require('./deleteProductRelatedEntities.cjs'),
 
   // Generation
-  createAccounts: require('./createAccounts.cjs'),
-  createPostalAddresses: require('./createPostalAddresses.cjs'),
   logNextStep: require('./logNextStep.cjs'),
   resolveEntities: require('./resolveEntities.cjs'),
 };

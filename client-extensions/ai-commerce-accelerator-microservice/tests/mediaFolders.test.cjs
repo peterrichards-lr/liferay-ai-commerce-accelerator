@@ -87,7 +87,7 @@ describe('An archive written before the rename', () => {
     const read = readMediaArchive({ root: ROOT, sessionId: 'legacy-archive' });
 
     expect(read.missing).toEqual([]);
-    expect(read.entries[0].buffer.toString()).toBe('old bytes');
+    expect(fs.readFileSync(read.entries[0].path).toString()).toBe('old bytes');
   });
 });
 

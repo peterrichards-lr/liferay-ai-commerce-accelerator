@@ -55,10 +55,6 @@ describe('Commerce Batch Steps', () => {
       deleteProductRelatedEntitiesBatch: vi
         .fn()
         .mockResolvedValue({ status: 'SUCCESS' }),
-      createAccountsBatch: vi.fn().mockResolvedValue({ batchRefs: ['ref-1'] }),
-      createAccountAddressBatch: vi
-        .fn()
-        .mockResolvedValue({ batchRefs: ['ref-2'] }),
       getSpecificationsByProductIds: vi
         .fn()
         .mockResolvedValue([
@@ -271,18 +267,6 @@ describe('Commerce Batch Steps', () => {
   });
 
   describe('Generation/Helper steps', () => {
-    it('should strip address objects and batch create accounts', async () => {
-      const res = await batchSteps.createAccounts(mockCtx, mockParams);
-      expect(mockLiferay.createAccountsBatch).toHaveBeenCalledTimes(1);
-      expect(res.batchRefs).toEqual(['ref-1']);
-    });
-
-    it('should batch create postal addresses', async () => {
-      const res = await batchSteps.createPostalAddresses(mockCtx, mockParams);
-      expect(mockLiferay.createAccountAddressBatch).toHaveBeenCalledTimes(2);
-      expect(res.batchRefs).toEqual(['ref-2', 'ref-2']);
-    });
-
     it('should log next step using logNextStep', async () => {
       const res = await batchSteps.logNextStep(mockCtx, {
         batchERC: 'batch-erc-1',
