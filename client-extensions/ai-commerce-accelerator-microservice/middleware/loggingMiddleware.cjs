@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { trustedClientAddress } = require('../utils/clientAddress.cjs');
 const jwt = require('jsonwebtoken');
 const jwkToPem = require('jwk-to-pem');
 const axios = require('axios');
@@ -192,7 +193,10 @@ function basicRateLimitMiddleware(maxRequests = 100, windowMs = 60000) {
   }, windowMs);
 
   return (req, res, next) => {
-    const clientKey = req.ip || req.connection.remoteAddress || 'unknown';
+    // Keyed on the socket, not `req.ip`. With `trust proxy` enabled `req.ip`
+    // comes from `X-Forwarded-For`, so a caller could vary a header to get a
+    // fresh bucket and never meet the limit. See GHSA-qvx5-h4wr-pcfv.
+    const clientKey = trustedClientAddress(req) || 'unknown';
     const now = Date.now();
     const cutoff = now - windowMs;
 

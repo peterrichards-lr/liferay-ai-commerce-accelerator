@@ -10,7 +10,10 @@
     "packages": [
       "client-extensions/ai-commerce-accelerator-microservice",
       "client-extensions/ai-commerce-accelerator-configuration",
-      "client-extensions/ai-commerce-accelerator-frontend"
+      "client-extensions/ai-commerce-accelerator-frontend",
+      ".claude/worktrees/agent-ac690d7f4223c0037",
+      ".claude/worktrees/agent-a6005118d49d18e89",
+      ".claude/worktrees/agent-af47f8bbe38f8d7a5"
     ]
   },
   "devDependencies": {

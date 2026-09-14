@@ -45,8 +45,12 @@ function mockReq(overrides = {}) {
     query: {},
     correlationId: 'test-cid',
     ip: '203.0.113.1', // Public (non-localhost) IP by default
-    connection: {},
-    socket: {},
+    // The socket is what the loopback exemption reads. `req.ip` follows
+    // X-Forwarded-For when `trust proxy` is set, so it is the caller's claim
+    // about itself; the socket is the transport's own answer. Tests that want
+    // a local caller must say so here, not in `ip`. See GHSA-qvx5-h4wr-pcfv.
+    connection: { remoteAddress: overrides.socketAddress ?? '203.0.113.1' },
+    socket: { remoteAddress: overrides.socketAddress ?? '203.0.113.1' },
     get: vi.fn((header) => overrides.headers?.[header] ?? null),
     user: overrides.user ?? null,
     ...overrides,
@@ -162,7 +166,11 @@ describe('Auth Gate — requestSigningMiddleware', () => {
 
     loopbackIPs.forEach((ip) => {
       it(`should allow unsigned requests from ${ip} without signing headers`, () => {
-        const req = mockReq({ ip }); // No signing headers, loopback IP
+        // The address is set on the socket, which is where a genuinely local
+        // caller's address comes from. Setting only `ip` would describe a
+        // remote caller claiming to be local - covered in
+        // tests/loopbackExemption.test.cjs, where it must be refused.
+        const req = mockReq({ socketAddress: ip });
         const res = mockRes();
 
         requestSigningMiddleware(req, res, next);

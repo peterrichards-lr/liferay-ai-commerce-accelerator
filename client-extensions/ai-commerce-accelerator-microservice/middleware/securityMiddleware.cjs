@@ -2,6 +2,10 @@ const crypto = require('crypto');
 const { logger } = require('../utils/logger.cjs');
 
 const { ENV } = require('../utils/constants.cjs');
+const {
+  isLoopbackRequest,
+  trustedClientAddress,
+} = require('../utils/clientAddress.cjs');
 
 function inputValidationMiddleware(schema) {
   return (req, res, next) => {
@@ -119,14 +123,13 @@ function requestSigningMiddleware(req, res, next) {
     return next();
   }
 
-  // 2. Localhost loopback connections (CLI scripts, tests, probes) bypass request signing
-  const clientIP =
-    req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress;
-  if (
-    clientIP === '127.0.0.1' ||
-    clientIP === '::1' ||
-    clientIP === '::ffff:127.0.0.1'
-  ) {
+  // 2. Loopback connections (CLI scripts, tests, probes) bypass request signing.
+  //
+  // Decided from the socket, not from `req.ip`. With `trust proxy` enabled
+  // `req.ip` is the leftmost `X-Forwarded-For` entry, which the caller sets -
+  // so this exemption used to accept `X-Forwarded-For: 127.0.0.1` from anywhere
+  // and skip signing on the whole v1 API. See GHSA-qvx5-h4wr-pcfv.
+  if (isLoopbackRequest(req)) {
     return next();
   }
 
@@ -364,15 +367,12 @@ function ipAllowlistMiddleware(allowedIPs) {
   const allowed = new Set(allowedIPs);
 
   return (req, res, next) => {
-    const clientIP = req.ip || req.connection.remoteAddress;
-    const forwardedFor = req.get('X-Forwarded-For');
-    const realIP = forwardedFor ? forwardedFor.split(',')[0].trim() : clientIP;
+    // The header is not consulted. Reading `X-Forwarded-For` and trusting its
+    // leftmost entry let a caller name its own address, which defeats the
+    // point of an allowlist. See GHSA-qvx5-h4wr-pcfv.
+    const realIP = trustedClientAddress(req);
 
-    if (
-      realIP === '127.0.0.1' ||
-      realIP === '::1' ||
-      realIP === '::ffff:127.0.0.1'
-    ) {
+    if (isLoopbackRequest(req)) {
       return next();
     }
 
@@ -380,7 +380,10 @@ function ipAllowlistMiddleware(allowedIPs) {
       logger.warn('IP not in allowlist', {
         correlationId: req.correlationId,
         clientIP: realIP,
-        forwardedFor,
+        // Logged, not trusted. The header is worth seeing when diagnosing a
+        // refusal - it names what the caller claimed - but the decision above
+        // was made from the socket.
+        forwardedFor: req.get('X-Forwarded-For') || null,
         path: req.path,
       });
 
