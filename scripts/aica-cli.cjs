@@ -60,32 +60,546 @@ const LIFERAY_URL =
 const LIFERAY_USERNAME = process.env.LIFERAY_API_USERNAME || 'test@liferay.com';
 const LIFERAY_PASSWORD = process.env.LIFERAY_API_PASSWORD || 'test';
 
-// --- 3. Argument Parsing & Schema Setup ---
-const args = process.argv.slice(2);
-const command = args[0];
+/**
+ * Every input `buildConfigAndOptions` (microservice `utils/normalize.cjs`)
+ * will read off `req.body` for a generate run, and how a CLI flag reaches it.
+ *
+ * One table drives the argument parser, `--help`, and the payload
+ * `handleGenerate` sends - a key with no row here is a visible gap in this
+ * file, rather than one spread invisibly across a hand-written parsing loop
+ * and a hand-built payload. That drift is how #735 happened: the payload
+ * carried 22 keys by hand against 57 the microservice accepted, five of the
+ * 22 were hardcoded rather than actually settable, and nothing said so until
+ * an operator hit a refusal `--accounts 0` could not work around because the
+ * guard was on `accountType`, a field the CLI had no flag for at all.
+ * `tests/cliOptionCoverage.test.cjs` reads the destructured key list back out
+ * of `normalize.cjs` and fails if this table (plus WITHHELD_GENERATE_KEYS)
+ * ever stops covering it, so the next field added there cannot drift silently
+ * the way these 35 did.
+ *
+ * `type`: 'string' passes the raw value through; 'integer' validates with
+ * `requireInteger`; 'boolean' is `--flag` / `--no-flag`; 'list' splits on
+ * commas into an array (of numbers when `listOf: 'integer'`), because a
+ * field like `selectedLanguages` is assigned to directly in `normalize.cjs`
+ * with no string-to-array parsing of its own - sending it as a bare
+ * comma-string would reach the workflow as a string, not a list.
+ */
+const GENERATE_OPTIONS = [
+  // Pre-existing flags, unchanged: same flag name, same default, same
+  // validation as before this table existed.
+  {
+    key: 'demoMode',
+    type: 'boolean',
+    flag: 'demo',
+    default: false,
+    help: 'Use Mock Data instead of Gemini AI',
+  },
+  {
+    key: 'productCount',
+    type: 'integer',
+    flag: 'products',
+    min: 0,
+    default: 2,
+    help: 'Specify product target volume',
+  },
+  {
+    key: 'accountCount',
+    type: 'integer',
+    flag: 'accounts',
+    min: 0,
+    default: 2,
+    help: 'Specify business accounts volume',
+  },
+  {
+    key: 'orderCount',
+    type: 'integer',
+    flag: 'orders',
+    min: 0,
+    default: 5,
+    help: 'Specify order target volume',
+  },
+  {
+    key: 'imageMode',
+    type: 'string',
+    flag: 'images',
+    aliases: ['image-mode'],
+    placeholder: '<mode>',
+    default: 'default',
+    help: 'Specify image generation mode (none|default|picsum|ai)',
+  },
+  {
+    key: 'pdfMode',
+    type: 'string',
+    flag: 'pdfs',
+    aliases: ['pdf-mode'],
+    placeholder: '<mode>',
+    default: 'default',
+    help: 'Specify PDF generation mode (none|default|ai)',
+  },
+  {
+    key: 'generateBulkPricing',
+    type: 'boolean',
+    flag: 'bulk-pricing',
+    default: true,
+    help: 'Enable/disable bulk pricing generation',
+  },
+  {
+    key: 'generateTierPricing',
+    type: 'boolean',
+    flag: 'tier-pricing',
+    default: true,
+    help: 'Enable/disable tier pricing generation',
+  },
+  {
+    key: 'generateSpecifications',
+    type: 'boolean',
+    flag: 'specifications',
+    default: true,
+    help: 'Enable/disable specification generation',
+  },
+  {
+    key: 'createWarehouses',
+    type: 'boolean',
+    flag: 'warehouses',
+    default: true,
+    help: 'Enable/disable warehouse creation',
+  },
+  {
+    key: 'warehouseCount',
+    type: 'integer',
+    flag: 'warehouse-count',
+    min: 0,
+    default: 1,
+    help: 'Specify how many warehouses to create',
+  },
+  {
+    key: 'channelId',
+    type: 'integer',
+    flag: 'channel-id',
+    aliases: ['channel'],
+    placeholder: 'ID',
+    min: 1,
+    help: 'Specify channel ID',
+  },
+  {
+    key: 'siteGroupId',
+    type: 'integer',
+    flag: 'site-group-id',
+    aliases: ['site-group'],
+    placeholder: 'ID',
+    min: 1,
+    help: 'Specify site group ID',
+  },
+  {
+    key: 'catalogId',
+    type: 'integer',
+    flag: 'catalog-id',
+    aliases: ['catalog'],
+    placeholder: 'ID',
+    min: 1,
+    help: 'Specify catalog ID',
+  },
 
-if (
-  !command ||
-  [
-    'connect',
-    'generate',
-    'delete',
-    'export',
-    'extract',
-    'import',
-    'config',
-    'reindex',
-    '--help',
-    '-h',
-  ].includes(command) === false
-) {
-  printHelp();
-  process.exit(1);
+  // Sent by handleGenerate but hardcoded rather than settable, per #735.
+  {
+    key: 'generatePriceLists',
+    type: 'boolean',
+    flag: 'price-lists',
+    default: true,
+    help: 'Enable/disable price list generation',
+  },
+  {
+    key: 'generateSkuVariants',
+    type: 'boolean',
+    flag: 'sku-variants',
+    default: true,
+    help: 'Enable/disable SKU variant generation',
+  },
+  {
+    key: 'localeCode',
+    type: 'string',
+    flag: 'locale-code',
+    default: 'en-US',
+    help: 'Locale for generated content, e.g. fr-FR',
+  },
+  {
+    key: 'languageId',
+    type: 'string',
+    flag: 'language-id',
+    default: 'en_US',
+    help: 'Liferay language id for generated content, e.g. fr_FR',
+  },
+  {
+    key: 'currencyCode',
+    type: 'string',
+    flag: 'currency-code',
+    default: 'USD',
+    help: 'Currency for generated pricing, e.g. EUR',
+  },
+
+  // Previously reachable from no CLI flag at all - the bulk of #735's 35.
+  {
+    key: 'accountType',
+    type: 'string',
+    flag: 'account-type',
+    help: 'Account type to generate: person|business - the flag a channel with no commerce site type set is telling you to pick when it refuses a business-account run',
+  },
+  {
+    key: 'orderAccountType',
+    type: 'string',
+    flag: 'order-account-type',
+    help: 'Restrict a standalone order run to existing accounts of this type',
+  },
+  {
+    key: 'businessAccountRatio',
+    type: 'integer',
+    flag: 'business-account-ratio',
+    min: 0,
+    help: 'Percent of generated accounts that are business accounts, for the mixed account type',
+  },
+  {
+    key: 'orderDateRangeDays',
+    type: 'integer',
+    flag: 'order-date-range-days',
+    min: 0,
+    help: 'Spread generated order dates over this many days',
+  },
+  {
+    key: 'orderDistribution',
+    type: 'string',
+    flag: 'order-distribution',
+    placeholder: '<json>',
+    help: 'JSON object describing how orders are distributed over time',
+  },
+  {
+    key: 'inventoryMin',
+    type: 'integer',
+    flag: 'inventory-min',
+    min: 0,
+    help: 'Minimum inventory quantity assigned per product',
+  },
+  {
+    key: 'inventoryMax',
+    type: 'integer',
+    flag: 'inventory-max',
+    min: 0,
+    help: 'Maximum inventory quantity assigned per product',
+  },
+  {
+    key: 'inventoryAssignmentRatio',
+    type: 'integer',
+    flag: 'inventory-assignment-ratio',
+    min: 0,
+    help: 'Percent of products that receive an inventory assignment',
+  },
+  {
+    key: 'enableBackorders',
+    type: 'boolean',
+    flag: 'enable-backorders',
+    default: false,
+    help: 'Enable/disable backorder generation',
+  },
+  {
+    key: 'backorderAssignmentRatio',
+    type: 'integer',
+    flag: 'backorder-assignment-ratio',
+    min: 0,
+    help: 'Percent of inventory-assigned products flagged for backorder',
+  },
+  {
+    key: 'reuseExistingWarehouses',
+    type: 'boolean',
+    flag: 'reuse-existing-warehouses',
+    default: true,
+    help: 'Reuse existing warehouses instead of creating new ones',
+  },
+  {
+    key: 'brandName',
+    type: 'string',
+    flag: 'brand-name',
+    help: 'Brand name to theme generated content around',
+  },
+  {
+    key: 'categories',
+    type: 'list',
+    listOf: 'string',
+    flag: 'categories',
+    help: 'Comma-separated product category names',
+  },
+  {
+    key: 'geographicContext',
+    type: 'string',
+    flag: 'geographic-context',
+    placeholder: '<text|json>',
+    help: 'Geographic context for generated content',
+  },
+  {
+    key: 'sessionName',
+    type: 'string',
+    flag: 'session-name',
+    help: 'Label for this generation session',
+  },
+  {
+    key: 'seedPack',
+    type: 'string',
+    flag: 'seed-pack',
+    help: 'Name of a seed pack to generate from',
+  },
+  {
+    key: 'generatePromotions',
+    type: 'boolean',
+    flag: 'generate-promotions',
+    default: false,
+    help: 'Enable/disable promotion generation',
+  },
+  {
+    key: 'imageWidth',
+    type: 'integer',
+    flag: 'image-width',
+    min: 1,
+    help: 'Generated image width in pixels',
+  },
+  {
+    key: 'imageHeight',
+    type: 'integer',
+    flag: 'image-height',
+    min: 1,
+    help: 'Generated image height in pixels',
+  },
+  {
+    key: 'imageQuality',
+    type: 'string',
+    flag: 'image-quality',
+    help: 'Generated image quality, e.g. standard|hd',
+  },
+  {
+    key: 'imageStyle',
+    type: 'string',
+    flag: 'image-style',
+    help: 'Generated image style, e.g. photographic',
+  },
+  {
+    key: 'imageRatio',
+    type: 'integer',
+    flag: 'image-ratio',
+    min: 0,
+    help: 'Percent of products that receive an image',
+  },
+  {
+    key: 'pdfRatio',
+    type: 'integer',
+    flag: 'pdf-ratio',
+    min: 0,
+    help: 'Percent of products that receive a PDF attachment',
+  },
+  {
+    key: 'pdfContentType',
+    type: 'string',
+    flag: 'pdf-content-type',
+    help: 'Content focus for generated PDFs',
+  },
+  {
+    key: 'mediaBundleKey',
+    type: 'string',
+    flag: 'media-bundle-key',
+    help: 'Attach media from a cached bundle instead of generating it',
+  },
+  {
+    key: 'selectedLanguages',
+    type: 'list',
+    listOf: 'string',
+    flag: 'selected-languages',
+    help: 'Comma-separated locales to translate generated content into',
+  },
+  {
+    key: 'channelIds',
+    type: 'list',
+    listOf: 'integer',
+    min: 1,
+    flag: 'channel-ids',
+    help: "Comma-separated channel IDs this run's data should also be available in, besides --channel-id (#664)",
+  },
+  {
+    key: 'aiModel',
+    type: 'string',
+    flag: 'ai-model',
+    help: 'AI model to use for generation',
+  },
+  {
+    key: 'batchSize',
+    type: 'integer',
+    flag: 'batch-size',
+    min: 1,
+    help: 'Number of items to process per batch',
+  },
+  {
+    key: 'pollingDelay',
+    type: 'integer',
+    flag: 'polling-delay',
+    min: 0,
+    help: 'Milliseconds between workflow status polls',
+  },
+  {
+    key: 'pollingRetries',
+    type: 'integer',
+    flag: 'polling-retries',
+    min: 0,
+    help: 'Maximum number of status poll attempts',
+  },
+  {
+    key: 'requestTimeoutMs',
+    type: 'integer',
+    flag: 'request-timeout-ms',
+    min: 0,
+    help: 'Timeout in milliseconds for AI provider requests',
+  },
+];
+
+/**
+ * `buildConfigAndOptions` inputs deliberately left without a flag, and why.
+ * Not an oversight list - `tests/cliOptionCoverage.test.cjs` requires every
+ * key destructured there to appear in GENERATE_OPTIONS or here, so a key
+ * missing from both fails the build rather than just going unmentioned.
+ */
+const WITHHELD_GENERATE_KEYS = {
+  clientId:
+    'Credential. Sourced from LIFERAY_API_CLIENT_ID via the .env cascade this CLI already reads, so it never has to be typed on the command line where it would land in shell history and process listings.',
+  clientSecret:
+    'Credential. Sourced from LIFERAY_API_CLIENT_SECRET - same reasoning as clientId.',
+  liferayUrl:
+    'Connection target, not a generation input. Resolved from the LIFERAY_PORTAL_URL/LIFERAY_URL/LIFERAY_API_URL .env cascade this CLI already uses for every command (connect, delete, export, ...), not only generate.',
+  authMethod:
+    'Connection resolution detail (oauth vs basic), decided together with liferayUrl/clientId/clientSecret in resolveEffectiveLiferayConnection rather than chosen per generate run.',
+  microserviceUrl:
+    'Lets a browser client behind a reverse proxy tell the server its own externally-visible origin, for constructing callback links. A CLI talking to the microservice directly already supplies that origin as MICROSERVICE_URL/AICA_MICROSERVICE_URL - the request target itself - so sending it again in the body would be redundant plumbing, not a generation input.',
+  chunkSizes:
+    "A structured per-phase tuning object that normalize.cjs passes through unvalidated, not a scalar/boolean/list a single flag can express cleanly. AI-runtime tuning, not something a demo run's content depends on.",
+};
+
+/** `--flag <value>` / `--no-flag` names an entry answers to, boolean-aware. */
+function generateOptionFlagNames(opt, negate) {
+  const names = [opt.flag, ...(opt.aliases || [])];
+  return opt.type === 'boolean'
+    ? names.map((name) => `--${negate ? 'no-' : ''}${name}`)
+    : names.map((name) => `--${name}`);
 }
 
-if (command === '--help' || command === '-h') {
-  printHelp();
-  process.exit(0);
+function findGenerateOption(arg) {
+  for (const opt of GENERATE_OPTIONS) {
+    if (generateOptionFlagNames(opt, false).includes(arg)) {
+      return { negate: false, opt };
+    }
+    if (
+      opt.type === 'boolean' &&
+      generateOptionFlagNames(opt, true).includes(arg)
+    ) {
+      return { negate: true, opt };
+    }
+  }
+  return null;
+}
+
+/**
+ * `channelIds`/`selectedLanguages`/`categories` are read by normalize.cjs as
+ * arrays, not as a delimited string it parses itself (unlike, say,
+ * `orderDistribution`, which does get parsed). Splitting here rather than
+ * server-side means a JSON request body - what this CLI always sends - can
+ * carry a real array instead of a string the consumer never unpacks.
+ */
+function parseListValue(flag, raw, opt) {
+  const items = String(raw)
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  return opt.listOf === 'integer'
+    ? items.map((item) => requireInteger(flag, item, opt.min ?? 0))
+    : items;
+}
+
+/**
+ * Table-driven half of argument parsing: every field `buildConfigAndOptions`
+ * accepts for a generate run. A flag this function does not recognise is
+ * left untouched, same as every flag check here always has been - an unknown
+ * `--flag` is silently ignored rather than refused.
+ */
+function parseGenerateArgs(flagArgs) {
+  const options = {};
+
+  for (let i = 0; i < flagArgs.length; i++) {
+    const arg = flagArgs[i];
+    const found = findGenerateOption(arg);
+    if (!found) continue;
+
+    const { negate, opt } = found;
+
+    if (opt.type === 'boolean') {
+      options[opt.key] = !negate;
+      continue;
+    }
+
+    if (opt.type === 'integer') {
+      options[opt.key] = requireInteger(arg, flagArgs[i + 1], opt.min ?? 0);
+      i++;
+      continue;
+    }
+
+    // String/list flags: consumed only when a value actually follows, same
+    // as the pre-existing --images/--pdfs handling this generalises. A
+    // missing value is left for the next iteration rather than refused.
+    const raw = flagArgs[i + 1];
+    if (raw === undefined) continue;
+    i++;
+    options[opt.key] =
+      opt.type === 'list' ? parseListValue(arg, raw, opt) : raw;
+  }
+
+  return options;
+}
+
+/** Control flags shared by non-generate commands; not a generate input. */
+function parseControlOptions(flagArgs) {
+  const options = {};
+
+  for (const arg of flagArgs) {
+    if (arg === '--all') options.all = true;
+    if (arg === '--selected') options.selected = true;
+    if (arg === '-y' || arg === '--yes' || arg === '--non-interactive') {
+      options.nonInteractive = true;
+    }
+    if (arg === '--docker') options.docker = true;
+    if (arg === '--api') options.api = true;
+    if (arg === '--bundle' || arg === '--with-media') options.bundle = true;
+    if (arg === '--instance') options.instance = true;
+  }
+
+  return options;
+}
+
+/**
+ * The payload `POST /api/v1/generate/workflow` receives, built from
+ * GENERATE_OPTIONS rather than listed by hand - see the table's own comment
+ * for why that hand-written list was the bug. Keys neither supplied nor
+ * defaulted are left `undefined`, which `JSON.stringify` drops, so an
+ * unsupplied field reaches the microservice exactly as it did when this
+ * function did not exist: absent, letting normalize.cjs's own default apply.
+ */
+function buildGeneratePayload(opts, ctx) {
+  const payload = { ...buildConnectionPayload() };
+
+  for (const opt of GENERATE_OPTIONS) {
+    const value = opts[opt.key] ?? opt.default;
+    if (value !== undefined) payload[opt.key] = value;
+  }
+
+  // Resolved separately (env, interactive picker, or the backend) rather
+  // than parsed straight off a flag, so these three always win over
+  // whatever the loop above set from opts.channelId/siteGroupId/catalogId.
+  payload.channelId = ctx.channelId;
+  payload.siteGroupId = ctx.siteGroupId;
+  payload.catalogId = ctx.catalogId;
+
+  return payload;
 }
 
 /**
@@ -117,104 +631,85 @@ function requireInteger(flag, raw, min) {
   return value;
 }
 
-// Extract optional parameters
-const options = {};
-for (let i = 1; i < args.length; i++) {
-  const arg = args[i];
-  if (arg === '--demo') options.demoMode = true;
-  if (arg === '--all') options.all = true;
-  if (arg === '--selected') options.selected = true;
-  if (arg === '-y' || arg === '--yes' || arg === '--non-interactive') {
-    options.nonInteractive = true;
-  }
-  if (arg === '--products') {
-    options.productCount = requireInteger(arg, args[i + 1], 0);
-    i++;
-  }
-  if (arg === '--accounts') {
-    options.accountCount = requireInteger(arg, args[i + 1], 0);
-    i++;
-  }
-  if (arg === '--orders') {
-    options.orderCount = requireInteger(arg, args[i + 1], 0);
-    i++;
-  }
-  if (arg === '--bulk-pricing') options.generateBulkPricing = true;
-  if (arg === '--no-bulk-pricing') options.generateBulkPricing = false;
-  if (arg === '--tier-pricing') options.generateTierPricing = true;
-  if (arg === '--no-tier-pricing') options.generateTierPricing = false;
-  if (arg === '--specifications') options.generateSpecifications = true;
-  if (arg === '--no-specifications') options.generateSpecifications = false;
-  if (arg === '--warehouses') options.createWarehouses = true;
-  if (arg === '--no-warehouses') options.createWarehouses = false;
-  if (arg === '--warehouse-count') {
-    options.warehouseCount = requireInteger(arg, args[i + 1], 0);
-    i++;
-  }
-  if ((arg === '--image-mode' || arg === '--images') && args[i + 1]) {
-    options.imageMode = args[i + 1];
-    i++;
-  }
-  if ((arg === '--pdf-mode' || arg === '--pdfs') && args[i + 1]) {
-    options.pdfMode = args[i + 1];
-    i++;
-  }
-  // Liferay ids start at 1, so an id flag is refused below zero as well as at
-  // it: a `--channel-id abc` that parsed to NaN used to fall through to the
-  // environment and then to the interactive picker, which reads as the flag
-  // having been ignored rather than misspelt.
-  if (arg === '--channel-id' || arg === '--channel') {
-    options.channelId = requireInteger(arg, args[i + 1], 1);
-    i++;
-  }
-  if (arg === '--site-group-id' || arg === '--site-group') {
-    options.siteGroupId = requireInteger(arg, args[i + 1], 1);
-    i++;
-  }
-  if (arg === '--catalog-id' || arg === '--catalog') {
-    options.catalogId = requireInteger(arg, args[i + 1], 1);
-    i++;
-  }
-  if (arg === '--docker') options.docker = true;
-  if (arg === '--api') options.api = true;
-  if (arg === '--bundle' || arg === '--with-media') options.bundle = true;
-  if (arg === '--instance') options.instance = true;
-}
+/**
+ * Argument parsing and command dispatch, gated behind `require.main` so this
+ * file can also be `require`d for its data - GENERATE_OPTIONS,
+ * WITHHELD_GENERATE_KEYS, parseGenerateArgs, buildGeneratePayload - without
+ * running the CLI. `tests/cliOptionCoverage.test.cjs` and
+ * `tests/cliParseGenerateArgs.test.cjs` depend on that; `tests/cliCounts.test.cjs`
+ * still spawns the real binary, deliberately, to exercise the whole path
+ * end to end rather than a helper the argument loop might one day stop
+ * calling.
+ */
+function main() {
+  const args = process.argv.slice(2);
+  const command = args[0];
 
-// --- 4. Main Command Routing Router ---
-(async () => {
-  try {
-    switch (command) {
-      case 'connect':
-        await handleConnect();
-        break;
-      case 'generate':
-        await handleGenerate(options);
-        break;
-      case 'delete':
-        await handleDelete(options);
-        break;
-      case 'export':
-        await handleExport(args[1], args[2], options);
-        break;
-      case 'extract':
-        await handleExtract(args[1], args[2], options);
-        break;
-      case 'import':
-        await handleImport(args[1]);
-        break;
-      case 'config':
-        await handleConfig(args[1], args[2], args.slice(2));
-        break;
-      case 'reindex':
-        await handleReindex(args[1], options);
-        break;
-    }
-  } catch (err) {
-    console.error(`\n❌ Error: ${err.message}`);
+  if (
+    !command ||
+    [
+      'connect',
+      'generate',
+      'delete',
+      'export',
+      'extract',
+      'import',
+      'config',
+      'reindex',
+      '--help',
+      '-h',
+    ].includes(command) === false
+  ) {
+    printHelp();
     process.exit(1);
   }
-})();
+
+  if (command === '--help' || command === '-h') {
+    printHelp();
+    process.exit(0);
+  }
+
+  const flagArgs = args.slice(1);
+  const options = {
+    ...parseControlOptions(flagArgs),
+    ...parseGenerateArgs(flagArgs),
+  };
+
+  // --- 4. Main Command Routing Router ---
+  (async () => {
+    try {
+      switch (command) {
+        case 'connect':
+          await handleConnect();
+          break;
+        case 'generate':
+          await handleGenerate(options);
+          break;
+        case 'delete':
+          await handleDelete(options);
+          break;
+        case 'export':
+          await handleExport(args[1], args[2], options);
+          break;
+        case 'extract':
+          await handleExtract(args[1], args[2], options);
+          break;
+        case 'import':
+          await handleImport(args[1]);
+          break;
+        case 'config':
+          await handleConfig(args[1], args[2], args.slice(2));
+          break;
+        case 'reindex':
+          await handleReindex(args[1], options);
+          break;
+      }
+    } catch (err) {
+      console.error(`\n❌ Error: ${err.message}`);
+      process.exit(1);
+    }
+  })();
+}
 
 // --- 5. Command Handlers & Implementation ---
 
@@ -439,25 +934,7 @@ async function handleGenerate(opts) {
   console.log(`Initializing Data Generation...`);
   const ctx = await resolveCommerceContext(opts);
 
-  const payload = {
-    ...buildConnectionPayload(),
-    demoMode: opts.demoMode || false,
-    productCount: opts.productCount ?? 2,
-    accountCount: opts.accountCount ?? 2,
-    orderCount: opts.orderCount ?? 5,
-    imageMode: opts.imageMode || 'default',
-    pdfMode: opts.pdfMode || 'default',
-    createWarehouses: opts.createWarehouses !== false,
-    warehouseCount: opts.warehouseCount ?? 1,
-    generatePriceLists: true,
-    generateSkuVariants: true,
-    generateSpecifications: opts.generateSpecifications !== false,
-    generateBulkPricing: opts.generateBulkPricing !== false,
-    generateTierPricing: opts.generateTierPricing !== false,
-    channelId: ctx.channelId,
-    siteGroupId: ctx.siteGroupId,
-    catalogId: ctx.catalogId,
-  };
+  const payload = buildGeneratePayload(opts, ctx);
 
   const res = await nativePost(
     `${MICROSERVICE_URL}/api/v1/generate/workflow`,
@@ -1092,6 +1569,41 @@ async function runDockerReindex(className) {
   }
 }
 
+/** Left-pads the description column; long flag lists just push it right. */
+function padFlag(text, width = 40) {
+  return text.length >= width ? `${text} ` : text.padEnd(width);
+}
+
+function formatGenerateOptionUsage(opt) {
+  const names = [opt.flag, ...(opt.aliases || [])];
+
+  if (opt.type === 'boolean') {
+    return names.map((name) => `--[no-]${name}`).join(' / ');
+  }
+
+  const placeholder =
+    opt.placeholder || { integer: 'N', list: '<a,b,c>' }[opt.type] || '<value>';
+
+  return names.map((name) => `--${name} ${placeholder}`).join(' / ');
+}
+
+function formatGenerateOptionHelp(opt) {
+  const defaultSuffix = opt.default === undefined ? '' : ` [${opt.default}]`;
+  return `${opt.help}${defaultSuffix}`;
+}
+
+/**
+ * Every generate flag, one line each, read off GENERATE_OPTIONS rather than
+ * typed here - the same table `parseGenerateArgs` and `buildGeneratePayload`
+ * read, so a flag `--help` does not mention is a flag that does not exist.
+ */
+function generateOptionsHelpLines() {
+  return GENERATE_OPTIONS.map(
+    (opt) =>
+      `  ${padFlag(formatGenerateOptionUsage(opt))}${formatGenerateOptionHelp(opt)}`
+  ).join('\n');
+}
+
 function printHelp() {
   console.log(`
 ========================================================================
@@ -1119,23 +1631,16 @@ Options:
   --instance                             Extract the whole catalogue rather than one run
   --docker                               Force Option 2: local Docker/LDM reindex trigger
   --api                                  Force Option 1: REST API reindex trigger via microservice
-  --demo                                 Use Mock Data instead of Gemini AI
-  --products N                           Specify product target volume [2]
-  --accounts N                           Specify business accounts volume [2]
-  --orders N                             Specify order target volume [5]
-  --images <mode> / --image-mode <mode>  Specify image generation mode (none|default|picsum|ai) [default]
-  --pdfs <mode> / --pdf-mode <mode>      Specify PDF generation mode (none|default|ai) [default]
-  --[no-]bulk-pricing                    Enable/disable bulk pricing generation [true]
-  --[no-]tier-pricing                    Enable/disable tier pricing generation [true]
-  --[no-]specifications                  Enable/disable specification generation [true]
-  --[no-]warehouses                      Enable/disable warehouse creation [true]
-  --warehouse-count N                    Specify how many warehouses to create [1]
-  --channel-id ID / --channel ID         Specify channel ID
-  --site-group-id ID / --site-group ID   Specify site group ID
-  --catalog-id ID / --catalog ID         Specify catalog ID
+${generateOptionsHelpLines()}
   -y / --yes / --non-interactive         Bypass interactive prompts and exit on missing config
   --all                                  Perform global deletions
   --selected                             Perform selected channel deletions
+
+Generate inputs resolved elsewhere rather than exposed as flags (see
+WITHHELD_GENERATE_KEYS in aica-cli.cjs for the reason against each):
+clientId, clientSecret, liferayUrl and authMethod come from the same '.env'
+cascade every command already uses; microserviceUrl and chunkSizes have no
+flat CLI shape.
 
 Moving a dataset between instances:
   - 'export --bundle' reads the media this service already wrote to disk. It
@@ -1152,3 +1657,19 @@ Convention Rules:
   - Defaults to local microservice running at port 3001.
 `);
 }
+
+// Only runs the CLI when executed directly (`node aica-cli.cjs ...` or the
+// `aica` bin) - not when `require`d, which is how the option-coverage and
+// argument-parser tests reach GENERATE_OPTIONS/parseGenerateArgs without
+// triggering process.exit or a real command dispatch. See #735.
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  GENERATE_OPTIONS,
+  WITHHELD_GENERATE_KEYS,
+  buildGeneratePayload,
+  parseControlOptions,
+  parseGenerateArgs,
+};
