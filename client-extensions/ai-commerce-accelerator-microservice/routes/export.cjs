@@ -606,7 +606,7 @@ module.exports = (
         });
       }
 
-      await extractDatasetMedia({
+      const extraction = await extractDatasetMedia({
         archive,
         config,
         correlationId,
@@ -614,6 +614,17 @@ module.exports = (
         logger,
         products: dataset.products,
       });
+
+      // A retry against the same session (or the same staging id) reuses
+      // whatever already resolved rather than re-fetching it - see #895. Said
+      // here, not only in the manifest counts below, because "reused" is the
+      // evidence that the retry actually was cheaper, not just that it worked.
+      if (extraction.reused > 0) {
+        logger.info(
+          `Reused ${extraction.reused} already-archived item(s) from a prior extract; fetched only what had not resolved`,
+          { correlationId, operation: 'extract-commerce-bundle', sessionId }
+        );
+      }
 
       // Built from the archive, exactly as the export route builds it. One
       // packaging step from one place, whichever producer staged the bytes.
