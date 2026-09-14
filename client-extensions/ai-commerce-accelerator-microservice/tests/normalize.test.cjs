@@ -398,3 +398,43 @@ describe('buildConfigAndOptions - media bundle key (#893)', () => {
     expect(options.pdfRatio).toBe(100);
   });
 });
+
+/**
+ * #674: config.reindexBasePath is the highest-priority input
+ * LiferayRestService.triggerReindex reads, and until this AICA had no way to
+ * put anything there - the field was absent from buildConfigAndOptions'
+ * whitelist entirely, silently dropped if a caller sent one.
+ */
+describe('buildConfigAndOptions - reindex base path (#674)', () => {
+  const request = (body) => ({
+    body: {
+      liferayUrl: 'http://localhost:8080',
+      clientId: 'test-client',
+      clientSecret: 'test-secret',
+      ...body,
+    },
+    headers: {},
+    get: () => undefined,
+  });
+
+  it('sets config.reindexBasePath from the environment default', () => {
+    const { REINDEX_BASE_PATH } = require('../utils/liferayUtils.cjs');
+    const { config } = buildConfigAndOptions(request({}));
+
+    expect(config.reindexBasePath).toBe(REINDEX_BASE_PATH);
+  });
+
+  it('ignores a client-supplied reindexBasePath rather than trusting the request', () => {
+    // The base path names the environment this microservice is deployed
+    // against - not the run someone just started - so two runs against one
+    // instance must not be able to disagree about it. A per-request value here
+    // would be exactly the whitelist entry #674 argued against adding.
+    const { REINDEX_BASE_PATH } = require('../utils/liferayUtils.cjs');
+    const { config } = buildConfigAndOptions(
+      request({ reindexBasePath: '/attacker-supplied-path' })
+    );
+
+    expect(config.reindexBasePath).toBe(REINDEX_BASE_PATH);
+    expect(config.reindexBasePath).not.toBe('/attacker-supplied-path');
+  });
+});

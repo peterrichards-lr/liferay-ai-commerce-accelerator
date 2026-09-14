@@ -2,6 +2,7 @@ const { logger } = require('./logger.cjs');
 const { toPercentage } = require('./shareSelection.cjs');
 const crypto = require('crypto');
 const { resolveEffectiveLiferayConnection } = require('./liferayEnv.cjs');
+const { REINDEX_BASE_PATH } = require('./liferayUtils.cjs');
 
 const SENSITIVE_KEY_RE =
   /(api[_-]?key|authorization|auth|token|id[_-]?token|secret|access[_-]?token)/i;
@@ -236,6 +237,12 @@ function buildConfigAndOptions(req) {
     siteGroupId: toNumber(siteGroupId),
     microserviceUrl: constructedMicroserviceUrl || undefined,
     correlationId,
+    // Not a request field - req.body has no whitelisted slot for it, and per
+    // #674 it should not gain one: the base path names the environment this
+    // microservice is deployed against, not something one run should be able
+    // to disagree with another about. LiferayRestService.triggerReindex reads
+    // this ahead of its own ENV fallback.
+    reindexBasePath: REINDEX_BASE_PATH,
   };
 
   const {
