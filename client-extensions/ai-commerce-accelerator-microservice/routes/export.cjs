@@ -196,6 +196,37 @@ function setBundleHeaders(res, { dataset, manifest, sessionId, source }) {
 }
 
 /**
+ * Sends the archive `buildMediaBundle` produced without collecting it into a
+ * `Buffer` first - the whole reason it hands back a stream rather than one
+ * (#877). `res` is a writable stream in production (`http.ServerResponse`)
+ * and in the tests that exercise these routes, so `.pipe()` works either way;
+ * this only adds the promise so the route can `await` the same completion
+ * point `res.send(buffer)` used to give it, and can tell a mid-stream failure
+ * apart from one that never got started.
+ */
+function sendZipStream(res, stream) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+
+    stream.on('error', fail);
+    res.on('error', fail);
+    res.on('finish', () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    });
+
+    stream.pipe(res);
+  });
+}
+
+/**
  * The retention an operator configured, if configuration can be reached.
  *
  * A read failure is not allowed to stop a package being built: it resolves to
@@ -370,7 +401,7 @@ module.exports = (
         }),
       ];
 
-      const { buffer, manifest } = await buildMediaBundle({ dataset, media });
+      const { manifest, stream } = await buildMediaBundle({ dataset, media });
 
       logger.info(
         `Exported package built from the media archive: ${manifest.counts.images} image(s), ${manifest.counts.pdfs} PDF(s), ${manifest.counts.unresolved} unresolved`,
@@ -399,7 +430,8 @@ module.exports = (
       // the same counts, and they fail in entirely different ways, so a
       // caller holding one should not have to guess which it has.
       res.setHeader('X-AICA-Media-Source', 'archive');
-      res.status(200).send(buffer);
+      res.status(200);
+      await sendZipStream(res, stream);
     } catch (error) {
       const errorReference = createERC(ERC_PREFIX.ERROR);
       logger.error('Failed to export commerce bundle', {
@@ -409,6 +441,15 @@ module.exports = (
         message: error.message,
         stack: error.stack,
       });
+
+      // The archive may already be mid-flight: once bytes have reached the
+      // client there is no taking them back for a JSON error instead, so the
+      // connection is the only thing left to fail cleanly (#877).
+      if (res.headersSent) {
+        res.destroy?.(error);
+        return;
+      }
+
       res.status(500).json({
         success: false,
         error: 'Failed to export commerce bundle',
@@ -581,7 +622,7 @@ module.exports = (
         ...archiveSettings,
       });
 
-      const { buffer, manifest } = await buildMediaBundle({
+      const { manifest, stream } = await buildMediaBundle({
         dataset,
         media: [
           ...(staged?.entries || []),
@@ -630,12 +671,15 @@ module.exports = (
         );
       }
 
-      res.status(200).send(buffer);
+      res.status(200);
+      await sendZipStream(res, stream);
 
-      // The package is sent; the staging directory has done its job. It goes
-      // only when it was scratch and retention is off - a session's own
-      // directory is the session's, not this request's, and is governed by the
-      // prune and the orphan sweep instead.
+      // The package is sent - genuinely sent, not merely handed to `res` to
+      // deal with later: `sendZipStream` waits for every byte to leave, so
+      // the staging directory is not removed out from under a response still
+      // reading it (#877). It goes only when it was scratch and retention is
+      // off - a session's own directory is the session's, not this request's,
+      // and is governed by the prune and the orphan sweep instead.
       if (stagingIsScratch && !mediaArchiveSettings(archiveSettings).retain) {
         removeMediaArchive({
           logger,
@@ -652,6 +696,12 @@ module.exports = (
         message: error.message,
         stack: error.stack,
       });
+
+      if (res.headersSent) {
+        res.destroy?.(error);
+        return;
+      }
+
       res.status(500).json({
         success: false,
         error: 'Failed to extract commerce bundle',
