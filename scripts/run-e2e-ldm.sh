@@ -519,7 +519,23 @@ if [ -n "$SSL_PORT" ]; then
 fi
 
 echo "🏗️  Ensuring LDM Shared Infrastructure is active..."
-ldm_cmd config set database_mode shared
+# There was a `config set database_mode shared` here. It never took effect and
+# it contradicted the line above.
+#
+# `ldm config set` writes the root of ~/.ldmrc, which LDM's defaults resolver
+# ignores whenever a `defaults` block exists - so the setting was silently
+# dropped. LDM 2.21.1 stopped accepting the command at all and now refuses it,
+# which is what began failing the nightly E2E:
+#
+#   'database_mode' is a cascading default, not a plain config value.
+#
+# Deleted rather than translated to `ldm config defaults database_mode shared`.
+# Ten lines above, this script sets `database-mode isolated --global` and calls
+# that "Enforcing isolated database mode" - the deliberate intent, added in
+# c8f5c3d7. The shared line arrived seventeen minutes later as the only script
+# change in 902c4f4e, a commit about health status. Making it work now would
+# override the isolated mode on purpose for the first time, which is a change
+# to how the suite runs, not a repair.
 docker rm -f liferay-docker-proxy liferay-proxy-global 2>/dev/null || true
 # shellcheck disable=SC2086
 ldm_cmd infra-setup $LDM_Y_FLAG "${INFRA_SETUP_ARGS[@]}"
