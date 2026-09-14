@@ -40,6 +40,37 @@ const EXTENSIONS = {
 
 const MANIFEST_FILE = 'manifest.json';
 
+/**
+ * A media item's identity, by value: same product, same kind, same title.
+ * Priority is deliberately excluded - a re-extract that reorders pictures is
+ * still the same pictures.
+ *
+ * For `resolvedMediaIdentities` only, which has to recognise an attachment
+ * across separate archive loads - a fresh extract call reads a fresh title
+ * back from Liferay, so nothing here can rely on object identity surviving
+ * the round trip. `forget` does not use this: it dedupes within one archive
+ * instance, where a title built twice in the same run is deliberately treated
+ * as two different pictures (see the comment there) - value equality here
+ * would silently collapse them (#895).
+ */
+function mediaIdentity({ kind, productERC, title }) {
+  return JSON.stringify([kind, productERC, title ?? null]);
+}
+
+/**
+ * What a session's archive already holds successfully, as identities an
+ * extractor can check an attachment against before spending a network call
+ * on it.
+ *
+ * Only `files` counts as "already have it" - `unresolved` is a prior attempt
+ * that did not get bytes, and has to be retried, not trusted (#895).
+ */
+function resolvedMediaIdentities(archive) {
+  const files = archive?.manifest?.files;
+  if (!Array.isArray(files)) return new Set();
+  return new Set(files.map((file) => mediaIdentity(file)));
+}
+
 /** Bounded so a long-lived instance does not accumulate one entry per run. */
 const MAX_OPEN_ARCHIVES = 50;
 const openArchives = new Map();
@@ -279,6 +310,13 @@ class MediaArchive {
    * priority the source now reports.
    */
   forget({ kind, productERC, title }) {
+    // Deliberately `===`, not `mediaIdentity`: a generator builds a fresh
+    // `{ en_US: '...' }` title object on every call, even for the same
+    // product, so two calls in the same run must stay distinct entries - the
+    // `gives two pictures for one product at one priority separate names`
+    // case this dedup exists for. `mediaIdentity`'s value equality is for
+    // matching *across* archive loads (#895 resume); collapsing them here
+    // too would silently drop the second of two same-run pictures.
     const same = (item) =>
       item.kind === kind &&
       item.productERC === productERC &&
@@ -716,11 +754,13 @@ module.exports = {
   extractStagingId,
   isExtractStaging,
   mediaArchiveSettings,
+  mediaIdentity,
   migrateLegacyMediaRoot,
   openMediaArchive,
   pruneArchiveRoot,
   readMediaArchive,
   removeMediaArchive,
+  resolvedMediaIdentities,
   sweepOrphanMediaArchives,
   resetMediaArchives,
 };
