@@ -410,20 +410,45 @@ function isLikelyBase64Blob(str) {
   );
 }
 
-function redactUrl(str) {
+// A URL carried as the *value* of a query parameter. The batch submission
+// sends `?callbackURL=<percent-encoded absolute URL>`, and that inner URL has
+// its own query string - so anything sensitive in it is invisible to a pass
+// that only looks at the outer parameters. See #812.
+const NESTED_URL_RE = /^https?:\/\//i;
+
+// Bounds the recursion below. One level is all this codebase produces; the
+// limit is here so a crafted value cannot turn logging into a hot loop.
+const MAX_REDACT_DEPTH = 3;
+
+function redactUrl(str, depth = 0) {
   if (typeof str !== 'string') return str;
-  if (!/^https?:\/\//i.test(str)) return str;
+
+  const absolute = NESTED_URL_RE.test(str);
+
+  // Relative paths are redacted too. The batch submission is logged as a path
+  // - `/o/headless-commerce-admin-catalog/v1.0/products/batch?callbackURL=...`
+  // - so an absolute-only guard skipped exactly the line that carries the
+  // callback URL, and with it the signature riding inside (#812).
+  if (!absolute && !str.startsWith('/')) return str;
+
   try {
-    const u = new URL(str);
+    const u = new URL(str, 'http://redacted.invalid');
+
     for (const k of Array.from(u.searchParams.keys())) {
+      const v = u.searchParams.get(k) || '';
+
       if (SENSITIVE_QS.has(k.toLowerCase())) {
-        const v = u.searchParams.get(k) || '';
         const masked =
           v.length > 0 ? maskMiddle(v, 3, 3, 'REDACTED') : 'REDACTED';
         u.searchParams.set(k, masked);
+      } else if (depth < MAX_REDACT_DEPTH && NESTED_URL_RE.test(v)) {
+        u.searchParams.set(k, redactUrl(v, depth + 1));
       }
     }
-    return u.toString();
+
+    // Reconstructed in the form it arrived in: a path that was logged as a
+    // path should not come back as an absolute URL naming a placeholder host.
+    return absolute ? u.toString() : `${u.pathname}${u.search}${u.hash}`;
   } catch {
     return str;
   }
@@ -463,7 +488,14 @@ function redactByKey(keyPath, value) {
 function redactStringGeneric(str, _) {
   if (/^Bearer\s+[\w\-_.]+/i.test(str)) return 'Bearer [REDACTED]';
 
-  if (/^https?:\/\//i.test(str)) return redactUrl(str);
+  // Relative request paths as well as absolute URLs. The batch submission is
+  // logged as a path, and the callback URL - with its signature - rides inside
+  // it as a query parameter, so an absolute-only test skipped the one line
+  // that mattered (#812). `redactUrl` returns anything it cannot parse
+  // unchanged, so widening the test cannot mangle ordinary strings.
+  if (/^https?:\/\//i.test(str) || /^\/[^\s]*\?/.test(str)) {
+    return redactUrl(str);
+  }
 
   if (isDataUrlBase64(str)) {
     const mime = str.slice(5, str.indexOf(';'));
