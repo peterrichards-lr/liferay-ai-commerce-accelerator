@@ -10,6 +10,7 @@ const {
 } = require('../utils/modelCatalog.cjs');
 const { providerEnvVar, resolveCoreKey } = require('../utils/apiKeys.cjs');
 const { DEFAULT_MAX_TOKENS } = require('../utils/aiRequestOptions.cjs');
+const { emptyExcludeLists } = require('@liferay/accelerator-sdk');
 const {
   listPromptNames,
   listSchemaNames,
@@ -290,11 +291,20 @@ class ConfigService {
       return remoteExcludeLists;
     }
 
+    // Every key the SDK reads, not the four somebody remembered. `_getExclusions`
+    // resolves an unnamed key to `excludeLists[undefined]` and then to `[]`,
+    // which is indistinguishable from "nothing was excluded" - on the path that
+    // then deletes things. Account groups went unprotected that way for as long
+    // as the entity name has been spelled with a hyphen (#951, accelerator-sdk
+    // #245), and five more keys were in the same position.
+    //
+    // Taken from the SDK rather than restated, so a key added there arrives
+    // here rather than waiting to be noticed.
     const defaultExcludeLists = {
+      ...emptyExcludeLists(),
+      // The one seeded default: Liferay's own test account, which a delete run
+      // must not remove. Applied over the empty set rather than replacing it.
       excludedAccounts: [{ name: 'Test Test' }],
-      excludedProducts: [],
-      excludedWarehouses: [],
-      excludedPriceLists: [],
     };
 
     this.cache.set(cacheKey, defaultExcludeLists, this.getConfigTTL());
