@@ -28,6 +28,7 @@ const {
   resolveEffectiveLiferayConnection,
 } = require('../utils/liferayEnv.cjs');
 const { createERC } = require('../utils/misc.cjs');
+const { REINDEX_BASE_PATH } = require('../utils/liferayUtils.cjs');
 const { buildMediaSubflow } = require('../utils/mediaSubflow.cjs');
 const { requireAdmin } = require('../middleware/authorizationMiddleware.cjs');
 
@@ -155,6 +156,9 @@ module.exports = (router, routeCtx) => {
     const rawConfig = {
       authMethod: 'oauth2',
       correlationId: crypto.randomUUID(),
+      // This builder is independent of buildConfigAndOptions (#674), so it
+      // needs its own copy of the same field rather than inheriting one.
+      reindexBasePath: REINDEX_BASE_PATH,
     };
 
     const {
