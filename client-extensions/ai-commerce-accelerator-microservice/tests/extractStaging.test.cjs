@@ -17,6 +17,7 @@ const {
   EXTRACT_STAGING_PREFIX,
   resetMediaArchives,
 } = require('../utils/mediaArchive.cjs');
+const { createHttpResponse } = require('./fixtures/httpResponse.cjs');
 
 // #898: extract used to hold every binary in memory, hand them to the zip and
 // leave nothing behind, so the expensive operation was also the one that had
@@ -85,29 +86,6 @@ function instance() {
   };
 }
 
-function response() {
-  const headers = {};
-  const res = { body: null, headers, statusCode: 200 };
-
-  res.setHeader = (name, value) => {
-    headers[name] = value;
-  };
-  res.json = (body) => {
-    res.body = body;
-    return res;
-  };
-  res.send = (body) => {
-    res.body = body;
-    return res;
-  };
-  res.status = (code) => {
-    res.statusCode = code;
-    return res;
-  };
-
-  return res;
-}
-
 function routes(liferayService) {
   const handlers = {};
   const app = {
@@ -155,7 +133,7 @@ describe('An extract against a session', () => {
     const liferayService = instance();
     const handlers = routes(liferayService);
 
-    const extracted = response();
+    const extracted = createHttpResponse();
     await handlers['POST /extract-commerce-bundle'](
       request({ sessionId: SESSION_ID }),
       extracted
@@ -167,7 +145,7 @@ describe('An extract against a session', () => {
     // The archive the run never wrote is now written, so the cheap route can
     // build the same package - which is the whole point of staging rather
     // than accumulating buffers and dropping them.
-    const exported = response();
+    const exported = createHttpResponse();
     await handlers['GET /export-commerce-bundle'](
       { body: {}, headers: {}, query: { sessionId: SESSION_ID } },
       exported
@@ -189,11 +167,11 @@ describe('An extract against a session', () => {
     for (const _run of [1, 2]) {
       await handlers['POST /extract-commerce-bundle'](
         request({ sessionId: SESSION_ID }),
-        response()
+        createHttpResponse()
       );
     }
 
-    const exported = response();
+    const exported = createHttpResponse();
     await handlers['GET /export-commerce-bundle'](
       { body: {}, headers: {}, query: { sessionId: SESSION_ID } },
       exported
@@ -210,7 +188,7 @@ describe('An extract against a session', () => {
 
     await handlers['POST /extract-commerce-bundle'](
       request({ sessionId: SESSION_ID }),
-      response()
+      createHttpResponse()
     );
 
     expect(fs.existsSync(path.join(ROOT, SESSION_ID))).toBe(true);
@@ -220,7 +198,7 @@ describe('An extract against a session', () => {
 describe('An extract against an instance', () => {
   it('stages under a minted id, since there is no session behind it', async () => {
     const handlers = routes(instance());
-    const res = response();
+    const res = createHttpResponse();
 
     await handlers['POST /extract-commerce-bundle'](
       request({ source: 'instance' }),

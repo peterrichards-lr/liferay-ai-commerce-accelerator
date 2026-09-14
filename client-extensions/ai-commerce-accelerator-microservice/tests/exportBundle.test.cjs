@@ -15,6 +15,7 @@ const {
   readMediaBundle,
 } = require('../utils/mediaBundle.cjs');
 const { MANIFEST_FILE } = require('../utils/mediaArchive.cjs');
+const { createHttpResponse } = require('./fixtures/httpResponse.cjs');
 
 // #896: the archive has had a writer since #848 and nothing that reads it
 // back, so the only way to obtain a package was to point at a live instance
@@ -78,33 +79,6 @@ function writeArchive({ files, sessionId = SESSION_ID }) {
   return dir;
 }
 
-function response() {
-  const headers = {};
-  const res = {
-    body: null,
-    headers,
-    setHeader: (name, value) => {
-      headers[name] = value;
-    },
-    statusCode: 200,
-  };
-
-  res.json = (body) => {
-    res.body = body;
-    return res;
-  };
-  res.send = (body) => {
-    res.body = body;
-    return res;
-  };
-  res.status = (code) => {
-    res.statusCode = code;
-    return res;
-  };
-
-  return res;
-}
-
 function handler({ stored = session() } = {}) {
   const handlers = {};
   const app = {
@@ -130,7 +104,7 @@ function handler({ stored = session() } = {}) {
 }
 
 async function call({ query = { sessionId: SESSION_ID }, ...options } = {}) {
-  const res = response();
+  const res = createHttpResponse();
   await handler(options)({ body: {}, headers: {}, query }, res);
   return res;
 }

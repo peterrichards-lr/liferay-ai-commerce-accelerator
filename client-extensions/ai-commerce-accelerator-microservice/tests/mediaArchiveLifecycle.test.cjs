@@ -60,7 +60,7 @@ describe('Recording the same media twice', () => {
     // package twice and the counts would read as a catalogue with twice the
     // media it has.
     expect(read.entries).toHaveLength(1);
-    expect(read.entries[0].buffer.toString()).toBe('second');
+    expect(fs.readFileSync(read.entries[0].path).toString()).toBe('second');
     expect(
       fs.readdirSync(path.join(ROOT, 'session-replace', 'images'))
     ).toHaveLength(1);
