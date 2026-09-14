@@ -1,3 +1,80 @@
+/**
+ * Setting the catalog base flag on a price list, and saying so when it does not
+ * take.
+ *
+ * `PATCH /price-lists/{id}` answers **200 and discards
+ * `catalogBasePriceList`** on 2026.q3.0. Not a parsing failure: the same
+ * request carrying `name` applies the name and drops the flag. `PUT` is 405,
+ * `POST` with the flag is a 500, and `catalogBasePriceListId` is not a property
+ * of `Catalog` at all - so there is no route to this field through Headless.
+ * Filed as #943.
+ *
+ * Three places in this step wrote the flag and read a 200 as success: the AICA
+ * unset loop below, whose comment promised it "guarantees they can be deleted
+ * later", and the two master restores. All three have been reporting work they
+ * did not do. Reading the value back is the whole fix available to us until
+ * #943 moves upstream - it cannot make the write land, but it stops the log
+ * claiming it did (#790).
+ *
+ * @returns {Promise<boolean>} Whether the flag actually holds the wanted value.
+ */
+async function setCatalogBaseFlag(
+  { liferay, logger },
+  { catalogId, config, desired, priceListId, sessionId, what }
+) {
+  try {
+    await liferay.patchPriceList(config, priceListId, {
+      catalogBasePriceList: desired,
+    });
+  } catch (err) {
+    logger.warn(
+      `Failed to ${desired ? 'set' : 'unset'} catalogBasePriceList on ${what} ${priceListId}: ${err.message}`,
+      { sessionId }
+    );
+    return false;
+  }
+
+  // The read-back. A 200 above means the request was accepted, not that the
+  // field changed.
+  try {
+    const res = await liferay.getPriceLists(config, {
+      catalogId,
+      pageSize: 1000,
+      ignoreExclusions: true,
+    });
+    const current = (res.items || []).find(
+      (pl) => String(pl.id) === String(priceListId)
+    );
+
+    if (!current) {
+      logger.warn(
+        `Could not read ${what} ${priceListId} back after writing catalogBasePriceList, so whether it took is unknown`,
+        { sessionId }
+      );
+      return false;
+    }
+
+    if (Boolean(current.catalogBasePriceList) === Boolean(desired)) {
+      return true;
+    }
+
+    logger.warn(
+      `Liferay accepted the request and did not change it: ${what} ${priceListId} still reports ` +
+        `catalogBasePriceList=${Boolean(current.catalogBasePriceList)} after asking for ${Boolean(desired)}. ` +
+        `The field cannot be set through Headless on this DXP line - see #943. ` +
+        `The catalog's base list is whatever it was before this run.`,
+      { sessionId }
+    );
+    return false;
+  } catch (err) {
+    logger.warn(
+      `Could not verify catalogBasePriceList on ${what} ${priceListId}: ${err.message}`,
+      { sessionId }
+    );
+    return false;
+  }
+}
+
 module.exports = async function resetCatalogConfiguration(
   { liferay, logger, _persistence },
   { config, _options, session, sessionId }
@@ -39,8 +116,10 @@ module.exports = async function resetCatalogConfiguration(
 
       const allLists = res.items || [];
 
-      // Explicitly unset the catalogBasePriceList flag for all AICA lists
-      // This guarantees they can be deleted later, even if no master lists exist
+      // Ask for the catalogBasePriceList flag to be cleared on AICA lists, so
+      // they can be deleted later. It used to say this "guarantees" it; the
+      // write does not land on this DXP line (#943), so a list that holds the
+      // flag will refuse deletion and setCatalogBaseFlag now says which one.
       const aicaLists = allLists.filter((pl) =>
         pl.externalReferenceCode?.startsWith('AICA-')
       );
@@ -50,16 +129,17 @@ module.exports = async function resetCatalogConfiguration(
             `Unsetting catalogBasePriceList for AICA list ${aicaList.id} (${aicaList.name})...`,
             { sessionId }
           );
-          try {
-            await liferay.patchPriceList(config, aicaList.id, {
-              catalogBasePriceList: false,
-            });
-          } catch (err) {
-            logger.warn(
-              `Failed to unset catalogBasePriceList for ${aicaList.id}: ${err.message}`,
-              { sessionId }
-            );
-          }
+          await setCatalogBaseFlag(
+            { liferay, logger },
+            {
+              catalogId,
+              config,
+              desired: false,
+              priceListId: aicaList.id,
+              sessionId,
+              what: 'AICA list',
+            }
+          );
         }
       }
 
@@ -114,19 +194,25 @@ module.exports = async function resetCatalogConfiguration(
           `Restoring master Price List ${masterPriceListId} (${masterPriceList.name}) as base...`,
           { sessionId }
         );
-        try {
-          await liferay.patchPriceList(config, masterPriceListId, {
-            catalogBasePriceList: true,
-          });
-          // HARDENING: Force Catalog V1.0 API patch to instantly invalidate Catalog cache
-          await liferay.patchCatalog(config, catalogId, {
-            catalogBasePriceListId: parseInt(masterPriceListId, 10),
-          });
-        } catch (err) {
-          logger.warn(
-            `Failed to restore master Price List ${masterPriceListId}: ${err.message}`
-          );
-        }
+        // The patchCatalog call that used to follow this is gone. It sent
+        // `catalogBasePriceListId`, which Liferay answers with
+        // 400 "The property \"catalogBasePriceListId\" is not defined in
+        // Catalog." - measured on 2026.q3.0, as is the promotion equivalent. It
+        // was labelled HARDENING and described as invalidating a cache; it has
+        // been failing on every delete run for as long as the property has been
+        // absent, and it was the call producing the second of the two warnings
+        // this step emitted (#790).
+        await setCatalogBaseFlag(
+          { liferay, logger },
+          {
+            catalogId,
+            config,
+            desired: true,
+            priceListId: masterPriceListId,
+            sessionId,
+            what: 'master Price List',
+          }
+        );
       }
 
       if (masterPromotionId) {
@@ -134,19 +220,17 @@ module.exports = async function resetCatalogConfiguration(
           `Restoring master Promotion ${masterPromotionId} (${masterPromotion.name}) as base...`,
           { sessionId }
         );
-        try {
-          await liferay.patchPriceList(config, masterPromotionId, {
-            catalogBasePriceList: true,
-          });
-          // HARDENING: Force Catalog V1.0 API patch to instantly invalidate Catalog cache
-          await liferay.patchCatalog(config, catalogId, {
-            catalogBasePromotionId: parseInt(masterPromotionId, 10),
-          });
-        } catch (err) {
-          logger.warn(
-            `Failed to restore master Promotion ${masterPromotionId}: ${err.message}`
-          );
-        }
+        await setCatalogBaseFlag(
+          { liferay, logger },
+          {
+            catalogId,
+            config,
+            desired: true,
+            priceListId: masterPromotionId,
+            sessionId,
+            what: 'master Promotion',
+          }
+        );
       }
 
       logger.info(
