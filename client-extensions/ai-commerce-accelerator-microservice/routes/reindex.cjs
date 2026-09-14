@@ -4,6 +4,7 @@ const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const {
   ENDPOINT_MISSING,
+  SCOPE_DENIED,
   recordReindexFailure,
   recordReindexSuccess,
 } = require('../utils/reindexStatus.cjs');
@@ -12,21 +13,44 @@ const {
 } = require('../middleware/securityMiddleware.cjs');
 const { writeTargetSchema } = require('../utils/schemas.cjs');
 
-function handleError(res, logger, req, config, operation, error) {
+// classifyReindexError (utils/reindexStatus.cjs) already worked out which of
+// these happened; the only job left here is picking a status that does not
+// mislead the caller. ENDPOINT_MISSING is unambiguously this deployment's own
+// gap, hence 503. SCOPE_DENIED is refused at Liferay's OAuth gate using the
+// grant this microservice's own OAuth client presents - nothing the caller of
+// POST /reindex supplied - so a 4xx would send an operator hunting through
+// their own request when the missing grant is in client-extension.yaml. 502
+// keeps it in the same "something between us and Liferay is wrong" family as
+// 503 without claiming the module itself is undeployed. Anything left
+// unclassified keeps the pre-existing 500. See #960.
+const STATUS_BY_REINDEX_STATE = {
+  [ENDPOINT_MISSING]: 503,
+  [SCOPE_DENIED]: 502,
+};
+
+// Both routes below hit the same failure path with only the operation label
+// differing, and #960 was exactly this logic being duplicated once per route
+// and only kept in sync in one of the two copies.
+function respondToReindexFailure(res, logger, config, operation, error) {
+  const outcome = recordReindexFailure(error);
+  const status = STATUS_BY_REINDEX_STATE[outcome.state] ?? 500;
   const errorRef = resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
-  const errorMessage = error?.message || 'Failed to trigger search reindexing';
 
   logger.error('Operation failed', {
     correlationId: config?.correlationId,
     errorReference: errorRef,
     operation,
-    message: errorMessage,
+    message: outcome.message,
   });
 
-  return res.status(500).json({
+  // outcome.message is the same text reindexHealth() reports for this same
+  // failure - a caller reading the response body and an operator polling
+  // /health must not be told two different stories about one call. See #960.
+  return res.status(status).json({
     success: false,
-    error: errorMessage,
+    error: outcome.message,
     errorReference: errorRef,
+    timestamp: new Date().toISOString(),
   });
 }
 
@@ -50,24 +74,9 @@ module.exports = (app, { logger, liferayService, configService }) => {
           ...result,
         });
       } catch (error) {
-        // An explicit reindex already reports its own failure, unlike the
-        // best-effort calls after a workflow - but recording it keeps /health
-        // accurate whichever path triggered it, and a 404 deserves better than
-        // "Request failed with status code 404". See #618.
-        const outcome = recordReindexFailure(error);
-
-        if (outcome.state === ENDPOINT_MISSING) {
-          return res.status(503).json({
-            success: false,
-            error: outcome.message,
-            timestamp: new Date().toISOString(),
-          });
-        }
-
-        return handleError(
+        return respondToReindexFailure(
           res,
           logger,
-          req,
           config,
           'trigger-reindex-all',
           error
@@ -96,24 +105,9 @@ module.exports = (app, { logger, liferayService, configService }) => {
           ...result,
         });
       } catch (error) {
-        // An explicit reindex already reports its own failure, unlike the
-        // best-effort calls after a workflow - but recording it keeps /health
-        // accurate whichever path triggered it, and a 404 deserves better than
-        // "Request failed with status code 404". See #618.
-        const outcome = recordReindexFailure(error);
-
-        if (outcome.state === ENDPOINT_MISSING) {
-          return res.status(503).json({
-            success: false,
-            error: outcome.message,
-            timestamp: new Date().toISOString(),
-          });
-        }
-
-        return handleError(
+        return respondToReindexFailure(
           res,
           logger,
-          req,
           config,
           'trigger-reindex-class',
           error
