@@ -15,8 +15,4 @@ module.exports = {
   deleteOptions: require('./deleteOptions.cjs'),
   deleteOptionCategories: require('./deleteOptionCategories.cjs'),
   deleteProductRelatedEntities: require('./deleteProductRelatedEntities.cjs'),
-
-  // Generation
-  logNextStep: require('./logNextStep.cjs'),
-  resolveEntities: require('./resolveEntities.cjs'),
 };
