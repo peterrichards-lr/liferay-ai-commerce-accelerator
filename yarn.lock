@@ -1068,9 +1068,9 @@
   resolved "https://registry.yarnpkg.com/@keyv/serialize/-/serialize-1.1.1.tgz#0c01dd3a3483882af7cf3878d4e71d505c81fc4a"
   integrity sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==
 
-"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.11.3":
-  version "0.11.3"
-  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#c50d968da20f884edc29fad3e9c0456e2c582702"
+"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.11.4":
+  version "0.11.4"
+  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#ef2b5ca92eba9056af4252d928131cac432e8d49"
   dependencies:
     "@modelcontextprotocol/sdk" "^1.30.0"
     "@rotty3000/config-node" "^0.4.1"

@@ -228,6 +228,107 @@ describe('Security Middleware - Request Signing', () => {
   });
 });
 
+describe('Security Middleware - signed batch callbacks (#812)', () => {
+  const { utils } = require('@liferay/accelerator-sdk');
+  const CALLBACK_PATH = '/api/v1/batch/callback';
+
+  // Built the way the service really builds it: the SDK signs the URL as it
+  // hands it to Liferay, and Liferay echoes that URL back verbatim. Reading
+  // the query off a signed URL is what the middleware actually receives.
+  function callbackRequest(url, { path = CALLBACK_PATH } = {}) {
+    const query = Object.fromEntries(new URL(url).searchParams.entries());
+
+    return {
+      get: vi.fn().mockReturnValue(null),
+      method: 'POST',
+      path,
+      query,
+      body: {},
+      correlationId: 'cid-callback',
+    };
+  }
+
+  function signedUrl(batchERC, options = {}) {
+    const base = `https://aica.example.com${CALLBACK_PATH}?batchERC=${batchERC}`;
+
+    return utils.signCallbackUrl(base, { batchERC, ...options });
+  }
+
+  let res, next;
+
+  beforeEach(() => {
+    res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    next = vi.fn();
+  });
+
+  it('admits a remote callback whose URL the SDK signed', () => {
+    const req = callbackRequest(signedUrl('BATCH-1'));
+
+    requestSigningMiddleware(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('refuses an unsigned callback - the state before the fix', () => {
+    const req = callbackRequest(
+      `https://aica.example.com${CALLBACK_PATH}?batchERC=BATCH-1`
+    );
+
+    requestSigningMiddleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it('refuses a tampered token', () => {
+    const req = callbackRequest(signedUrl('BATCH-1'));
+    req.query[utils.SIGNATURE_PARAM] = req.query[utils.SIGNATURE_PARAM].replace(
+      /^./,
+      (c) => (c === 'a' ? 'b' : 'a')
+    );
+
+    requestSigningMiddleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it('refuses a token that has outlived its window', () => {
+    const req = callbackRequest(signedUrl('BATCH-1', { ttlMs: -1000 }));
+
+    requestSigningMiddleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  // The signature binds to one batch. Without that, a token captured from any
+  // callback would authorise mutating the state of every other batch.
+  it('refuses a token issued for a different batch', () => {
+    const req = callbackRequest(signedUrl('BATCH-1'));
+    req.query.batchERC = 'BATCH-2';
+
+    requestSigningMiddleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  // The exemption is for this one path. A valid token must not become a
+  // skeleton key for the rest of the v1 API.
+  it('does not let a valid token open any other route', () => {
+    const req = callbackRequest(signedUrl('BATCH-1'), {
+      path: '/api/v1/delete-commerce-data',
+    });
+
+    requestSigningMiddleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+});
+
 describe('Security Middleware - XSS Protection', () => {
   let req, res, next;
 

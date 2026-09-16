@@ -6,6 +6,33 @@ const {
   isLoopbackRequest,
   trustedClientAddress,
 } = require('../utils/clientAddress.cjs');
+const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
+const { utils } = require('@liferay/accelerator-sdk');
+
+// Mounted under /api/v1, so `req.path` is the router-relative form; the
+// absolute form is what a caller sees and what the tests assert against.
+const BATCH_CALLBACK_PATHS = new Set([
+  INTERNAL_API_PATHS.BATCH_CALLBACK,
+  `/api/v1${INTERNAL_API_PATHS.BATCH_CALLBACK}`,
+]);
+
+// Liferay's batch engine echoes back exactly the callback URL it was handed and
+// cannot be told to add headers, so the only credential it can carry is one
+// already in the query string. The SDK signs the URL as it builds it
+// (`_buildCallbackURL`); this recognises that signature.
+//
+// Nothing is granted on failure - an unverified callback falls through to the
+// ordinary rejection below. The endpoint mutates run state, so exempting the
+// path outright would make it callable by anyone who can reach the host (#812).
+function signedBatchCallback(req) {
+  if (!BATCH_CALLBACK_PATHS.has(req.path)) return null;
+
+  return utils.verifyCallbackSignature({
+    batchERC: req.query?.batchExternalReferenceCode || req.query?.batchERC,
+    expiresAt: req.query?.[utils.EXPIRY_PARAM],
+    signature: req.query?.[utils.SIGNATURE_PARAM],
+  });
+}
 
 function inputValidationMiddleware(schema) {
   return (req, res, next) => {
@@ -131,6 +158,29 @@ function requestSigningMiddleware(req, res, next) {
   // and skip signing on the whole v1 API. See GHSA-qvx5-h4wr-pcfv.
   if (isLoopbackRequest(req)) {
     return next();
+  }
+
+  // 3. A batch callback carrying a signature this service issued.
+  const callback = signedBatchCallback(req);
+
+  if (callback) {
+    if (callback.ok) {
+      return next();
+    }
+
+    // An expired callback is ordinary - a slow import outran the window, and
+    // recoverOrphanedSessions still picks the session up. A forged or mangled
+    // one is not, and should not be buried at the same level.
+    const detail = {
+      correlationId: req.correlationId,
+      reason: callback.reason,
+    };
+
+    if (callback.reason === 'expired') {
+      logger.info('Batch callback signature expired', detail);
+    } else {
+      logger.warn('Batch callback signature rejected', detail);
+    }
   }
 
   const signature = req.get('X-Request-Signature');
