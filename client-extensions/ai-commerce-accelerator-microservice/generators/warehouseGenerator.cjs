@@ -9,6 +9,7 @@ const {
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { resolveRunChannelIds } = require('../utils/runChannels.cjs');
 const { assignWarehouseERCs } = require('../utils/warehouseErc.cjs');
+const { completeGenerationStep } = require('../utils/generationShortfall.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -356,7 +357,16 @@ class WarehouseGenerator extends BaseGenerator {
         warehouseDataList,
       });
 
-      return await this.completeSyncStep(sessionId, S.GENERATE_WAREHOUSE_DATA);
+      // Adopted warehouses count towards what was asked for: the request is a
+      // target for the channel, not an instruction to generate that many on top
+      // of the ones already there.
+      return await completeGenerationStep(this, {
+        sessionId,
+        step: S.GENERATE_WAREHOUSE_DATA,
+        delivered: warehouseDataList.length,
+        requested: adopted.length + shortfall,
+        noun: 'warehouses',
+      });
     } catch (error) {
       this.logger.error('Warehouse data generation failed', {
         sessionId,
