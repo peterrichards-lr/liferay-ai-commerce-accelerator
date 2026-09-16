@@ -26,6 +26,11 @@ jobs:
               - '!**/*.md'
               - '!docs/**'
 
+  # `build-and-test` and `build-and-test-skip` deliberately share one display
+  # name: branch protection requires the check `CI/build-and-test` by name, so
+  # exactly one of them has to report on every pull request, whatever changed.
+  # Renaming either job makes every pull request wait for a check that will
+  # never report. The `suite-signal` job below is what tells the two apart.
   build-and-test:
     needs: filter
     if: needs.filter.outputs.code == 'true'
@@ -35,6 +40,16 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
     steps:
+      - name: Record that the full suite is running
+        run: |
+          {
+            echo "## CI/build-and-test - full suite"
+            echo
+            echo "Files outside \`**/*.md\` and \`docs/**\` changed, so this run installs"
+            echo "dependencies, lints, builds and runs the test suite. The result below is"
+            echo "the result of all of that."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -94,4 +109,44 @@ jobs:
     name: CI/build-and-test
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Skipped heavy testing for docs-only change to satisfy required status check."
+      - name: Record that nothing was built
+        run: |
+          {
+            echo "## CI/build-and-test - nothing was built"
+            echo
+            echo "Only \`**/*.md\` or \`docs/**\` files changed, so no dependency was"
+            echo "installed, nothing was linted or built, and no test ran. This job exists"
+            echo "only so the required \`CI/build-and-test\` check reports on every pull"
+            echo "request; its green tick says nothing about the code."
+            echo
+            echo "The \`CI/suite-skipped\` check on this run carries the same fact in a name."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The required check cannot say which of the two jobs above produced it, so
+  # this one reports the same routing decision under a name that differs between
+  # the two outcomes: `CI/suite-ran` or `CI/suite-skipped`. Neither name is a
+  # required check, so nothing here changes what blocks a merge.
+  suite-signal:
+    needs: filter
+    name: CI/suite-${{ needs.filter.outputs.code == 'true' && 'ran' || 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Describe the routing decision
+        env:
+          CODE_CHANGED: ${{ needs.filter.outputs.code }}
+        run: |
+          if [ "$CODE_CHANGED" = 'true' ]; then
+            {
+              echo "## CI/suite-ran"
+              echo
+              echo "The full \`CI/build-and-test\` job was started for this commit. Whether it"
+              echo "passed is reported by that check, not this one."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## CI/suite-skipped"
+              echo
+              echo "Only \`**/*.md\` or \`docs/**\` files changed. \`CI/build-and-test\` reported"
+              echo "success without installing, building or testing anything."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
