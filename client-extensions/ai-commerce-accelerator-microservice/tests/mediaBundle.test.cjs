@@ -380,7 +380,7 @@ describe('Extracting media from the source instance', () => {
       products: DATASET.products,
     });
 
-    expect(counts).toEqual({ staged: 1, unresolved: 0 });
+    expect(counts).toEqual({ reused: 0, staged: 1, unresolved: 0 });
     expect(archive.staged).toHaveLength(1);
     expect(archive.staged[0]).toMatchObject({
       kind: 'image',

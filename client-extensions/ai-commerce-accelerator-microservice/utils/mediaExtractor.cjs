@@ -1,4 +1,8 @@
 const { KIND } = require('./mediaBundle.cjs');
+const {
+  mediaIdentity,
+  resolvedMediaIdentities,
+} = require('./mediaArchive.cjs');
 
 /**
  * Pulls the binaries behind a dataset's media entries out of the instance that
@@ -53,8 +57,18 @@ function srcPath(src) {
  * nothing else. Throwing would abandon a promotion partway through and leave
  * the target with an arbitrary prefix of the catalogue - the same shape as the
  * chunk failure that used to discard every chunk before it (#822).
+ *
+ * `alreadyResolved` is what makes a repeat call cheap and safe rather than
+ * merely repeatable: an attachment whose identity is already in the archive
+ * is marked `reused` and its content is never fetched. This is not only
+ * performance - `archive.record` calls `forget` first, so re-fetching an
+ * attachment that already resolved and having *that* fetch hit a transient
+ * error would delete the good file on disk to make room for a failure
+ * marker. Skipping it here means a flaky retry can never destroy media a
+ * previous run already secured (#895).
  */
 async function extractProductMedia({
+  alreadyResolved = new Set(),
   config,
   correlationId,
   liferayService,
@@ -95,6 +109,20 @@ async function extractProductMedia({
     }
 
     for (const attachment of attachments) {
+      if (
+        alreadyResolved.has(
+          mediaIdentity({ kind, productERC, title: attachment.title })
+        )
+      ) {
+        resolved.push({
+          kind,
+          productERC,
+          reused: true,
+          title: attachment.title,
+        });
+        continue;
+      }
+
       // `src` is what the content reader wants; the ERC is the fallback,
       // because the catalog API exposes no GET for a numeric attachment id.
       const locator = attachment.src
@@ -159,6 +187,13 @@ async function extractProductMedia({
  * session is a directory read (#898). The package is then built from the
  * archive by the caller - the same step, from the same place, whichever
  * producer staged it.
+ *
+ * A failed extract used to mean a retry re-listed and re-downloaded every
+ * product's media, whether or not it had already landed on disk. `archive`
+ * already carries its own manifest by the time it reaches here (`loadManifest`
+ * runs in its constructor), so what it already has successfully resolved is
+ * read from that and never fetched again - a retry against the same session
+ * fetches only what did not resolve last time (#895).
  */
 async function extractDatasetMedia({
   archive,
@@ -168,7 +203,9 @@ async function extractDatasetMedia({
   logger,
   products = [],
 }) {
+  const alreadyResolved = resolvedMediaIdentities(archive);
   let staged = 0;
+  let reused = 0;
   let unresolved = 0;
 
   for (const product of products) {
@@ -177,6 +214,7 @@ async function extractDatasetMedia({
     if (!productERC) continue;
 
     const found = await extractProductMedia({
+      alreadyResolved,
       config,
       correlationId,
       liferayService,
@@ -185,6 +223,14 @@ async function extractDatasetMedia({
     });
 
     for (const item of found) {
+      // Already on disk from an earlier pass - left untouched. Passing it to
+      // `archive.record` would call `forget` first and rewrite a file that
+      // was never re-fetched.
+      if (item.reused) {
+        reused += 1;
+        continue;
+      }
+
       // An item that could not be fetched is recorded too, carrying the reason
       // it failed. Dropping it would leave the shortfall to be inferred from a
       // count, which is how a package quietly thinner than its source gets
@@ -197,7 +243,7 @@ async function extractDatasetMedia({
     }
   }
 
-  return { staged, unresolved };
+  return { reused, staged, unresolved };
 }
 
 module.exports = { extractDatasetMedia, extractProductMedia, srcPath };
