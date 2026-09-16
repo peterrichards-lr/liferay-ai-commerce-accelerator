@@ -305,32 +305,80 @@ bundle_symbolic_name() {
 #
 # Absent secret means no file and no change in behaviour, so this is inert
 # until someone sets it - a local run without one behaves exactly as before.
+# Which secret holds the licence for the node this run targets.
+#
+# Activation keys are issued against a specific machine, so one licence cannot
+# serve every node. The variable is named after the target - `aws-1` reads
+# LIFERAY_LICENSE_AWS_1 - which makes sending one node's licence to another a
+# naming error rather than a silent activation failure twenty minutes in.
+#
+# LIFERAY_LICENSE remains the unqualified fallback, so a local run and a
+# single-licence setup both keep working untouched.
+license_env_var() {
+    local target="${LDM_NODE_TARGET:-local}"
+
+    if [ -z "$target" ] || [ "$target" = "local" ]; then
+        echo "LIFERAY_LICENSE"
+        return 0
+    fi
+
+    echo "LIFERAY_LICENSE_$(printf '%s' "$target" | tr '[:lower:]' '[:upper:]' | tr -c 'A-Z0-9\n' '_')"
+}
+
 deploy_activation_key() {
-    if [ -z "${LIFERAY_LICENSE:-}" ]; then
-        echo "ℹ️  No LIFERAY_LICENSE set; deploying no activation key."
+    local var
+    var=$(license_env_var)
+
+    local license="${!var:-}"
+    local source_var="$var"
+
+    if [ -z "$license" ] && [ "$var" != "LIFERAY_LICENSE" ]; then
+        license="${LIFERAY_LICENSE:-}"
+        source_var="LIFERAY_LICENSE"
+
+        if [ -n "$license" ]; then
+            echo "⚠️  $var is not set; falling back to LIFERAY_LICENSE for node '${LDM_NODE_TARGET}'."
+            echo "   An activation key issued for a different machine will not activate this one."
+        fi
+    fi
+
+    if [ -z "$license" ]; then
+        echo "ℹ️  Neither $var nor LIFERAY_LICENSE is set; deploying no activation key."
         echo "   An unactivated DXP serves its activation page for every request (#805)."
         return 0
     fi
 
-    local license_dir="$PROJECT_NAME/files/data/license"
-    local license_file="$license_dir/activation-key.xml"
+    # deploy/, not data/license.
+    #
+    # The activation key is an input to auto-deploy: Liferay processes it out of
+    # `deploy`, validates it, and writes the registered licence into
+    # `data/license` itself as a serialized `.li` file, removing the key as it
+    # goes. `data/license` is therefore an output directory - Liferay reads
+    # everything in it with an ObjectInputStream, so an activation key left
+    # there fails with `StreamCorruptedException: invalid stream header` and is
+    # ignored. That looks exactly like an invalid or wrong-version licence and
+    # is neither; it is the key being in the wrong place (#805).
+    local deploy_dir="$PROJECT_NAME/deploy"
+    local license_file="$deploy_dir/activation-key.xml"
 
-    mkdir -p "$license_dir"
+    mkdir -p "$deploy_dir"
 
     # Written verbatim: the secret holds the activation key exactly as the file
     # does, so there is nothing to decode and no encoding step to get wrong.
-    printf '%s' "$LIFERAY_LICENSE" > "$license_file"
+    printf '%s' "$license" > "$license_file"
 
     # An empty or truncated secret would otherwise be discovered as an
     # activation failure twenty minutes later.
     if ! grep -q "<license" "$license_file" 2>/dev/null; then
-        echo "❌ ERROR: LIFERAY_LICENSE does not contain a Liferay licence."
+        echo "❌ ERROR: $source_var does not contain a Liferay licence."
         rm -f "$license_file"
         return 1
     fi
 
-    chmod 600 "$license_file"
-    echo "🔑 Activation key deployed to $license_file"
+    # Readable by the container's `liferay` user (uid 1000), which is not the
+    # user that writes it. 0600 is unreadable from inside the container.
+    chmod 644 "$license_file"
+    echo "🔑 Activation key from $source_var deployed to $license_file"
 }
 
 sync_osgi_modules() {

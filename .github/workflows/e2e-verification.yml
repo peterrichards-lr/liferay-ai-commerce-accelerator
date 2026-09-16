@@ -227,6 +227,11 @@ jobs:
           # none of which names the cause (#805). Absent secret means no key is
           # deployed and the run behaves exactly as it did before.
           LIFERAY_LICENSE: ${{ secrets.LIFERAY_LICENSE }}
+          # Activation keys are issued per machine, so each node needs its own.
+          # The script reads LIFERAY_LICENSE_<TARGET> and falls back to the
+          # unqualified one (#805).
+          LIFERAY_LICENSE_AWS_1: ${{ secrets.LIFERAY_LICENSE_AWS_1 }}
+          LIFERAY_LICENSE_AWS_2: ${{ secrets.LIFERAY_LICENSE_AWS_2 }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
