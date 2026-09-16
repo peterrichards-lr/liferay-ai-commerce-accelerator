@@ -66,10 +66,13 @@ Active, in-flight task state and intra-task scratchpad context are maintained lo
 
 - **On Session Startup**: If `.agent-state.md` exists, read it to discover active objectives and resume in-flight work without lost context across AI provider switches.
 - **During Execution**: Update `.agent-state.md` when making progress, encountering blockers, or pausing a workflow.
+- **Before starting anything substantial**: Check it is still accurate and correct it if not — a new issue, a release, a branch, a piece of work expected to take a while. "Feature completion" is a trigger a long session never reaches; a session that runs for days without one leaves the file describing the day it started. This is the checkpoint that actually fires.
 - **On Feature Completion**: Clear/reset `.agent-state.md` once all objectives and DoD verifications are met.
+
+**It is gitignored, so it holds no durable record.** Nothing in it survives the machine it is written on. Anything that would matter to someone else — a finding, a constraint, a decision and its reasoning — belongs on the issue it concerns, and only then in here. If a fact exists solely in `.agent-state.md`, it is one lost laptop from never having existed.
 
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-08-18_ | _Last Reviewed: 2026-08-18_
+_Last Updated: 2026-09-16_ | _Last Reviewed: 2026-09-16_
