@@ -221,6 +221,12 @@ jobs:
           LIFERAY_PASSWORD: ${{ secrets.LIFERAY_PASSWORD }}
           LIFERAY_OAUTH_CLIENT_ID: ${{ secrets.LIFERAY_OAUTH_CLIENT_ID }}
           LIFERAY_OAUTH_CLIENT_SECRET: ${{ secrets.LIFERAY_OAUTH_CLIENT_SECRET }}
+          # Base64 of an activation key. run-e2e-ldm.sh decodes it into the
+          # project before `ldm run`; without it the portal serves its
+          # activation page for every request and the suite fails four ways,
+          # none of which names the cause (#805). Absent secret means no key is
+          # deployed and the run behaves exactly as it did before.
+          LIFERAY_LICENSE_B64: ${{ secrets.LIFERAY_LICENSE_B64 }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
