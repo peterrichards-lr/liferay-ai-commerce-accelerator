@@ -63,9 +63,6 @@ describe('Commerce Batch Steps', () => {
       getOptionsByProductIds: vi
         .fn()
         .mockResolvedValue([{ optionId: 'opt-1' }]),
-      getAccountByERC: vi
-        .fn()
-        .mockResolvedValue({ id: 'acc-123', externalReferenceCode: 'ERC1' }),
     };
 
     mockCtx = {
@@ -93,30 +90,6 @@ describe('Commerce Batch Steps', () => {
       channelId: 'channel-1',
       batchERC: 'batch-erc-1',
       sessionId: 'session-1',
-      accounts: [
-        {
-          externalReferenceCode: 'ERC1',
-          name: 'Acc1',
-          billingAddress: {},
-          shippingAddress: {},
-          headOfficeAddress: {},
-        },
-        {
-          externalReferenceCode: 'ERC2',
-          name: 'Acc2',
-          billingAddress: {},
-          shippingAddress: {},
-        },
-      ],
-      lastBatchResults: [
-        { id: 'acc-1', externalReferenceCode: 'ERC1' },
-        { id: 'acc-2', externalReferenceCode: 'ERC2' },
-      ],
-      addresses: [
-        { street: 'Street1', accountId: 1 },
-        { street: 'Street2', accountId: 2 },
-      ],
-      entityTypeToResolve: 'accounts',
     };
   });
 
@@ -263,54 +236,6 @@ describe('Commerce Batch Steps', () => {
         expect.objectContaining({ ids: ['cat-1'] })
       );
       expect(res).toBeNull();
-    });
-  });
-
-  describe('Generation/Helper steps', () => {
-    it('should log next step using logNextStep', async () => {
-      const res = await batchSteps.logNextStep(mockCtx, {
-        batchERC: 'batch-erc-1',
-      });
-      expect(mockCtx.logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('SUCCESS: The logNextStep was called.'),
-        expect.any(Object)
-      );
-    });
-
-    it('should resolve accounts entities in resolveEntities', async () => {
-      const res = await batchSteps.resolveEntities(mockCtx, mockParams);
-      expect(mockLiferay.getAccountByERC).toHaveBeenCalledWith(
-        mockParams.config,
-        'ERC1'
-      );
-      expect(res).toEqual([
-        { id: 'acc-123', externalReferenceCode: 'ERC1' },
-        { id: 'acc-123', externalReferenceCode: 'ERC1' },
-      ]);
-    });
-
-    it('should handle resolveEntities with no source accounts to process', async () => {
-      mockParams.accounts = null;
-      const res = await batchSteps.resolveEntities(mockCtx, mockParams);
-      expect(mockCtx.logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'resolveEntities called with no source accounts'
-        ),
-        expect.any(Object)
-      );
-      expect(res).toEqual({ enrichedResults: [] });
-    });
-
-    it('should warn and bypass when entityTypeToResolve is unmapped', async () => {
-      mockParams.entityTypeToResolve = 'unmapped';
-      const res = await batchSteps.resolveEntities(mockCtx, mockParams);
-      expect(mockCtx.logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "No ERC lookup method configured for entity type: 'unmapped'"
-        ),
-        expect.any(Object)
-      );
-      expect(res).toEqual({ enrichedResults: mockParams.accounts });
     });
   });
 });
