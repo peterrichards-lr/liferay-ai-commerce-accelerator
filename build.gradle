@@ -1,8 +1,48 @@
 apply plugin: "com.liferay.node"
 
+// The node plugin derives the download from the JVM's `os.arch`, so an x86_64
+// JDK on an arm64 machine fetches a darwin-x64 Node. Every native module
+// installed through it is then built or fetched for the wrong architecture, and
+// `dlopen` on the wrong cputype aborts the process rather than throwing - which
+// is why it first surfaced as a vitest worker dying (#793, #795).
+//
+// The machine is the authority, not whichever JVM happens to be running Gradle.
+// Returns null where the default is already right or the mapping is unknown, so
+// the plugin keeps its own behaviour rather than being handed a guess.
+def machineNodeUrl(String version) {
+	String osName = System.properties["os.name"].toLowerCase()
+
+	if (osName.contains("windows")) {
+		return null
+	}
+
+	String platform = (osName.contains("mac") || osName.contains("darwin")) ? "darwin" : "linux"
+	String machine = ["uname", "-m"].execute().text.trim()
+	String arch
+
+	switch (machine) {
+		case ["arm64", "aarch64"]:
+			arch = "arm64"
+			break
+		case ["x86_64", "amd64"]:
+			arch = "x64"
+			break
+		default:
+			return null
+	}
+
+	return "https://nodejs.org/dist/v${version}/node-v${version}-${platform}-${arch}.tar.gz"
+}
+
 node {
 	nodeVersion = "22.22.2"
 	npmVersion = "10.9.7"
+
+	def url = machineNodeUrl("22.22.2")
+
+	if (url) {
+		nodeUrl = url
+	}
 }
 
 import groovy.json.JsonOutput
@@ -1059,6 +1099,12 @@ allprojects {
 		node {
 			nodeVersion = "22.22.2"
 			npmVersion = "10.9.7"
+
+			def url = machineNodeUrl("22.22.2")
+
+			if (url) {
+				nodeUrl = url
+			}
 		}
 	}
 }
