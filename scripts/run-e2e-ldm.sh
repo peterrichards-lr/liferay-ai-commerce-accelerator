@@ -306,8 +306,8 @@ bundle_symbolic_name() {
 # Absent secret means no file and no change in behaviour, so this is inert
 # until someone sets it - a local run without one behaves exactly as before.
 deploy_activation_key() {
-    if [ -z "${LIFERAY_LICENSE_B64:-}" ]; then
-        echo "ℹ️  No LIFERAY_LICENSE_B64 set; deploying no activation key."
+    if [ -z "${LIFERAY_LICENSE:-}" ]; then
+        echo "ℹ️  No LIFERAY_LICENSE set; deploying no activation key."
         echo "   An unactivated DXP serves its activation page for every request (#805)."
         return 0
     fi
@@ -317,16 +317,14 @@ deploy_activation_key() {
 
     mkdir -p "$license_dir"
 
-    if ! printf '%s' "$LIFERAY_LICENSE_B64" | base64 -d > "$license_file" 2>/dev/null; then
-        echo "❌ ERROR: LIFERAY_LICENSE_B64 is not valid base64; no activation key deployed."
-        rm -f "$license_file"
-        return 1
-    fi
+    # Written verbatim: the secret holds the activation key exactly as the file
+    # does, so there is nothing to decode and no encoding step to get wrong.
+    printf '%s' "$LIFERAY_LICENSE" > "$license_file"
 
-    # A key that decodes to something that is not a licence would otherwise be
-    # discovered as an activation failure twenty minutes later.
+    # An empty or truncated secret would otherwise be discovered as an
+    # activation failure twenty minutes later.
     if ! grep -q "<license" "$license_file" 2>/dev/null; then
-        echo "❌ ERROR: LIFERAY_LICENSE_B64 decoded to something that is not a Liferay licence."
+        echo "❌ ERROR: LIFERAY_LICENSE does not contain a Liferay licence."
         rm -f "$license_file"
         return 1
     fi
