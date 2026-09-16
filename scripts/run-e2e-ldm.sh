@@ -285,6 +285,56 @@ bundle_symbolic_name() {
 # so anything the .ldmp package shipped into osgi/modules under a different
 # name is left alone. Matching on a filename is what made the old exclusion
 # unable to tell a stale bundle from the current one. See #614.
+# Writes the activation key the run was given into the project, where Liferay
+# reads it at boot.
+#
+# The image's built-in trial licence expires thirty days after the release it
+# was built from, and the pinned tag is older than that - so without a key the
+# portal answers every request with its activation page, login included, and
+# the suite fails four different ways none of which name the cause (#805).
+#
+# Same route as the portal-ext.properties rewrite below: written into the
+# project directory after `ldm import --no-run` and before `ldm run`, so LDM
+# carries it to the target node like everything else in there. Not written to
+# the runner's home or passed on a command line.
+#
+# Base64 because GitHub masks secrets line by line, and a multi-line XML value
+# can surface fragments in a log that masking does not catch. It also survives
+# the shell exactly, which matters: a licence mangled by quoting fails the same
+# way as one that is absent.
+#
+# Absent secret means no file and no change in behaviour, so this is inert
+# until someone sets it - a local run without one behaves exactly as before.
+deploy_activation_key() {
+    if [ -z "${LIFERAY_LICENSE_B64:-}" ]; then
+        echo "ℹ️  No LIFERAY_LICENSE_B64 set; deploying no activation key."
+        echo "   An unactivated DXP serves its activation page for every request (#805)."
+        return 0
+    fi
+
+    local license_dir="$PROJECT_NAME/files/data/license"
+    local license_file="$license_dir/activation-key.xml"
+
+    mkdir -p "$license_dir"
+
+    if ! printf '%s' "$LIFERAY_LICENSE_B64" | base64 -d > "$license_file" 2>/dev/null; then
+        echo "❌ ERROR: LIFERAY_LICENSE_B64 is not valid base64; no activation key deployed."
+        rm -f "$license_file"
+        return 1
+    fi
+
+    # A key that decodes to something that is not a licence would otherwise be
+    # discovered as an activation failure twenty minutes later.
+    if ! grep -q "<license" "$license_file" 2>/dev/null; then
+        echo "❌ ERROR: LIFERAY_LICENSE_B64 decoded to something that is not a Liferay licence."
+        rm -f "$license_file"
+        return 1
+    fi
+
+    chmod 600 "$license_file"
+    echo "🔑 Activation key deployed to $license_file"
+}
+
 sync_osgi_modules() {
     local context="${1:-}"
 
@@ -674,6 +724,8 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         echo "🔧 Rewriting database host in portal-ext.properties for isolated DB mode..."
         sed -i.bak "s/liferay-db-global/${PROJECT_NAME}-db/g" "$PROJECT_NAME/files/portal-ext.properties"
     fi
+
+    deploy_activation_key
 
     sync_osgi_modules
 
