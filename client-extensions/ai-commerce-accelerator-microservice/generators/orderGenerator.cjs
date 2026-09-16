@@ -6,6 +6,7 @@ const {
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 const { orderableSkus } = require('../utils/orderableSkus.cjs');
+const { completeGenerationStep } = require('../utils/generationShortfall.cjs');
 const {
   uniqueOrderERC,
   withUniqueOrderERCs,
@@ -247,13 +248,13 @@ class OrderGenerator extends BaseGenerator {
         accounts,
       });
 
-      await this.completeSyncStep(
+      await completeGenerationStep(this, {
         sessionId,
-        S.GENERATE_ORDER_DATA,
-        'SYNCHRONOUS',
-        orderDataList.length,
-        orderDataList.length
-      );
+        step: S.GENERATE_ORDER_DATA,
+        delivered: orderDataList.length,
+        requested: options.orderCount,
+        noun: 'orders',
+      });
     } catch (error) {
       const errorReferenceCode =
         resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);

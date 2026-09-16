@@ -9,6 +9,7 @@ const {
   fromI18n,
 } = require('../utils/misc.cjs');
 const { streetLine } = require('../utils/streetAddress.cjs');
+const { completeGenerationStep } = require('../utils/generationShortfall.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -374,13 +375,13 @@ class AccountGenerator extends BaseGenerator {
         addressesToCreate: addressesToCreate,
       });
 
-      await this.completeSyncStep(
+      await completeGenerationStep(this, {
         sessionId,
-        S.GENERATE_ACCOUNT_DATA,
-        'SYNCHRONOUS',
-        accountsToCreate.length,
-        accountsToCreate.length
-      );
+        step: S.GENERATE_ACCOUNT_DATA,
+        delivered: accountsToCreate.length,
+        requested: options.accountCount,
+        noun: 'accounts',
+      });
     } catch (error) {
       const errorReferenceCode =
         resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);

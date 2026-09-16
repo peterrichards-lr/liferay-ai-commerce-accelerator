@@ -6,6 +6,9 @@ const {
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { markBackorderShare } = require('../../utils/backorderShare.cjs');
 const {
+  completeGenerationStep,
+} = require('../../utils/generationShortfall.cjs');
+const {
   coverProductOptionValues,
 } = require('../../utils/optionValueCoverage.cjs');
 
@@ -98,34 +101,13 @@ async function runProductDataGenerationStep(sessionId) {
     // defect behind #759, and it survives any amount of retrying. The count
     // was already recorded honestly here; what was missing was anything an
     // operator could see, so the shortfall is named on the step itself.
-    const shortfall = (options.productCount || 0) - allData.length;
-
-    if (shortfall > 0) {
-      const reason = `The AI returned ${allData.length} of ${options.productCount} requested products; the rest of the run covers only what it delivered`;
-
-      this.logger.error(`Product data generation fell short: ${reason}`, {
-        sessionId,
-        delivered: allData.length,
-        requested: options.productCount,
-      });
-
-      await this.completeSyncStep(
-        sessionId,
-        S.GENERATE_PRODUCT_DATA,
-        'SYNCHRONOUS',
-        allData.length,
-        options.productCount,
-        reason
-      );
-    } else {
-      await this.completeSyncStep(
-        sessionId,
-        S.GENERATE_PRODUCT_DATA,
-        'SYNCHRONOUS',
-        allData.length,
-        options.productCount
-      );
-    }
+    await completeGenerationStep(this, {
+      sessionId,
+      step: S.GENERATE_PRODUCT_DATA,
+      delivered: allData.length,
+      requested: options.productCount,
+      noun: 'products',
+    });
   } catch (error) {
     const errorReferenceCode =
       resolveErrorReference(error) || createERC(ERC_PREFIX.ERROR);
