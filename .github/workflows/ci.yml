@@ -53,6 +53,13 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      # --frozen-lockfile does not catch a member manifest that has drifted from
+      # the lockfile: yarn resolves the new version, installs it nested, and
+      # leaves yarn.lock untouched, so the install exits 0 (#920).
+      - name: Lockfile must describe the manifests
+        run: yarn lint:lockfile
+        timeout-minutes: 2
+
       - name: Rebuild native modules
         run: |
           yarn workspace @liferay/liferay-ai-commerce-accelerator-microservice run pretest
