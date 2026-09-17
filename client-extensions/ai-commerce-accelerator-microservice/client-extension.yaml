@@ -72,6 +72,25 @@ ai-commerce-accelerator-cli-automation:
   scopes:
     - Liferay.Headless.Admin.User.everything.read
   type: oAuthApplicationHeadlessServer
+# The identity an operator presents when signing in from a terminal.
+#
+# `.serviceAddress` is the loopback listener the CLI binds during the
+# authorization code flow, because Liferay derives the application's redirect
+# URI from it. 127.0.0.1 rather than localhost: RFC 8252 s8.3 - localhost
+# resolves through DNS and the hosts file and can be pointed elsewhere, the IP
+# literal cannot.
+#
+# A fixed port, deliberately. RFC 8252 s7.3 recommends that servers accept any
+# loopback port, but that is a recommendation, and an exact-match registration
+# works whether or not a given server follows it. The CLI fails loudly when the
+# port is busy rather than depending on behaviour nobody measured (#989).
+ai-commerce-accelerator-cli-user-agent:
+  .serviceAddress: 127.0.0.1:38017
+  .serviceScheme: http
+  name: Liferay AI Commerce Accelerator CLI User Agent
+  scopes:
+    - Liferay.Headless.Admin.User.everything.read
+  type: oAuthApplicationUserAgent
 
 ai-commerce-accelerator-microservice-user-agent:
   .serviceAddress: localhost:3001
