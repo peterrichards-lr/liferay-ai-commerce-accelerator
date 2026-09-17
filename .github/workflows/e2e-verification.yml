@@ -203,6 +203,22 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
+      # A runner's ~/.ldmrc starts empty, so `--node` has no target to resolve
+      # and nothing carries a MAC. manage_target_nodes.py refreshes a woken
+      # node's address but only `if node_name in targets` - it never creates
+      # the entry. Without a configured MAC the container takes a bridge
+      # address, the run exits 0, `License registered` appears in the log, and
+      # the portal serves the Activation page (#805).
+      #
+      # After the wake, so the instance has an address to report.
+      - name: Register the target node with its NIC MAC
+        if: env.E2E_TARGET_NODE != 'local' && env.E2E_TARGET_NODE != ''
+        run: node scripts/register-target-node.cjs "$E2E_TARGET_NODE" ~/.ssh/aws-key.pem
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        timeout-minutes: 5
+
       - name: Start LDM and run tests
         run: |
           NODE_FLAG=""
