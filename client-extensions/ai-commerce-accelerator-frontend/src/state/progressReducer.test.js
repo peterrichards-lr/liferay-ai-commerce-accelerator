@@ -409,3 +409,38 @@ describe('a delete reports what it removed, over what it found (#786)', () => {
     expect(state.products.requested).toBe(50);
   });
 });
+
+describe('a batch keeps the size it started with (#891)', () => {
+  // `batchCompleted` reports the success and failure counts and no total, so
+  // a completion that overwrites the recorded total erases it. The
+  // denominator then held only the batches in flight at once: seven SKU
+  // batches of one item, each finishing before the next was submitted, read
+  // `7 / 1` on a run where every SKU was created.
+  it('does not erase a batch total when the completion reports none', () => {
+    let state = initialProgress;
+
+    for (let batchId = 1; batchId <= 7; batchId += 1) {
+      state = progressReducer(
+        state,
+        ACTIONS.updateBatch('skus', batchId, 0, 1)
+      );
+      state = progressReducer(
+        state,
+        ACTIONS.updateBatch('skus', batchId, 1, undefined)
+      );
+    }
+
+    expect(state.skus.completed).toBe(7);
+    expect(state.skus.total).toBe(7);
+  });
+
+  it('still lets a later report correct a batch total it does give', () => {
+    let state = progressReducer(
+      initialProgress,
+      ACTIONS.updateBatch('skus', 1, 0, 10)
+    );
+    state = progressReducer(state, ACTIONS.updateBatch('skus', 1, 12, 12));
+
+    expect(state.skus.total).toBe(12);
+  });
+});
