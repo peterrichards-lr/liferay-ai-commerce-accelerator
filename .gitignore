@@ -103,3 +103,11 @@ __pycache__/
 # one reached master because `git add -A` swept it in (#884).
 *.aicap
 extract-headers.txt
+
+# Conversation exports (/export writes them to the repo root).
+#
+# No API keys - detect-secrets finds none - but a transcript of this work
+# carries the compute nodes' public and private addresses, their NIC MACs and
+# their internal hostnames, and this repository is public. Ignored rather than
+# remembered, because `git add -A` does not ask.
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt
