@@ -67,6 +67,7 @@ const machineClaims = (sub) => ({
 describe('requireAdmin', () => {
   const originalAdmins = process.env.AICA_ADMINS;
   const originalAllowlist = process.env.AICA_ADMIN_EMAILS;
+  const originalClients = process.env.AICA_ADMIN_CLIENTS;
 
   afterEach(() => {
     // Both, not just one: several tests set AICA_ADMINS, and restoring only
@@ -74,6 +75,7 @@ describe('requireAdmin', () => {
     for (const [key, value] of [
       ['AICA_ADMINS', originalAdmins],
       ['AICA_ADMIN_EMAILS', originalAllowlist],
+      ['AICA_ADMIN_CLIENTS', originalClients],
     ]) {
       if (value === undefined) {
         delete process.env[key];
@@ -114,6 +116,7 @@ describe('requireAdmin', () => {
     // administrator and identity alone cannot tell it from the administrator.
     it('rejects a client-credentials token even when its sub is allowlisted', () => {
       process.env.AICA_ADMINS = '20132';
+      delete process.env.AICA_ADMIN_CLIENTS;
       const req = mockReq({ user: { claims: machineClaims('20132') } });
       const res = mockRes();
       const next = vi.fn();
@@ -123,9 +126,82 @@ describe('requireAdmin', () => {
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: expect.stringContaining('not a machine credential'),
+          error: expect.stringContaining('AICA_ADMIN_CLIENTS'),
         })
       );
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    // The machine allowlist is a separate grant, so a named application is
+    // admitted without ever appearing in AICA_ADMINS (#988).
+    it('admits a machine whose client_id is named in AICA_ADMIN_CLIENTS', () => {
+      process.env.AICA_ADMINS = '';
+      process.env.AICA_ADMIN_CLIENTS =
+        'id-36b22067-ebf1-1766-4aca-19a37d328017';
+      const req = mockReq({ user: { claims: machineClaims('20132') } });
+      const res = mockRes();
+      const next = vi.fn();
+
+      requireAdmin(req, res, next);
+
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    it('rejects a machine whose client_id is not named', () => {
+      process.env.AICA_ADMIN_CLIENTS = 'id-some-other-application';
+      const req = mockReq({ user: { claims: machineClaims('20132') } });
+      const res = mockRes();
+      const next = vi.fn();
+
+      requireAdmin(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when AICA_ADMIN_CLIENTS is unset', () => {
+      process.env.AICA_ADMINS = '20132';
+      delete process.env.AICA_ADMIN_CLIENTS;
+      const req = mockReq({ user: { claims: machineClaims('20132') } });
+      const res = mockRes();
+      const next = vi.fn();
+
+      requireAdmin(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    // The two controls must not blur. Putting a client id in the human list
+    // must grant nothing: if AICA_ADMINS could name an application, a machine
+    // would be back to entering through the operator allowlist, which is the
+    // hole #987 closed.
+    it('does not admit a machine named in AICA_ADMINS rather than AICA_ADMIN_CLIENTS', () => {
+      process.env.AICA_ADMINS = 'id-36b22067-ebf1-1766-4aca-19a37d328017';
+      delete process.env.AICA_ADMIN_CLIENTS;
+      const req = mockReq({ user: { claims: machineClaims('20132') } });
+      const res = mockRes();
+      const next = vi.fn();
+
+      requireAdmin(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    // The boundary in the other direction: naming an application must not let a
+    // human in through it. The two lists grant different things.
+    it('does not admit a human because their client_id is a named application', () => {
+      process.env.AICA_ADMINS = '';
+      process.env.AICA_ADMIN_CLIENTS = 'FragmentRenderer';
+      const req = mockReq({ user: { claims: humanClaims('20132') } });
+      const res = mockRes();
+      const next = vi.fn();
+
+      requireAdmin(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(503);
       expect(next).not.toHaveBeenCalled();
     });
 

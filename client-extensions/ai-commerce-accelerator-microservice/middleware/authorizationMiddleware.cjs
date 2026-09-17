@@ -5,6 +5,16 @@ const { logger } = require('../utils/logger.cjs');
 // user that application is bound to.
 const MACHINE_GRANT_TYPE = 'client_credentials';
 
+// Both allowlists are comma-separated, trimmed and compared lowercase. Empty
+// means empty: neither grants anything by default, so an unconfigured service
+// refuses every destructive call rather than guessing.
+function allowlistFrom(...values) {
+  return (values.find(Boolean) || '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 // Interim authorization check for destructive/config-changing routes
 // (overwriting the active Liferay connection config, deleting all commerce
 // data, MCP teardown tools). userContextMiddleware/requestSigningMiddleware
@@ -40,28 +50,51 @@ function requireAdmin(req, res, next) {
   // carries no `grant_type` claim at all, so admitting only known-human grants
   // would lock a real administrator out the moment their token refreshed. Both
   // shapes were measured against DXP 2026.q3.0 (#930).
+  // A machine is admitted only by name, and only through its own control.
+  //
+  // A client-credentials application is bound to a portal user and presents
+  // that user's `sub`, so it cannot be told from that user by identity alone.
+  // AICA_ADMINS therefore never admits one: the caller must be named in
+  // AICA_ADMIN_CLIENTS, which grants applications rather than people. Granting
+  // a machine is then a deliberate act in its own variable, not a side effect
+  // of whichever user an application happens to be bound to (#988).
   if (req.user.claims.grant_type === MACHINE_GRANT_TYPE) {
-    logger.warn('requireAdmin: rejected a machine credential', {
+    const clients = allowlistFrom(process.env.AICA_ADMIN_CLIENTS);
+    const clientId = String(req.user.claims.client_id || '')
+      .trim()
+      .toLowerCase();
+
+    if (!clientId || !clients.includes(clientId)) {
+      logger.warn('requireAdmin: rejected a machine credential', {
+        correlationId: req.correlationId,
+        operation: `${req.method} ${req.path}`,
+        clientId: req.user.claims.client_id,
+        userId: req.user.claims.sub,
+      });
+
+      return res.status(403).json({
+        success: false,
+        error:
+          'This action requires an administrator account, or an application named in AICA_ADMIN_CLIENTS',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Logged at warn, not info. A destructive action taken by no person is the
+    // one an audit most needs to find, and nobody greps for info.
+    logger.warn('requireAdmin: admitted a named machine credential', {
       correlationId: req.correlationId,
       operation: `${req.method} ${req.path}`,
       clientId: req.user.claims.client_id,
-      userId: req.user.claims.sub,
     });
 
-    return res.status(403).json({
-      success: false,
-      error:
-        'This action requires an administrator account, not a machine credential',
-      timestamp: new Date().toISOString(),
-    });
+    return next();
   }
 
-  const rawAdmins =
-    process.env.AICA_ADMINS || process.env.AICA_ADMIN_EMAILS || '';
-  const allowlist = rawAdmins
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
+  const allowlist = allowlistFrom(
+    process.env.AICA_ADMINS,
+    process.env.AICA_ADMIN_EMAILS
+  );
 
   if (allowlist.length === 0) {
     logger.error(
