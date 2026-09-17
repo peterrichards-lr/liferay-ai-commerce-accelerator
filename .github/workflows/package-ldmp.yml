@@ -104,26 +104,43 @@ jobs:
           echo "--- host dirs after cleanup ---"
           du -sh aica-e2e/data aica-e2e/osgi/state 2>&1 || true
 
+          # The harness runs `--sidecar`, so LDM wrote an EMBEDDED Elasticsearch
+          # operationMode into files/portal-ext.properties. That file is restored on
+          # the consumer's machine as `.liferay-docker/ldmp-portal-ext.properties`,
+          # layer 2 of LDM's properties cascade, and `module.framework.properties.*`
+          # outranks the OSGi config LDM writes for shared search - so a consumer
+          # whose project resolved to shared search starts an Elasticsearch INSIDE
+          # the Liferay container as well as the shared one. On 2026.q1.7-lts that
+          # sidecar defaults to `-Xms1g -Xmx2g -XX:+AlwaysPreTouch`, which is what
+          # takes an 8 GB machine over the edge. Strip it before snapshotting; LDM
+          # re-derives the search topology from the consumer's own settings. See #563.
+          node scripts/sanitize-ldm-package.cjs properties \
+            aica-e2e/files/portal-ext.properties \
+            aica-e2e/files/portal-ext.properties.bak
+
           # Take the snapshot explicitly so its meta can be enriched before packaging.
           ldm snapshot -p aica-e2e -y
+
+          # ldm package reads the meta from the SNAPSHOT directory, not the project
+          # directory - handlers/snapshot.py step 3 does read_meta(latest_snap_dir).
+          # Enriching aica-e2e/meta therefore never reaches the package. See #546.
+          # Sorting by name makes the newest last: LDM names them by timestamp.
+          SNAPSHOT_DIR=$(ls -1d aica-e2e/snapshots/*/ 2>/dev/null | sort | tail -n 1)
+          if [ -z "$SNAPSHOT_DIR" ]; then
+            echo "No snapshot directory found to enrich." >&2
+            exit 1
+          fi
+          export SNAPSHOT_DIR
+          echo "Snapshot directory: $SNAPSHOT_DIR"
 
           # `meta` is a JSON document written by LDM. Appending key=value lines to it
           # produces invalid JSON, which makes every key unreadable - including the
           # `tag` LDM records for the Liferay version the package was built against.
           # Merge into the parsed document instead.
           python3 - <<'PY'
-          import json, pathlib
+          import json, os, pathlib
 
-          # ldm package reads the meta from the SNAPSHOT directory, not the project
-          # directory - handlers/snapshot.py step 3 does read_meta(latest_snap_dir).
-          # Enriching aica-e2e/meta therefore never reaches the package. See #546.
-          snapshots = sorted(
-              d for d in pathlib.Path('aica-e2e/snapshots').iterdir() if d.is_dir()
-          )
-          if not snapshots:
-              raise SystemExit('No snapshot directory found to enrich.')
-
-          snapshot_dir = snapshots[-1]
+          snapshot_dir = pathlib.Path(os.environ['SNAPSHOT_DIR'])
           path = snapshot_dir / 'meta'
           meta = json.loads(path.read_text())
 
@@ -150,25 +167,6 @@ jobs:
           if not shipped:
               raise SystemExit('No client extension zips found in files.tar.gz.')
           print('Client extensions in archive:', ', '.join(shipped))
-          # The snapshot captures the Liferay service's environment into custom_env,
-          # which IS propagated to consumers on import. That includes the CI harness's
-          # own container hostname:
-          #     LIFERAY_ROUTES_CLIENT_EXTENSION_..._MICROSERVICE
-          #         = http://aica-e2e-ai-commerce-accelerator-microservice:3001
-          # which resolves nowhere on a consumer's machine. Drop the pin so Liferay
-          # auto-registers the route for whatever the project is actually called when
-          # the client extension zip is deployed. See #563.
-          custom_env = meta.get("custom_env")
-          was_string = isinstance(custom_env, str)
-          if was_string:
-              custom_env = json.loads(custom_env) if custom_env.strip() else {}
-          if isinstance(custom_env, dict):
-              pinned = [k for k in custom_env if k.startswith("LIFERAY_ROUTES_CLIENT_EXTENSION_")]
-              for key in pinned:
-                  print(f"Dropping pinned route from custom_env: {key}={custom_env[key]}")
-                  del custom_env[key]
-              meta["custom_env"] = json.dumps(custom_env) if was_string else custom_env
-
           meta.update({
               # `ldm package --host-name/--ssl` are accepted by the CLI and read by
               # no code path - cmd_package takes only project_id, output_dir, repo,
@@ -201,6 +199,16 @@ jobs:
           path.write_text(json.dumps(meta, indent=4, ensure_ascii=False) + "\n")
           print("Enriched meta; Liferay tag =", meta.get("tag"))
           PY
+          # The snapshot captures the Liferay service's environment into custom_env,
+          # which IS propagated to consumers on import: cmd_restore copies it into
+          # their project meta and composer appends it to the Liferay service AFTER
+          # its own search settings, so a key repeated here is the one Docker Compose
+          # resolves to. It carries the harness's container hostname in
+          # LIFERAY_ROUTES_CLIENT_EXTENSION_..._MICROSERVICE, which resolves nowhere
+          # else, and its --sidecar search topology, which contradicts the mode the
+          # consumer's project resolved to. See #563.
+          node scripts/sanitize-ldm-package.cjs meta "${SNAPSHOT_DIR}meta"
+
           # --use-latest packages the snapshot enriched above. It resolves via
           # backups[-1] from _list_backups, which sorts snapshot directories by name,
           # so timestamp names make it reliably the newest. Do not use
@@ -273,14 +281,17 @@ jobs:
           packaged_env = meta.get("custom_env")
           if isinstance(packaged_env, str):
               packaged_env = json.loads(packaged_env) if packaged_env.strip() else {}
-          pinned_routes = sorted(
-              k for k in (packaged_env or {}) if k.startswith("LIFERAY_ROUTES_CLIENT_EXTENSION_")
+          pinned_env = sorted(
+              k
+              for k in (packaged_env or {})
+              if k.startswith(("LIFERAY_ROUTES_CLIENT_EXTENSION_", "LIFERAY_ELASTICSEARCH_"))
           )
-          print(f"  pinned routes          : {pinned_routes or 'none'}")
-          if pinned_routes:
+          print(f"  pinned env             : {pinned_env or 'none'}")
+          if pinned_env:
               problems.append(
-                  f"custom_env pins {pinned_routes}; these carry the build environment's"
-                  " container hostnames and resolve nowhere on a consumer's machine"
+                  f"custom_env pins {pinned_env}; these carry the build environment's"
+                  " container hostnames and search topology, and win over the settings"
+                  " LDM derives for the consumer's own project"
               )
 
           inner = subprocess.run(
@@ -290,6 +301,45 @@ jobs:
               ["tar", "tzf", "-"], input=inner, capture_output=True, check=True, text=False,
           ).stdout.decode().split()
           cleaned = [n[2:] if n.startswith("./") else n for n in inner_names]
+
+          # files/portal-ext.properties is restored as the consumer's
+          # ldmp-portal-ext.properties, and `module.framework.properties.*` beats the
+          # OSGi config LDM writes for shared search. An EMBEDDED operationMode
+          # captured from this harness's --sidecar run therefore starts a second
+          # Elasticsearch inside the consumer's Liferay container - `-Xms1g -Xmx2g`
+          # by default on 2026.q1.7-lts, on top of the heap LDM sized for the whole
+          # machine. See #563.
+          import io, tarfile
+
+          with tarfile.open(fileobj=io.BytesIO(inner), mode="r:gz") as archive:
+              portal_ext_member = next(
+                  (
+                      m
+                      for m in archive.getmembers()
+                      if m.name.lstrip("./") == "files/portal-ext.properties"
+                  ),
+                  None,
+              )
+              portal_ext = (
+                  archive.extractfile(portal_ext_member).read().decode()
+                  if portal_ext_member
+                  else ""
+              )
+
+          pinned_properties = sorted(
+              line.split("=", 1)[0].strip()
+              for line in portal_ext.splitlines()
+              if line.startswith(
+                  "module.framework.properties.com.liferay.portal.search.elasticsearch"
+              )
+          )
+          print(f"  pinned properties      : {pinned_properties or 'none'}")
+          if pinned_properties:
+              problems.append(
+                  f"files/portal-ext.properties pins {pinned_properties}; these force an"
+                  " in-container Elasticsearch on consumers whose project resolved to"
+                  " shared search"
+              )
 
           declared = [c for c in str(meta.get("client_extensions", "")).split(",") if c]
           shipped = sorted({

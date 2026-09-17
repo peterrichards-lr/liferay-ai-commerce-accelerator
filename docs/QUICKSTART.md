@@ -39,6 +39,12 @@ aica generate --demo --products 10 --accounts 10 --orders 50
 
 Or use the **AI Data Generator** screen in Liferay, described in [Features & Capabilities](./FEATURES.md).
 
+### 3. Give Docker enough memory
+
+A database-free package means the first boot _creates_ the environment rather than restoring one: schema creation, client-extension deployment, the whole site initializer run and indexing, concurrently and at peak. LDM sizes the Liferay heap from the memory Docker reports — `-Xms2048m -Xmx3072m` with a 512 MB metaspace at or below 8 GB, half the reported memory above it — so a smaller allocation does not buy a proportionally smaller stack.
+
+On a Docker allocation of 8 GB, that first boot has been seen killed by the kernel out-of-memory reaper, which surfaces only as `Timed out waiting for Liferay to become healthy` ([#563](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/563)). Allocate 12 GB or more where the machine allows it. Where it does not, cap the heap rather than the container: `jvm_heap_max` in `~/.ldmrc` applies to every project, and `ldm run --jvm-args` applies to one.
+
 ---
 
 ## 🛠️ Developer Setup (Manual Build)
@@ -136,12 +142,13 @@ ldm package aica-e2e --use-latest --repo <your-github-repository> -y
 
 This outputs a `.ldmp` bundle and a SHA-256 checksum file, around 2.3 MB. See `.github/workflows/package-ldmp.yml` for the exact release invocation.
 
-Three things about this sequence are not obvious, and each cost a failed release to learn:
+Several things about this sequence are not obvious, and each cost a failed release to learn:
 
 - **The database is excluded by stopping the stack, not by a flag.** LDM decides whether to bundle a dump purely by probing whether the database container is running. `ldm snapshot --files-only` is accepted by the CLI but read by no code path, so it has no effect.
 - **Emptying the volumes matters as much as stopping.** Snapshotting dehydrates the `data` and `state` Docker volumes back onto the host and archives them, which keeps the bundle near 1 GB even with no database. Empty them through a throwaway mount rather than `docker volume rm`, which refuses while a stopped container still references them.
 - **`--host-name` and `--ssl` on `ldm package` do nothing.** `cmd_package` takes no such parameters. The published values come from the snapshot's `meta`, which the release workflow rewrites directly. Left alone, the package inherits whatever the build environment used.
 - **The workflow strips pinned client-extension routes.** The snapshot captures the Liferay service's environment into `custom_env`, which _is_ propagated to consumers on import — including `LIFERAY_ROUTES_CLIENT_EXTENSION_..._MICROSERVICE` pointing at the build environment's own container hostname, which resolves nowhere else. Dropping it lets Liferay auto-register the route for the consumer's project when the client extension is deployed, which is the same reason `serviceAddress` is never hand-edited in `client-extension.yaml`.
+- **The workflow strips the build environment's search topology.** The harness boots with `--sidecar`, so LDM writes `...ElasticsearchConfiguration.operationMode=EMBEDDED` into `files/portal-ext.properties` and captures the matching `LIFERAY_ELASTICSEARCH_*` variables into `custom_env`. Both reach the consumer: the properties file is restored as layer 2 of LDM's properties cascade, where `module.framework.properties.*` outranks the OSGi config LDM writes for shared search, and `custom_env` is appended to the Liferay service _after_ LDM's own search settings, so a repeated key is the one Docker Compose resolves to. A consumer whose project resolved to shared search would therefore start a second Elasticsearch inside the Liferay container — `-Xms1g -Xmx2g -XX:+AlwaysPreTouch` by default on `2026.q1.7-lts`, on top of the heap LDM sized for the whole machine. `scripts/sanitize-ldm-package.cjs` removes both, and verification fails the release if either comes back.
 - **The workflow also declares `client_extensions` itself.** LDM derives `includes_client_extensions` from `cx/`, `deploy/` and the build directory, but `client_extensions` from the build directory alone — so a package can truthfully say it includes extensions and then list none. The workflow reads the list out of `files.tar.gz` and writes it, and verification fails the release if the declared list and the shipped archives disagree.
 
 To capture a specific local state including your PostgreSQL data — useful for handing an environment to a colleague — package while the stack is running and skip the volume cleanup. That is deliberately not what ships in releases.
@@ -193,4 +200,4 @@ During initial boot, you may see `OptimisticLockException` for `UserImpl`. This 
 
 ---
 
-_Last Updated: 2026-09-04_ | _Last Reviewed: 2026-09-04_
+_Last Updated: 2026-09-17_ | _Last Reviewed: 2026-09-17_
