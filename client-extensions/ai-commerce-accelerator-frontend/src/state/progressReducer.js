@@ -269,10 +269,18 @@ export function progressReducer(state, action) {
     case 'UPDATE_BATCH': {
       const { entity, batchId, completed, total } = action;
       const cur = entityState(state, entity);
+      const key = batchKey(batchId);
 
+      // How big a batch is was established when it started, and its
+      // completion does not restate it: `batchCompleted` carries the success
+      // and failure counts and no total at all. Taking the absent total as a
+      // new fact erased the one already recorded, which left the denominator
+      // depending on callback timing - it became the size of however many
+      // batches happened to be in flight at once. Seven SKU batches that each
+      // finished before the next was submitted read `7 / 1` (#891).
       const nextBatches = {
         ...cur.batches,
-        [batchKey(batchId)]: { completed, total },
+        [key]: { completed, total: total ?? cur.batches?.[key]?.total ?? 0 },
       };
 
       return {
