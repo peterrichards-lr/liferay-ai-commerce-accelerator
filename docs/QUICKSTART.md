@@ -151,6 +151,14 @@ Several things about this sequence are not obvious, and each cost a failed relea
 - **The workflow strips the build environment's search topology.** The harness boots with `--sidecar`, so LDM writes `...ElasticsearchConfiguration.operationMode=EMBEDDED` into `files/portal-ext.properties` and captures the matching `LIFERAY_ELASTICSEARCH_*` variables into `custom_env`. Both reach the consumer: the properties file is restored as layer 2 of LDM's properties cascade, where `module.framework.properties.*` outranks the OSGi config LDM writes for shared search, and `custom_env` is appended to the Liferay service _after_ LDM's own search settings, so a repeated key is the one Docker Compose resolves to. A consumer whose project resolved to shared search would therefore start a second Elasticsearch inside the Liferay container — `-Xms1g -Xmx2g -XX:+AlwaysPreTouch` by default on `2026.q1.7-lts`, on top of the heap LDM sized for the whole machine. `scripts/sanitize-ldm-package.cjs` removes both, and verification fails the release if either comes back.
 - **The workflow also declares `client_extensions` itself.** LDM derives `includes_client_extensions` from `cx/`, `deploy/` and the build directory, but `client_extensions` from the build directory alone — so a package can truthfully say it includes extensions and then list none. The workflow reads the list out of `files.tar.gz` and writes it, and verification fails the release if the declared list and the shipped archives disagree.
 
+Verification is a script rather than a workflow step, so none of the above has to be taken on trust:
+
+```bash
+node scripts/verify-ldm-package.cjs liferay-ai-commerce-accelerator.ldmp
+```
+
+It makes every check listed above against any `.ldmp` on disk — an already published one included — printing what it found and exiting non-zero with the list of things it refuses. The release workflow calls the same script, so a release can be reproduced locally without pushing a tag. It compares the packaged OSGi bundles against `bundles/osgi/modules` and complains if that directory is absent; pass `--staged-dir <dir>` to point it elsewhere.
+
 To capture a specific local state including your PostgreSQL data — useful for handing an environment to a colleague — package while the stack is running and skip the volume cleanup. That is deliberately not what ships in releases.
 
 ---
