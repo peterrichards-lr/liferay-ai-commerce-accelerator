@@ -52,6 +52,11 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # The secret scan compares this branch against its base, and the
+          # default shallow clone has neither the base ref nor the merge base,
+          # so the range would not resolve (#1001).
+          fetch-depth: 0
 
       - name: Setup Java
         uses: actions/setup-java@v3
@@ -89,6 +94,31 @@ jobs:
 
       - name: Run Markdown Lint
         run: yarn lint:md
+        timeout-minutes: 5
+
+      # `yarn lint` chains eslint, markdown, json, cx and lockfile, but CI runs
+      # the pieces individually and these two were never added - so a duplicate
+      # key in a manifest or an invalid client extension descriptor reached
+      # master unchallenged, and only a developer running the full chain locally
+      # would have seen it.
+      - name: Run JSON Duplicate Key Check
+        run: yarn lint:json
+        timeout-minutes: 5
+
+      - name: Run Client Extension Validation
+        run: yarn lint:cx
+
+      # The pre-commit hook is the only other place this runs, and a hook is
+      # skippable - `--no-verify` is routine in a worktree, where there is no
+      # node_modules for lint-staged. Nothing scanned a pull request before
+      # this (#1001).
+      #
+      # `--range` rather than the default: on a runner nothing is staged, so
+      # the index scan would report success over an empty set.
+      - name: Scan the branch for leaked secrets
+        run: |
+          node scripts/detect-secrets.mjs \
+            --range "origin/${{ github.base_ref || 'master' }}...HEAD"
         timeout-minutes: 5
 
       - name: Run Dependency Security Audit

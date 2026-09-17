@@ -1,0 +1,150 @@
+const { execFileSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const SCRIPT = path.resolve(__dirname, '../../../scripts/detect-secrets.mjs');
+
+/**
+ * The secrets check ran in exactly one place - the pre-commit hook - and that
+ * place is skippable with `--no-verify`, which worktree work does routinely
+ * because a fresh worktree has no node_modules for lint-staged. Nothing scanned
+ * a pull request (#1001).
+ *
+ * It could not simply be added to CI: it read `git diff --cached`, and on a
+ * runner nothing is staged, so it reported "no staged files" and exited zero. A
+ * green tick over an empty set is worse than no check, because a green tick is
+ * read as evidence.
+ *
+ * So the selection is now a choice, and the test that matters is the last one:
+ * that the check actually FAILS on a planted secret in the mode CI uses. The
+ * rest is argument handling.
+ */
+
+describe('detect-secrets: choosing what to scan (#1001)', () => {
+  let selectionFor;
+
+  beforeAll(async () => {
+    ({ selectionFor } = await import(`file://${SCRIPT}`));
+  });
+
+  it('defaults to the index, so the commit hook is unchanged', () => {
+    const selection = selectionFor([]);
+
+    expect(selection.command).toContain('--cached');
+    expect(selection.describe).toBe('staged files');
+  });
+
+  it('scans a range when given one', () => {
+    const selection = selectionFor(['--range', 'main...HEAD']);
+
+    expect(selection.command).toContain('git diff main...HEAD');
+    expect(selection.command).not.toContain('--cached');
+    expect(selection.range).toBe('main...HEAD');
+  });
+
+  it('accepts --range=VALUE', () => {
+    expect(selectionFor(['--range=main...HEAD']).range).toBe('main...HEAD');
+  });
+
+  // The empty message names the range, so a CI log says what was examined
+  // rather than implying the whole tree was.
+  it('says which range found nothing', () => {
+    expect(selectionFor(['--range', 'a...b']).emptyMessage).toContain('a...b');
+  });
+});
+
+describe('detect-secrets: it actually fails on a planted secret (#1001)', () => {
+  let repo;
+
+  const git = (...args) =>
+    execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
+
+  // The script reads file contents from `path.resolve(__dirname, '..')`, not
+  // from the working directory, so a copy has to live inside the sandbox for
+  // its root to be the sandbox. Copying its own bytes also means the code under
+  // test is the code that ships.
+  const runCheck = (...args) => {
+    const sandboxed = path.join(repo, 'scripts', 'detect-secrets.mjs');
+
+    fs.mkdirSync(path.dirname(sandboxed), { recursive: true });
+    fs.copyFileSync(SCRIPT, sandboxed);
+
+    try {
+      const stdout = execFileSync('node', [sandboxed, ...args], {
+        cwd: repo,
+        encoding: 'utf8',
+      });
+      return { status: 0, stdout };
+    } catch (error) {
+      return {
+        status: error.status,
+        stdout: `${error.stdout || ''}${error.stderr || ''}`,
+      };
+    }
+  };
+
+  beforeEach(() => {
+    repo = fs.mkdtempSync(path.join(os.tmpdir(), 'secrets-range-'));
+    git('init', '-q');
+    git('config', 'user.email', 'test@example.com');
+    git('config', 'user.name', 'Test');
+    fs.writeFileSync(path.join(repo, 'README.md'), '# base\n');
+    git('add', '.');
+    git('commit', '-q', '-m', 'base');
+    git('branch', '-M', 'base-branch');
+  });
+
+  afterEach(() => {
+    fs.rmSync(repo, { recursive: true, force: true });
+  });
+
+  // Assembled rather than written out, so this fixture cannot trip the very
+  // check it is testing when the repository scans itself.
+  const plantedKey = () => 'sk-' + 'a'.repeat(40);
+
+  it('fails on a secret added in the range', () => {
+    git('checkout', '-q', '-b', 'feature');
+    fs.writeFileSync(path.join(repo, 'leak.txt'), `key = ${plantedKey()}\n`);
+    git('add', '.');
+    git('commit', '-q', '--no-verify', '-m', 'add a key');
+
+    const { status, stdout } = runCheck('--range', 'base-branch...HEAD');
+
+    expect(status).toBe(1);
+    expect(stdout).toMatch(/OpenAI API Key|leak\.txt/);
+  });
+
+  // The case that made the check unusable in CI: nothing staged, so the old
+  // behaviour reported success without examining the branch at all.
+  it('the default mode passes over the same commit, which is why range exists', () => {
+    git('checkout', '-q', '-b', 'feature');
+    fs.writeFileSync(path.join(repo, 'leak.txt'), `key = ${plantedKey()}\n`);
+    git('add', '.');
+    git('commit', '-q', '--no-verify', '-m', 'add a key');
+
+    const { status, stdout } = runCheck();
+
+    expect(status).toBe(0);
+    expect(stdout).toMatch(/No staged files/);
+  });
+
+  it('passes a clean range', () => {
+    git('checkout', '-q', '-b', 'feature');
+    fs.writeFileSync(path.join(repo, 'fine.txt'), 'nothing to see\n');
+    git('add', '.');
+    git('commit', '-q', '--no-verify', '-m', 'clean');
+
+    expect(runCheck('--range', 'base-branch...HEAD').status).toBe(0);
+  });
+
+  // A range that does not resolve must not pass quietly - that would restore
+  // the empty-set green tick by another route.
+  it('fails on an unresolvable range rather than passing', () => {
+    expect(runCheck('--range', 'no-such-ref...HEAD').status).toBe(1);
+  });
+
+  it('refuses --range with no value', () => {
+    expect(runCheck('--range').status).toBe(2);
+  });
+});

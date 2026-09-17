@@ -20,6 +20,7 @@ const {
   resolveSkuOptionLink,
 } = require('../../utils/productOptionLinks.cjs');
 const { definitionIdOf } = require('../../utils/productIdentity.cjs');
+const { productOptionsOf } = require('../../utils/productShape.cjs');
 
 /**
  * Liferay's Sku.price / promoPrice / cost accept any number >= 0. The AI
@@ -63,11 +64,9 @@ async function runResolveSkuIdsStep(sessionId) {
   // HARDENING: Resolve ONLY the SKUs that were actually sent to Liferay
   const skuErcs = [];
   for (const p of productDataList) {
-    const hasSkuContributingOptions = (
-      p.productOptions ||
-      p.options ||
-      []
-    ).some((o) => o.skuContributor);
+    const hasSkuContributingOptions = productOptionsOf(p).some(
+      (o) => o.skuContributor
+    );
 
     if (
       options.generateSkuVariants &&
@@ -153,10 +152,9 @@ async function runLinkProductOptionsStep(sessionId) {
   const { config, productDataList } = session.context;
 
   try {
-    const productsWithOpts = (productDataList || []).filter((p) => {
-      const opts = p.productOptions || p.options;
-      return Array.isArray(opts) && opts.length > 0;
-    });
+    const productsWithOpts = (productDataList || []).filter(
+      (p) => productOptionsOf(p).length > 0
+    );
 
     // Accumulated across products so the step can report once, at a level the
     // run actually shows. These warnings existed before and reached nothing
@@ -188,7 +186,7 @@ async function runLinkProductOptionsStep(sessionId) {
         `Linking options for product ${product.externalReferenceCode} (CPDefinition ${definitionId})`,
         { sessionId }
       );
-      const sourceOptions = product.productOptions || product.options;
+      const sourceOptions = productOptionsOf(product);
       const cleanedOptions = sourceOptions.map((opt) => {
         const name =
           typeof opt.name === 'string' ? { en_US: opt.name } : opt.name;
@@ -447,11 +445,9 @@ async function runProductSkusStep(sessionId) {
           ...expiryFields,
         };
 
-        const hasSkuContributingOptions = (
-          pd.productOptions ||
-          pd.options ||
-          []
-        ).some((o) => o.skuContributor);
+        const hasSkuContributingOptions = productOptionsOf(pd).some(
+          (o) => o.skuContributor
+        );
 
         // If variants are enabled, generate all SKUs with option mappings
         if (
@@ -471,7 +467,7 @@ async function runProductSkusStep(sessionId) {
             };
 
             if (v.options) {
-              const productOptions = pd.productOptions || pd.options || [];
+              const productOptions = productOptionsOf(pd);
               const contributing = [];
               const nonContributing = [];
 
