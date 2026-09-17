@@ -10,6 +10,8 @@ describe('Pricing steps: catalog base price list adoption', () => {
 
   let productGenerator;
   let mockLiferay;
+  let mockLogger;
+  let mockProgress;
   let mockSession;
 
   const liferayBasePriceList = () => ({
@@ -80,25 +82,29 @@ describe('Pricing steps: catalog base price list adoption', () => {
       rest: { _delete: vi.fn().mockResolvedValue({}) },
     };
 
+    mockLogger = {
+      debug: vi.fn(),
+      error: vi.fn(),
+      info: vi.fn(),
+      trace: vi.fn(),
+      warn: vi.fn(),
+    };
+
+    mockProgress = {
+      batchCompleted: vi.fn(),
+      batchStarted: vi.fn(),
+      stepWarning: vi.fn(),
+    };
+
     productGenerator = new ProductGenerator({
       liferay: mockLiferay,
-      logger: {
-        debug: vi.fn(),
-        error: vi.fn(),
-        info: vi.fn(),
-        trace: vi.fn(),
-        warn: vi.fn(),
-      },
+      logger: mockLogger,
       persistence: {
         createBatch: vi.fn().mockResolvedValue({}),
         getSession: vi.fn(),
         updateBatch: vi.fn().mockResolvedValue({}),
       },
-      progress: {
-        batchCompleted: vi.fn(),
-        batchStarted: vi.fn(),
-        stepWarning: vi.fn(),
-      },
+      progress: mockProgress,
     });
 
     productGenerator.completeSyncStep = vi.fn().mockResolvedValue({});
@@ -265,6 +271,74 @@ describe('Pricing steps: catalog base price list adoption', () => {
         expect.anything(),
         'base-pl',
         { catalogBasePriceList: true }
+      );
+    });
+
+    // The state the step exists to repair: an AICA list holds the flag and the
+    // catalog's own list does not.
+    const displacedFlag = () => [
+      {
+        catalogBasePriceList: true,
+        catalogId: CATALOG_ID,
+        externalReferenceCode: 'AICA-PL-GENERAL-123-abcd1234',
+        id: 'stale-aica-pl',
+        name: `AICA - Standard Prices (${CATALOG_ID})`,
+        type: 'price-list',
+      },
+      { ...liferayBasePriceList(), catalogBasePriceList: false },
+      liferayBasePromotion(),
+    ];
+
+    const warnings = () =>
+      mockLogger.warn.mock.calls.map(([message]) => message);
+
+    // Liferay answers PATCH /price-lists/{id} with 200 and discards
+    // catalogBasePriceList on 2026.q3.0 (#943), so the lists read back unchanged.
+    it('does not report a repair Liferay accepted and discarded', async () => {
+      mockLiferay.getPriceLists.mockResolvedValue({ items: displacedFlag() });
+
+      await runCatalogConfig();
+
+      expect(warnings().join('\n')).toContain('#943');
+      expect(mockProgress.stepWarning).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('stale-aica-pl'),
+          step: WORKFLOW_STEPS.UPDATE_CATALOG_CONFIG,
+        })
+      );
+      // Only the promotion, which already carried the flag, is a flag this step
+      // can honestly claim. Reporting 2 of 2 is what the defect looked like.
+      expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
+        'sess-1',
+        WORKFLOW_STEPS.UPDATE_CATALOG_CONFIG,
+        'SYNCHRONOUS',
+        1,
+        2
+      );
+    });
+
+    it('reports the repair once the flag actually moves', async () => {
+      const items = displacedFlag();
+
+      mockLiferay.getPriceLists.mockImplementation(() =>
+        Promise.resolve({ items })
+      );
+      mockLiferay.patchPriceList.mockImplementation((_config, id, data) => {
+        const pl = items.find((item) => String(item.id) === String(id));
+        pl.catalogBasePriceList = data.catalogBasePriceList;
+        return Promise.resolve({});
+      });
+
+      await runCatalogConfig();
+
+      expect(warnings().join('\n')).not.toContain('#943');
+      expect(mockProgress.stepWarning).not.toHaveBeenCalled();
+      expect(productGenerator.completeSyncStep).toHaveBeenCalledWith(
+        'sess-1',
+        WORKFLOW_STEPS.UPDATE_CATALOG_CONFIG,
+        'SYNCHRONOUS',
+        2,
+        2
       );
     });
   });
