@@ -70,6 +70,7 @@ describe('aica CLI: admin token for gated commands (#930)', () => {
     'AICA_ADMIN_TOKEN',
     'AICA_ADMIN_CLIENT_ID',
     'AICA_ADMIN_CLIENT_SECRET',
+    'AICA_CLI_CLIENT_ID',
   ];
 
   const loadCli = (env = {}) => {
@@ -224,6 +225,54 @@ describe('aica CLI: admin token for gated commands (#930)', () => {
       await expect(cli.adminToken({}, 'aica delete')).rejects.toThrow(
         /no access_token/
       );
+    });
+
+    // An unattended run must never reach the browser flow: it would hang until
+    // something timed out, with nothing to say why.
+    it('does not offer interactive sign-in when not on a terminal', async () => {
+      const tty = process.stdin.isTTY;
+      process.stdin.isTTY = false;
+
+      try {
+        const cli = loadCli({ AICA_CLI_CLIENT_ID: 'id-cli' });
+
+        await expect(cli.adminToken({}, 'aica delete')).rejects.toThrow(
+          /administrator accounts/
+        );
+      } finally {
+        process.stdin.isTTY = tty;
+      }
+    });
+
+    // And the machine path wins where both are configured, so a CI run with a
+    // stray TTY still authenticates as the application rather than waiting for
+    // a person.
+    it('prefers the application credentials over interactive sign-in', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ access_token: 'minted-token' }),
+        text: async () => '',
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const tty = process.stdin.isTTY;
+      process.stdin.isTTY = true;
+
+      try {
+        const cli = loadCli({
+          AICA_ADMIN_CLIENT_ID: 'id-automation',
+          AICA_ADMIN_CLIENT_SECRET: 'shh',
+          AICA_CLI_CLIENT_ID: 'id-cli',
+        });
+
+        await expect(cli.adminToken({}, 'aica delete')).resolves.toBe(
+          'minted-token'
+        );
+      } finally {
+        process.stdin.isTTY = tty;
+        vi.unstubAllGlobals();
+      }
     });
 
     it('refuses when only one half of the pair is set', async () => {
