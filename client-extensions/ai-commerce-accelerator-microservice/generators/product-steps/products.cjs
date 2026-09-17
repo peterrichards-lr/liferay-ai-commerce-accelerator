@@ -14,6 +14,10 @@ const {
   summariseFailures,
   writeEachEntity,
 } = require('../../utils/entityWrites.cjs');
+const {
+  productOptionsOf,
+  productSpecificationsOf,
+} = require('../../utils/productShape.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -86,11 +90,7 @@ async function runProductCreationStep(sessionId) {
         // catalogue can back a B2B and a B2C storefront from the outset.
         // See #664.
         productChannels: runChannelIds.map((channelId) => ({ channelId })),
-        productSpecifications: (
-          pd.productSpecifications ||
-          pd.specifications ||
-          []
-        ).map((spec) => {
+        productSpecifications: productSpecificationsOf(pd).map((spec) => {
           const { externalReferenceCode: _erc, ...rest } = spec;
           return {
             ...rest,
@@ -113,11 +113,9 @@ async function runProductCreationStep(sessionId) {
         }),
       };
 
-      const hasSkuContributingOptions = (
-        pd.productOptions ||
-        pd.options ||
-        []
-      ).some((o) => o.skuContributor);
+      const hasSkuContributingOptions = productOptionsOf(pd).some(
+        (o) => o.skuContributor
+      );
 
       if (pd.skus && pd.skus.length > 0) {
         // Rule: If product has SKU-contributing options, omit SKUs in initial payload
