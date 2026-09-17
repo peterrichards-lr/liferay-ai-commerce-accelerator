@@ -47,20 +47,72 @@ function loadGitleaksIgnore() {
     .filter((line) => line && !line.startsWith('#'));
 }
 
-function checkSecrets() {
+/**
+ * Which files to scan, and how to say so.
+ *
+ * The index is the right target for a commit hook and the wrong one everywhere
+ * else: on a runner nothing is staged, so a check reading `--cached` reports
+ * "no staged files" and exits zero. That is not a scan - it is a green tick
+ * over an empty set, which is worse than no check at all, because a green tick
+ * is read as evidence (#1001).
+ *
+ * `--range base...head` scans what a branch adds instead, which is what a pull
+ * request needs. Absent, the behaviour is unchanged, so the hook keeps working
+ * exactly as it did.
+ */
+export function selectionFor(argv) {
+  const flag = argv.find((a) => a === '--range' || a.startsWith('--range='));
+
+  if (!flag) {
+    return {
+      command: 'git diff --cached --name-only --diff-filter=ACM',
+      describe: 'staged files',
+      emptyMessage: 'No staged files to check.',
+    };
+  }
+
+  const range = flag.includes('=')
+    ? flag.slice('--range='.length)
+    : argv[argv.indexOf(flag) + 1];
+
+  if (!range) {
+    console.error(
+      '❌ --range needs a revision range, e.g. --range main...HEAD'
+    );
+    process.exit(2);
+  }
+
+  return {
+    command: `git diff ${range} --name-only --diff-filter=ACM`,
+    describe: `files changed in ${range}`,
+    emptyMessage: `No files changed in ${range}.`,
+    range,
+  };
+}
+
+function checkSecrets(argv = process.argv.slice(2)) {
+  const selection = selectionFor(argv);
+
   console.log(
-    '🔒 Running Node-native Secrets Leak Detection check on staged files...'
+    `🔒 Running Node-native Secrets Leak Detection check on ${selection.describe}...`
   );
 
   const ignoreRules = loadGitleaksIgnore();
 
   let stagedFilesText;
   try {
-    stagedFilesText = execSync(
-      'git diff --cached --name-only --diff-filter=ACM',
-      { encoding: 'utf8' }
-    );
+    stagedFilesText = execSync(selection.command, { encoding: 'utf8' });
   } catch (err) {
+    // A range that does not resolve is a broken invocation, not an absent git.
+    // Passing it silently would restore the empty-set green tick this exists
+    // to remove.
+    if (selection.range) {
+      console.error(
+        `❌ Could not list files for range '${selection.range}': ${err.message}`
+      );
+      process.exit(1);
+    }
+
     console.error('⚠️ Failed to list git staged files:', err.message);
     process.exit(0); // Pass gracefully if git is not available
   }
@@ -70,7 +122,7 @@ function checkSecrets() {
     .map((f) => f.trim())
     .filter(Boolean);
   if (files.length === 0) {
-    console.log('✅ No staged files to check.');
+    console.log(`✅ ${selection.emptyMessage}`);
     process.exit(0);
   }
 
@@ -180,4 +232,25 @@ function checkSecrets() {
   }
 }
 
-checkSecrets();
+// Importable without running. A module that scans and exits on load cannot be
+// tested, which is how the file-selection half stayed uncovered while the
+// pattern matching was covered (#1001).
+//
+// Compared through realpath on both sides: a plain string comparison is wrong
+// wherever the invoking path differs from the real one - macOS resolves /var to
+// /private/var - and would silently decline to run, leaving the hook passing
+// without scanning anything.
+let invokedDirectly = false;
+
+try {
+  invokedDirectly =
+    Boolean(process.argv[1]) &&
+    fs.realpathSync(process.argv[1]) ===
+      fs.realpathSync(fileURLToPath(import.meta.url));
+} catch {
+  invokedDirectly = false;
+}
+
+if (invokedDirectly) {
+  checkSecrets();
+}
