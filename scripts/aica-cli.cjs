@@ -69,6 +69,10 @@ const ADMIN_TOKEN = process.env.AICA_ADMIN_TOKEN || '';
 // reusing them would mean anything that can read this environment could delete
 // every commerce object. This application must be named in AICA_ADMIN_CLIENTS
 // on the service, which is what grants it (#988).
+// The user-agent application an operator signs in through, declared as a
+// client extension so its loopback redirect URI is registered (#989).
+const CLI_CLIENT_ID = process.env.AICA_CLI_CLIENT_ID || '';
+
 const ADMIN_CLIENT_ID = process.env.AICA_ADMIN_CLIENT_ID || '';
 const ADMIN_CLIENT_SECRET = process.env.AICA_ADMIN_CLIENT_SECRET || '';
 
@@ -1034,6 +1038,15 @@ async function adminToken(opts, command) {
     return machineToken();
   }
 
+  // Last, because it needs a person. Offered only on a terminal: a browser
+  // opened by an unattended run would hang until something timed out, with
+  // nothing to say why.
+  if (CLI_CLIENT_ID && process.stdin.isTTY) {
+    const { login } = require('./pkce-login.cjs');
+
+    return login({ liferayUrl: LIFERAY_URL, clientId: CLI_CLIENT_ID });
+  }
+
   throw new Error(
     `${command} acts on a route reserved for administrator accounts.\n` +
       `   The CLI's LIFERAY_API_* credentials authenticate the microservice to\n` +
@@ -1043,7 +1056,9 @@ async function adminToken(opts, command) {
       `   --token <token> or AICA_ADMIN_TOKEN, and add that account to\n` +
       `   AICA_ADMINS on the service.\n` +
       `   Unattended, set AICA_ADMIN_CLIENT_ID and AICA_ADMIN_CLIENT_SECRET for\n` +
-      `   a dedicated application named in AICA_ADMIN_CLIENTS.`
+      `   a dedicated application named in AICA_ADMIN_CLIENTS.\n` +
+      `   To sign in through a browser instead, set AICA_CLI_CLIENT_ID and run\n` +
+      `   this from a terminal.`
   );
 }
 
