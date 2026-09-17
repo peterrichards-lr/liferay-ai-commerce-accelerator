@@ -6,6 +6,7 @@ const {
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
 const { coverPriceEntries } = require('../../utils/priceEntryCoverage.cjs');
+const { setCatalogBaseFlag } = require('../../utils/catalogBaseFlag.cjs');
 const {
   summariseFailures,
   writeEachEntity,
@@ -107,6 +108,27 @@ async function runGenerateTierPricingStep(sessionId) {
   }
 }
 
+/**
+ * This step is the flag repair: it takes catalogBasePriceList off any list that
+ * is not a target and puts it on the ones that are.
+ *
+ * Two things about it are worth knowing before changing it.
+ *
+ * It cannot currently succeed. `PATCH /price-lists/{id}` answers 200 and
+ * discards the field on 2026.q3.0, and no other Headless route reaches it
+ * either (#943). Every write here was reported as a repair that had happened;
+ * setCatalogBaseFlag reads the value back so an unchanged flag is a warning
+ * rather than a silent success, and the step's processed count now means flags
+ * verified rather than lists visited (#724).
+ *
+ * It also runs too late to help this run. SkuUtil._updateCommercePriceEntry
+ * reads the flag while create-product-skus files Sku.price, which is earlier in
+ * the subflow, so a repair here first takes effect on the following run. Moving
+ * it is not a fix on its own - when the catalog has no list of a type, the step
+ * has to run after create-price-lists has made the list it flags - and it is
+ * moot while the write cannot land. If #943 is resolved upstream, the ordering
+ * is the next thing to settle.
+ */
 async function runUpdateCatalogConfigurationStep(sessionId) {
   const session = await this.persistence.getSession(sessionId);
   const { config } = session.context;
@@ -128,19 +150,32 @@ async function runUpdateCatalogConfigurationStep(sessionId) {
     const resolved = targets.filter((target) => target.id);
     const targetIds = new Set(resolved.map((target) => String(target.id)));
 
+    const writeFlag = (priceListId, desired, what) =>
+      setCatalogBaseFlag(
+        { liferay: this.liferay, logger: this.logger },
+        { catalogId, config, desired, priceListId, sessionId, what }
+      );
+
+    const unrepaired = [];
+
     for (const pl of catalogLists) {
       if (pl.catalogBasePriceList && !targetIds.has(String(pl.id))) {
-        await this.liferay.patchPriceList(config, pl.id, {
-          catalogBasePriceList: false,
-        });
+        const cleared = await writeFlag(
+          pl.id,
+          false,
+          `price list "${pl.name}"`
+        );
+
+        if (!cleared) {
+          unrepaired.push(`${pl.name} (${pl.id}) still holds the base flag`);
+        }
+
         await delay(1000);
       }
     }
 
-    let updateCount = 0;
+    let verifiedCount = 0;
     for (const target of resolved) {
-      updateCount++;
-
       // An adopted list already carries the flag, so re-asserting it would only
       // spend a request and 2s of the step's budget on a value that cannot change.
       if (target.catalogBasePriceList) {
@@ -148,20 +183,47 @@ async function runUpdateCatalogConfigurationStep(sessionId) {
           `Price list ${target.id} (${target.name}) is already the catalog base ${target.type} for catalog ${catalogId}`,
           { sessionId }
         );
+        verifiedCount++;
         continue;
       }
 
-      await this.liferay.patchPriceList(config, target.id, {
-        catalogBasePriceList: true,
-      });
+      if (await writeFlag(target.id, true, `price list "${target.name}"`)) {
+        verifiedCount++;
+      } else {
+        unrepaired.push(
+          `${target.name} (${target.id}) did not become the catalog base ${target.type}`
+        );
+      }
+
       await delay(2000);
+    }
+
+    if (unrepaired.length > 0) {
+      const detail = unrepaired.join('; ');
+
+      this.logger.warn(
+        `Catalog ${catalogId} still does not point at the price lists this run used: ${detail}. ` +
+          `catalogBasePriceList cannot be written through Headless on this DXP line (#943), so ` +
+          `Sku.price and Sku.promoPrice keep going to whichever list already carried the flag.`,
+        { sessionId }
+      );
+
+      this.progress.stepWarning({
+        correlationId: session.correlationId,
+        entityType: 'priceLists',
+        errorReference: createERC(ERC_PREFIX.ERROR),
+        message: `The catalog's base price list could not be corrected: ${detail}. Prices written from a SKU go to the list that already held the flag; the price lists this run created or adopted are otherwise complete.`,
+        operation: session.flow_type || session.flowType,
+        sessionId,
+        step: S.UPDATE_CATALOG_CONFIG,
+      });
     }
 
     await this.completeSyncStep(
       sessionId,
       S.UPDATE_CATALOG_CONFIG,
       'SYNCHRONOUS',
-      updateCount,
+      verifiedCount,
       PRICE_LIST_PURPOSES.length
     );
   } catch (err) {
