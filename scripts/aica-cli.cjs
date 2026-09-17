@@ -64,6 +64,14 @@ const LIFERAY_URL =
 // reach their endpoints at all (#930).
 const ADMIN_TOKEN = process.env.AICA_ADMIN_TOKEN || '';
 
+// The application a non-interactive run authenticates as. Deliberately not the
+// LIFERAY_API_* pair: those authenticate the microservice to Liferay, and
+// reusing them would mean anything that can read this environment could delete
+// every commerce object. This application must be named in AICA_ADMIN_CLIENTS
+// on the service, which is what grants it (#988).
+const ADMIN_CLIENT_ID = process.env.AICA_ADMIN_CLIENT_ID || '';
+const ADMIN_CLIENT_SECRET = process.env.AICA_ADMIN_CLIENT_SECRET || '';
+
 const LIFERAY_USERNAME = process.env.LIFERAY_API_USERNAME || 'test@liferay.com';
 const LIFERAY_PASSWORD = process.env.LIFERAY_API_PASSWORD || 'test';
 
@@ -973,24 +981,74 @@ async function handleGenerate(opts) {
  * CLI holds authenticate the microservice to Liferay; they are not an operator,
  * and no allowlist entry can make them one (#930).
  */
-function adminToken(opts, command) {
-  const token = (opts && opts.token) || ADMIN_TOKEN;
+async function machineToken() {
+  const res = await fetch(`${LIFERAY_URL}/o/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: ADMIN_CLIENT_ID,
+      client_secret: ADMIN_CLIENT_SECRET,
+    }),
+  });
 
-  if (!token) {
+  if (!res.ok) {
+    const text = await res.text();
     throw new Error(
-      `${command} acts on a route reserved for administrator accounts.\n` +
-        `   The CLI's client credentials authenticate the microservice to Liferay;\n` +
-        `   they are not an operator identity, so this route cannot accept them.\n` +
-        `   Supply an administrator's bearer token with --token <token>, or set\n` +
-        `   AICA_ADMIN_TOKEN, and add that account to AICA_ADMINS on the service.`
+      `Could not obtain a token for AICA_ADMIN_CLIENT_ID: HTTP ${res.status}: ${text}`
     );
   }
 
-  return token;
+  const body = await res.json();
+
+  if (!body.access_token) {
+    throw new Error(
+      'Liferay returned no access_token for AICA_ADMIN_CLIENT_ID; check the application allows the client_credentials grant.'
+    );
+  }
+
+  return body.access_token;
+}
+
+/**
+ * The credential for a route reserved for administrators.
+ *
+ * Three sources, in order of how directly they were supplied: an explicit
+ * token, then the automation application's credentials exchanged for one. A
+ * token already in hand is used as given rather than second-guessed.
+ *
+ * Refuses up front when there is none, rather than sending a request the
+ * microservice will reject: the rejection it would produce says nothing about
+ * why an operator identity is needed, and the obvious next move - allowlisting
+ * the CLI's existing client id - cannot work, because those credentials
+ * authenticate the microservice to Liferay and are not an operator (#930).
+ */
+async function adminToken(opts, command) {
+  const supplied = (opts && opts.token) || ADMIN_TOKEN;
+
+  if (supplied) {
+    return supplied;
+  }
+
+  if (ADMIN_CLIENT_ID && ADMIN_CLIENT_SECRET) {
+    return machineToken();
+  }
+
+  throw new Error(
+    `${command} acts on a route reserved for administrator accounts.\n` +
+      `   The CLI's LIFERAY_API_* credentials authenticate the microservice to\n` +
+      `   Liferay; they are not an operator identity, so this route cannot\n` +
+      `   accept them.\n` +
+      `   Interactively, supply an administrator's bearer token with\n` +
+      `   --token <token> or AICA_ADMIN_TOKEN, and add that account to\n` +
+      `   AICA_ADMINS on the service.\n` +
+      `   Unattended, set AICA_ADMIN_CLIENT_ID and AICA_ADMIN_CLIENT_SECRET for\n` +
+      `   a dedicated application named in AICA_ADMIN_CLIENTS.`
+  );
 }
 
 async function handleDelete(opts) {
-  const token = adminToken(opts, 'aica delete');
+  const token = await adminToken(opts, 'aica delete');
   const isSelected = opts.selected && !opts.all;
   const endpoint = isSelected
     ? 'delete-selected-commerce-data'
@@ -1365,7 +1423,7 @@ async function handleConfig(subCommand, arg1, extraArgs) {
     const saveRes = await nativePost(
       `${MICROSERVICE_URL}/api/v1/config/save`,
       savePayload,
-      { token: adminToken({ token: configToken }, 'aica config set') }
+      { token: await adminToken({ token: configToken }, 'aica config set') }
     );
     if (!saveRes.success) {
       throw new Error(
