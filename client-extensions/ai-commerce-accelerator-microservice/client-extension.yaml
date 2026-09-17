@@ -52,6 +52,27 @@ ai-commerce-accelerator-microservice:
     - Custom.Commerce.Site.Type.everything.read
   type: oAuthApplicationHeadlessServer
 
+# The identity an unattended `aica delete` or `aica config set` presents.
+#
+# Declared here rather than provisioned at run time because Liferay exposes no
+# API for creating an OAuth2 application - no dynamic registration endpoint
+# exists - so an application that must be present in every freshly built
+# instance has to come from a client extension (#988).
+#
+# Deliberately minimal scopes. The token this application issues is never used
+# to call Liferay: the microservice verifies its signature and reads the
+# `grant_type` and `client_id` claims to decide whether the caller may act, and
+# then uses its own credentials for the work itself. A scope granted here would
+# be authority nothing exercises.
+#
+# Granting is separate from existing: the client id must also be named in
+# AICA_ADMIN_CLIENTS on the service before this application can do anything.
+ai-commerce-accelerator-cli-automation:
+  name: Liferay AI Commerce Accelerator CLI Automation
+  scopes:
+    - Liferay.Headless.Admin.User.everything.read
+  type: oAuthApplicationHeadlessServer
+
 ai-commerce-accelerator-microservice-user-agent:
   .serviceAddress: localhost:3001
   .serviceScheme: http
