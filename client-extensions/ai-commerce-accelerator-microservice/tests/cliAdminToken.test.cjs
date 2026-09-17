@@ -61,74 +61,176 @@ describe('aica CLI: admin token for gated commands (#930)', () => {
     });
   });
 
-  // ADMIN_TOKEN is read once, when the module loads, so setting process.env
-  // inside a test cannot reach it. Re-importing with the environment already in
-  // place is the only way to exercise the env path at all - without this the
-  // precedence assertion passes whichever operand wins, which is no test.
-  const loadCli = (env) => {
-    const previous = process.env.AICA_ADMIN_TOKEN;
+  // The credential constants are read once, when the module loads, so setting
+  // process.env inside a test cannot reach them. Re-importing with the
+  // environment already in place is the only way to exercise those paths at all
+  // - without this the precedence assertions pass whichever operand wins, which
+  // is no test.
+  const CRED_VARS = [
+    'AICA_ADMIN_TOKEN',
+    'AICA_ADMIN_CLIENT_ID',
+    'AICA_ADMIN_CLIENT_SECRET',
+  ];
 
-    if (env === undefined) {
-      delete process.env.AICA_ADMIN_TOKEN;
-    } else {
-      process.env.AICA_ADMIN_TOKEN = env;
+  const loadCli = (env = {}) => {
+    const previous = {};
+
+    for (const key of CRED_VARS) {
+      previous[key] = process.env[key];
+
+      if (env[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = env[key];
+      }
     }
 
-    // vi.resetModules() does not clear Node's CJS require cache, so the
-    // module would be returned with ADMIN_TOKEN already frozen from the first
-    // load.
+    // vi.resetModules() does not clear Node's CJS require cache, so the module
+    // would be returned with its constants already frozen from the first load.
     delete require.cache[require.resolve('../../../scripts/aica-cli.cjs')];
     const mod = require('../../../scripts/aica-cli.cjs');
 
-    if (previous === undefined) {
-      delete process.env.AICA_ADMIN_TOKEN;
-    } else {
-      process.env.AICA_ADMIN_TOKEN = previous;
+    for (const key of CRED_VARS) {
+      if (previous[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = previous[key];
+      }
     }
 
     return mod;
   };
 
   describe('resolution', () => {
-    it('uses AICA_ADMIN_TOKEN when no flag is given', () => {
-      const cli = loadCli('from-env');
+    it('uses AICA_ADMIN_TOKEN when no flag is given', async () => {
+      const cli = loadCli({ AICA_ADMIN_TOKEN: 'from-env' });
 
-      expect(cli.adminToken({}, 'aica delete')).toBe('from-env');
+      await expect(cli.adminToken({}, 'aica delete')).resolves.toBe('from-env');
     });
 
-    it('prefers the flag over the environment', () => {
-      const cli = loadCli('from-env');
+    it('prefers the flag over the environment', async () => {
+      const cli = loadCli({ AICA_ADMIN_TOKEN: 'from-env' });
 
-      expect(cli.adminToken({ token: 'from-flag' }, 'aica delete')).toBe(
-        'from-flag'
-      );
+      await expect(
+        cli.adminToken({ token: 'from-flag' }, 'aica delete')
+      ).resolves.toBe('from-flag');
     });
 
-    it('refuses when neither is supplied, naming the policy', () => {
-      const cli = loadCli(undefined);
+    it('refuses when nothing is supplied, naming both paths', async () => {
+      const cli = loadCli({});
 
-      expect(() => cli.adminToken({}, 'aica delete')).toThrow(
+      await expect(cli.adminToken({}, 'aica delete')).rejects.toThrow(
         /administrator accounts/
       );
-      expect(() => cli.adminToken({}, 'aica delete')).toThrow(/--token/);
+      await expect(cli.adminToken({}, 'aica delete')).rejects.toThrow(
+        /--token/
+      );
+      await expect(cli.adminToken({}, 'aica delete')).rejects.toThrow(
+        /AICA_ADMIN_CLIENT_ID/
+      );
     });
 
     // The refusal has to explain that the credentials the CLI already holds are
-    // not an operator, or the obvious next move is to add the client id to
-    // AICA_ADMINS - which cannot work, because no token is sent at all.
-    it('explains that the client credentials are not an operator identity', () => {
-      const cli = loadCli(undefined);
+    // not an operator, or the obvious next move is to allowlist that client id -
+    // which cannot work, because those credentials authenticate the microservice
+    // to Liferay rather than the caller to the microservice.
+    it('explains that the existing credentials are not an operator identity', async () => {
+      const cli = loadCli({});
 
-      expect(() => cli.adminToken({}, 'aica delete')).toThrow(
+      await expect(cli.adminToken({}, 'aica delete')).rejects.toThrow(
         /not an operator identity/
       );
     });
 
-    it('names the command that was refused', () => {
-      const cli = loadCli(undefined);
+    it('names the command that was refused', async () => {
+      const cli = loadCli({});
 
-      expect(() => cli.adminToken({}, 'aica config set')).toThrow(
+      await expect(cli.adminToken({}, 'aica config set')).rejects.toThrow(
         /aica config set/
+      );
+    });
+  });
+
+  // Unattended callers exchange a dedicated application's credentials for a
+  // token. The application must be named in AICA_ADMIN_CLIENTS on the service
+  // (#988); the CLI's part is obtaining the token at all.
+  describe('unattended: client-credentials exchange', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const stubToken = (body, ok = true, status = 200) => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok,
+        status,
+        json: async () => body,
+        text: async () => JSON.stringify(body),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      return fetchMock;
+    };
+
+    it('exchanges the application credentials for a token', async () => {
+      const fetchMock = stubToken({ access_token: 'minted-token' });
+      const cli = loadCli({
+        AICA_ADMIN_CLIENT_ID: 'id-automation',
+        AICA_ADMIN_CLIENT_SECRET: 'shh',
+      });
+
+      await expect(cli.adminToken({}, 'aica delete')).resolves.toBe(
+        'minted-token'
+      );
+
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toContain('/o/oauth2/token');
+      expect(String(init.body)).toContain('grant_type=client_credentials');
+      expect(String(init.body)).toContain('client_id=id-automation');
+    });
+
+    it('does not exchange when a token was supplied directly', async () => {
+      const fetchMock = stubToken({ access_token: 'minted-token' });
+      const cli = loadCli({
+        AICA_ADMIN_TOKEN: 'already-have-one',
+        AICA_ADMIN_CLIENT_ID: 'id-automation',
+        AICA_ADMIN_CLIENT_SECRET: 'shh',
+      });
+
+      await expect(cli.adminToken({}, 'aica delete')).resolves.toBe(
+        'already-have-one'
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a rejected exchange rather than returning nothing', async () => {
+      stubToken({ error: 'invalid_client' }, false, 401);
+      const cli = loadCli({
+        AICA_ADMIN_CLIENT_ID: 'id-automation',
+        AICA_ADMIN_CLIENT_SECRET: 'wrong',
+      });
+
+      await expect(cli.adminToken({}, 'aica delete')).rejects.toThrow(
+        /HTTP 401/
+      );
+    });
+
+    // A 200 with no access_token would otherwise be sent as `Bearer undefined`.
+    it('refuses a response carrying no access_token', async () => {
+      stubToken({ token_type: 'Bearer' });
+      const cli = loadCli({
+        AICA_ADMIN_CLIENT_ID: 'id-automation',
+        AICA_ADMIN_CLIENT_SECRET: 'shh',
+      });
+
+      await expect(cli.adminToken({}, 'aica delete')).rejects.toThrow(
+        /no access_token/
+      );
+    });
+
+    it('refuses when only one half of the pair is set', async () => {
+      const cli = loadCli({ AICA_ADMIN_CLIENT_ID: 'id-automation' });
+
+      await expect(cli.adminToken({}, 'aica delete')).rejects.toThrow(
+        /administrator accounts/
       );
     });
   });
