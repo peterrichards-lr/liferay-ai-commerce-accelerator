@@ -1,3 +1,5 @@
+const { productOptionsOf } = require('./productShape.cjs');
+
 /**
  * Which of a product's SKUs an order may reference.
  *
@@ -33,9 +35,9 @@
  * Does this product define an option that makes its SKUs distinct?
  */
 function hasSkuContributingOptions(product) {
-  const options = product?.productOptions || product?.options || [];
-
-  return options.some((option) => option?.skuContributor === true);
+  return productOptionsOf(product).some(
+    (option) => option?.skuContributor === true
+  );
 }
 
 /**

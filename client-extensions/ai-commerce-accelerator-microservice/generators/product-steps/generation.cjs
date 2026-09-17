@@ -11,6 +11,11 @@ const {
 const {
   coverProductOptionValues,
 } = require('../../utils/optionValueCoverage.cjs');
+const {
+  declaresProductOptions,
+  mirrorProductOptions,
+  productSpecificationsOf,
+} = require('../../utils/productShape.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -28,7 +33,7 @@ async function runProductDataGenerationStep(sessionId) {
 
     // Normalize ERCs and specifications for imported data if they are missing
     const normalized = productDataList.map((p) => {
-      const specs = p.productSpecifications || p.specifications || [];
+      const specs = productSpecificationsOf(p);
       const normalizedSpecs = specs.map((spec) => {
         // Liferay looks specifications up by the normalized key but stores it
         // verbatim, so emit a key that is already normalized.
@@ -146,7 +151,7 @@ async function generateProductData(config, options, sessionId, _correlationId) {
     // have nothing to resolve against, so they are dropped rather than sent
     // dangling. See #647.
     const specs = options.generateSpecifications
-      ? p.productSpecifications || p.specifications || []
+      ? productSpecificationsOf(p)
       : [];
     const normalizedSpecs = specs.map((spec) => {
       // Liferay looks specifications up by the normalized key but stores it
@@ -188,8 +193,13 @@ async function generateProductData(config, options, sessionId, _correlationId) {
 
     return {
       ...p,
-      ...(covered && (p.productOptions || p.options)
-        ? { options: covered.options }
+      // Written back under every name the product already carries. Writing
+      // only `options` left a product that arrived with `productOptions` -
+      // an extracted dataset does - holding the uncovered list under the name
+      // every downstream reader consults first, so the coverage was computed
+      // and then discarded. See #698.
+      ...(covered && declaresProductOptions(p)
+        ? mirrorProductOptions(p, covered.options)
         : {}),
       externalReferenceCode: createERC(ERC_PREFIX.PRODUCT),
       specifications: normalizedSpecs,

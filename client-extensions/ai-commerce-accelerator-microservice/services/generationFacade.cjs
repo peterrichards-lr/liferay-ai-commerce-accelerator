@@ -376,15 +376,16 @@ class GenerationFacade {
    *
    * `options`/`specifications` are what the generation schemas declare and the
    * prompts ask for; `productOptions`/`productSpecifications` are what
-   * Liferay's API takes, produced downstream by the product step. Thirteen
-   * read sites accept either name, which is how the mock generator emitted the
+   * Liferay's API takes, produced downstream by the product step. Every reader
+   * accepts either name, which is how the mock generator emitted the
    * translated shape for a long time without anyone noticing - and because
    * `productOptions` is not a schema property and the product item permits
    * additional properties, the whole field passed unvalidated.
    *
-   * Detected in one place rather than by rewriting all thirteen reads, which
-   * would be a large change for no behavioural gain. This only makes the
-   * divergence audible. See #652.
+   * The reads themselves now go through `utils/productShape.cjs`, so they can
+   * no longer disagree about which name is authoritative (#698). This warning
+   * still earns its place: a product arriving in Liferay's shape has skipped
+   * schema validation whatever the readers do about it. See #652.
    */
   _warnOnTranslatedShape(data, entityType) {
     if (entityType !== 'product') {
