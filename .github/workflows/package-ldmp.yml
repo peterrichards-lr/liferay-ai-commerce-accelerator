@@ -104,26 +104,43 @@ jobs:
           echo "--- host dirs after cleanup ---"
           du -sh aica-e2e/data aica-e2e/osgi/state 2>&1 || true
 
+          # The harness runs `--sidecar`, so LDM wrote an EMBEDDED Elasticsearch
+          # operationMode into files/portal-ext.properties. That file is restored on
+          # the consumer's machine as `.liferay-docker/ldmp-portal-ext.properties`,
+          # layer 2 of LDM's properties cascade, and `module.framework.properties.*`
+          # outranks the OSGi config LDM writes for shared search - so a consumer
+          # whose project resolved to shared search starts an Elasticsearch INSIDE
+          # the Liferay container as well as the shared one. On 2026.q1.7-lts that
+          # sidecar defaults to `-Xms1g -Xmx2g -XX:+AlwaysPreTouch`, which is what
+          # takes an 8 GB machine over the edge. Strip it before snapshotting; LDM
+          # re-derives the search topology from the consumer's own settings. See #563.
+          node scripts/sanitize-ldm-package.cjs properties \
+            aica-e2e/files/portal-ext.properties \
+            aica-e2e/files/portal-ext.properties.bak
+
           # Take the snapshot explicitly so its meta can be enriched before packaging.
           ldm snapshot -p aica-e2e -y
+
+          # ldm package reads the meta from the SNAPSHOT directory, not the project
+          # directory - handlers/snapshot.py step 3 does read_meta(latest_snap_dir).
+          # Enriching aica-e2e/meta therefore never reaches the package. See #546.
+          # Sorting by name makes the newest last: LDM names them by timestamp.
+          SNAPSHOT_DIR=$(ls -1d aica-e2e/snapshots/*/ 2>/dev/null | sort | tail -n 1)
+          if [ -z "$SNAPSHOT_DIR" ]; then
+            echo "No snapshot directory found to enrich." >&2
+            exit 1
+          fi
+          export SNAPSHOT_DIR
+          echo "Snapshot directory: $SNAPSHOT_DIR"
 
           # `meta` is a JSON document written by LDM. Appending key=value lines to it
           # produces invalid JSON, which makes every key unreadable - including the
           # `tag` LDM records for the Liferay version the package was built against.
           # Merge into the parsed document instead.
           python3 - <<'PY'
-          import json, pathlib
+          import json, os, pathlib
 
-          # ldm package reads the meta from the SNAPSHOT directory, not the project
-          # directory - handlers/snapshot.py step 3 does read_meta(latest_snap_dir).
-          # Enriching aica-e2e/meta therefore never reaches the package. See #546.
-          snapshots = sorted(
-              d for d in pathlib.Path('aica-e2e/snapshots').iterdir() if d.is_dir()
-          )
-          if not snapshots:
-              raise SystemExit('No snapshot directory found to enrich.')
-
-          snapshot_dir = snapshots[-1]
+          snapshot_dir = pathlib.Path(os.environ['SNAPSHOT_DIR'])
           path = snapshot_dir / 'meta'
           meta = json.loads(path.read_text())
 
@@ -150,25 +167,6 @@ jobs:
           if not shipped:
               raise SystemExit('No client extension zips found in files.tar.gz.')
           print('Client extensions in archive:', ', '.join(shipped))
-          # The snapshot captures the Liferay service's environment into custom_env,
-          # which IS propagated to consumers on import. That includes the CI harness's
-          # own container hostname:
-          #     LIFERAY_ROUTES_CLIENT_EXTENSION_..._MICROSERVICE
-          #         = http://aica-e2e-ai-commerce-accelerator-microservice:3001
-          # which resolves nowhere on a consumer's machine. Drop the pin so Liferay
-          # auto-registers the route for whatever the project is actually called when
-          # the client extension zip is deployed. See #563.
-          custom_env = meta.get("custom_env")
-          was_string = isinstance(custom_env, str)
-          if was_string:
-              custom_env = json.loads(custom_env) if custom_env.strip() else {}
-          if isinstance(custom_env, dict):
-              pinned = [k for k in custom_env if k.startswith("LIFERAY_ROUTES_CLIENT_EXTENSION_")]
-              for key in pinned:
-                  print(f"Dropping pinned route from custom_env: {key}={custom_env[key]}")
-                  del custom_env[key]
-              meta["custom_env"] = json.dumps(custom_env) if was_string else custom_env
-
           meta.update({
               # `ldm package --host-name/--ssl` are accepted by the CLI and read by
               # no code path - cmd_package takes only project_id, output_dir, repo,
@@ -201,6 +199,16 @@ jobs:
           path.write_text(json.dumps(meta, indent=4, ensure_ascii=False) + "\n")
           print("Enriched meta; Liferay tag =", meta.get("tag"))
           PY
+          # The snapshot captures the Liferay service's environment into custom_env,
+          # which IS propagated to consumers on import: cmd_restore copies it into
+          # their project meta and composer appends it to the Liferay service AFTER
+          # its own search settings, so a key repeated here is the one Docker Compose
+          # resolves to. It carries the harness's container hostname in
+          # LIFERAY_ROUTES_CLIENT_EXTENSION_..._MICROSERVICE, which resolves nowhere
+          # else, and its --sidecar search topology, which contradicts the mode the
+          # consumer's project resolved to. See #563.
+          node scripts/sanitize-ldm-package.cjs meta "${SNAPSHOT_DIR}meta"
+
           # --use-latest packages the snapshot enriched above. It resolves via
           # backups[-1] from _list_backups, which sorts snapshot directories by name,
           # so timestamp names make it reliably the newest. Do not use
@@ -212,162 +220,12 @@ jobs:
 
       - name: Verify packaged metadata
         run: |
-          # Fail the release rather than publish a package whose meta cannot be
-          # parsed, or one that lost keys on the way through `ldm package --snapshot`.
-          python3 - <<'PY'
-          import json, pathlib, subprocess
-
-          package = pathlib.Path("liferay-ai-commerce-accelerator.ldmp")
-          raw = subprocess.run(
-              ["tar", "xzOf", str(package), "meta"], capture_output=True, check=True,
-          ).stdout
-          meta = json.loads(raw)
-          members = subprocess.run(
-              ["tar", "tzf", str(package)], capture_output=True, check=True, text=True,
-          ).stdout.split()
-          size_mb = package.stat().st_size / 1024 / 1024
-          required = ("tag", "admin_email", "banner_notes", "credentials", "feature_flags")
-
-          # Report everything BEFORE asserting anything. A run that trips one
-          # assertion should still tell us the surrounding facts - v3.3.49 died on
-          # includes_volume_assets without ever printing the package size, which left
-          # us unable to say whether the exclusion had partly worked. See #551.
-          print(f"  package size           : {size_mb:.1f} MB")
-          print(f"  archive members        : {', '.join(members)}")
-          print(f"  tag                    : {meta.get('tag')!r}")
-          print(f"  db_type                : {meta.get('db_type')!r}")
-          print(f"  includes_database      : {meta.get('includes_database')!r}")
-          print(f"  includes_volume_assets : {meta.get('includes_volume_assets')!r}")
-          print(f"  host_name              : {meta.get('host_name')!r}")
-          print(f"  ssl                    : {meta.get('ssl')!r}")
-          print(f"  client_extensions      : {meta.get('client_extensions')!r}")
-          print(f"  enrichment keys present: {[k for k in required if k in meta]}")
-
-          def truthy(value):
-              return str(value).lower() not in ("false", "none", "")
-
-          problems = []
-          missing = [key for key in required if key not in meta]
-          if missing:
-              problems.append(f"meta is missing required keys: {missing}")
-          if truthy(meta.get("includes_database", "")):
-              problems.append(
-                  f"includes_database={meta.get('includes_database')!r};"
-                  " the stack was not stopped before packaging"
-              )
-          if truthy(meta.get("includes_volume_assets", "")):
-              problems.append(
-                  f"includes_volume_assets={meta.get('includes_volume_assets')!r};"
-                  " Liferay data/state were captured into the archive"
-              )
-          for unwanted in ("database.sql", "database.gz"):
-              if unwanted in members:
-                  problems.append(f"package contains {unwanted}")
-          if size_mb > 250:
-              problems.append(f"package is {size_mb:.0f} MB; expected well under 250 MB")
-          if meta.get("host_name") != "aica.demo":
-              problems.append(
-                  f"host_name={meta.get('host_name')!r}; expected 'aica.demo'."
-                  " The CI harness's own host has leaked into the published package"
-              )
-          packaged_env = meta.get("custom_env")
-          if isinstance(packaged_env, str):
-              packaged_env = json.loads(packaged_env) if packaged_env.strip() else {}
-          pinned_routes = sorted(
-              k for k in (packaged_env or {}) if k.startswith("LIFERAY_ROUTES_CLIENT_EXTENSION_")
-          )
-          print(f"  pinned routes          : {pinned_routes or 'none'}")
-          if pinned_routes:
-              problems.append(
-                  f"custom_env pins {pinned_routes}; these carry the build environment's"
-                  " container hostnames and resolve nowhere on a consumer's machine"
-              )
-
-          inner = subprocess.run(
-              ["tar", "xzOf", str(package), "files.tar.gz"], capture_output=True, check=True,
-          ).stdout
-          inner_names = subprocess.run(
-              ["tar", "tzf", "-"], input=inner, capture_output=True, check=True, text=False,
-          ).stdout.decode().split()
-          cleaned = [n[2:] if n.startswith("./") else n for n in inner_names]
-
-          declared = [c for c in str(meta.get("client_extensions", "")).split(",") if c]
-          shipped = sorted({
-              clean.rsplit("/", 1)[-1]
-              for clean in cleaned
-              if clean.startswith("osgi/client-extensions/") and clean.endswith(".zip")
-          })
-          if sorted(declared) != shipped:
-              problems.append(
-                  f"client_extensions declares {sorted(declared)} but the archive ships"
-                  f" {shipped}"
-              )
-
-          # OSGi bundles get the same treatment as client extensions, and for the
-          # same reason: a package that quietly ships without one is not visibly
-          # broken. `/o/commerce-site-type` simply 404s, and the microservice
-          # deliberately degrades that to a warning (#610), so a demo would run
-          # with channel/account-type validation silently inert. The reindex
-          # endpoint fails the same way. Nothing else in this pipeline would
-          # notice, which is exactly why v3.3.53 shipped with no shared bundle
-          # and verified clean.
-          #
-          # Compared by filename rather than Bundle-SymbolicName: sync_osgi_modules
-          # copies these jars verbatim into the project directory, so the names
-          # are the ones LDM archives, and reading a symbolic name back out would
-          # mean unzipping each jar from inside the tar to learn nothing more.
-          staged_dir = pathlib.Path("bundles/osgi/modules")
-          staged_jars = sorted(f.name for f in staged_dir.glob("*.jar")) if staged_dir.is_dir() else []
-          packaged_jars = sorted({
-              clean.rsplit("/", 1)[-1]
-              for clean in cleaned
-              if clean.startswith("osgi/modules/") and clean.endswith(".jar")
-          })
-          print(f"  osgi modules staged    : {staged_jars or 'none'}")
-          print(f"  osgi modules packaged  : {packaged_jars or 'none'}")
-
-          if not staged_dir.is_dir():
-              # Distinguished from a mismatch: every packaged jar would otherwise
-              # be reported as unexpected, blaming the package for a check that
-              # could not run. The directory is populated by `./gradlew deploy`
-              # earlier in this job, so its absence means the build changed shape,
-              # not that the package is wrong.
-              problems.append(
-                  f"{staged_dir} does not exist, so osgi/modules cannot be verified"
-              )
-          elif staged_jars != packaged_jars:
-              only_staged = [j for j in staged_jars if j not in packaged_jars]
-              only_packaged = [j for j in packaged_jars if j not in staged_jars]
-              detail = []
-              if only_staged:
-                  detail.append(f"built but not shipped: {only_staged}")
-              if only_packaged:
-                  detail.append(f"shipped but not built: {only_packaged}")
-              problems.append(
-                  "osgi/modules disagrees with bundles/osgi/modules; "
-                  + "; ".join(detail)
-              )
-          if truthy(meta.get("includes_client_extensions")) and not declared:
-              problems.append(
-                  "includes_client_extensions is true but client_extensions is empty"
-              )
-          if not truthy(meta.get("ssl")):
-              problems.append(
-                  f"ssl={meta.get('ssl')!r}; expected a truthy value. Without it LDM"
-                  " starts no proxy, so the Headless call fails and fragment"
-                  " overrides are skipped"
-              )
-
-          if problems:
-              raise SystemExit(
-                  "Refusing to publish. "
-                  + str(len(problems))
-                  + " problem(s):\n  - "
-                  + "\n  - ".join(problems)
-              )
-
-          print("Package verified; safe to publish.")
-          PY
+          # Every check this makes, and why each one exists, is in
+          # scripts/verify-ldm-package.cjs. It used to be a heredoc here, which
+          # meant the only way to run it was to push a tag; it is now unit
+          # tested and can be pointed at any .ldmp on disk, including a
+          # published one. See #996.
+          node scripts/verify-ldm-package.cjs liferay-ai-commerce-accelerator.ldmp
 
       - name: Teardown LDM Stack
         if: always()

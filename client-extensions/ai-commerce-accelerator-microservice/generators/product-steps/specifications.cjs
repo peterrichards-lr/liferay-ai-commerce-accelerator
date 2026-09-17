@@ -13,6 +13,12 @@ const { toOptionValues } = require('../../utils/optionValues.cjs');
 const {
   reconcileOptionFieldType,
 } = require('../../utils/optionFieldTypes.cjs');
+const {
+  applyProductOptions,
+  applyProductSpecifications,
+  productOptionsOf,
+  productSpecificationsOf,
+} = require('../../utils/productShape.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -109,9 +115,7 @@ async function runEnsureSpecificationsStep(sessionId) {
     // 1. Identify all unique specification keys used in the generated data
     const specMap = new Map();
     for (const product of productDataList) {
-      const specs =
-        product.productSpecifications || product.specifications || [];
-      for (const spec of specs) {
+      for (const spec of productSpecificationsOf(product)) {
         if (spec.specificationKey) {
           // Defensive: keys are normalized at generation time, but any other
           // route into this step must agree with what Liferay will look up.
@@ -165,9 +169,7 @@ async function runEnsureSpecificationsStep(sessionId) {
       // Update all products that use this specification with the real specificationId
       if (liferaySpec?.id) {
         for (const product of updatedProductDataList) {
-          const productSpecs =
-            product.productSpecifications || product.specifications || [];
-          for (const pSpec of productSpecs) {
+          for (const pSpec of productSpecificationsOf(product)) {
             const pKey = normalizeSpecificationKey(
               pSpec.specificationKey || pSpec.label?.en_US || pSpec.label
             );
@@ -185,6 +187,15 @@ async function runEnsureSpecificationsStep(sessionId) {
         }
       }
       createdCount++;
+    }
+
+    // The clone above gave `specifications` and `productSpecifications` two
+    // independent arrays, and only the one the read picked has been resolved.
+    // Point both at it rather than leave a copy behind that still carries no
+    // specificationId - the reader that consulted it would link nothing and
+    // say nothing. See #698.
+    for (const product of updatedProductDataList) {
+      applyProductSpecifications(product, productSpecificationsOf(product));
     }
 
     // Save the updated product data with specificationIds back to context
@@ -235,8 +246,7 @@ async function runEnsureOptionsStep(sessionId) {
     // 1. Identify all unique options used in the generated data
     const optionMap = new Map();
     for (const product of productDataList) {
-      const options = product.productOptions || product.options || [];
-      for (const opt of options) {
+      for (const opt of productOptionsOf(product)) {
         const key = opt.key || sanitizeForERC(opt.name?.en_US || opt.name);
         if (key) {
           optionMap.set(key, opt);
@@ -355,8 +365,7 @@ async function runEnsureOptionsStep(sessionId) {
       // optionValues. See #662.
       if (liferayOption?.id) {
         for (const product of updatedProductDataList) {
-          const productOpts = product.productOptions || product.options || [];
-          for (const pOpt of productOpts) {
+          for (const pOpt of productOptionsOf(product)) {
             const pKey =
               pOpt.key || sanitizeForERC(pOpt.name?.en_US || pOpt.name);
             if (pKey === key) {
@@ -367,6 +376,12 @@ async function runEnsureOptionsStep(sessionId) {
         }
       }
       processedCount++;
+    }
+
+    // As above: the clone split the two names, and only one side carries the
+    // optionIds this step resolved.
+    for (const product of updatedProductDataList) {
+      applyProductOptions(product, productOptionsOf(product));
     }
 
     // Save the updated product data with optionIds back to context

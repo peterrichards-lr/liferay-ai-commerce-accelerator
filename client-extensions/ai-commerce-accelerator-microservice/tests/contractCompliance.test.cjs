@@ -64,9 +64,9 @@ describe('Liferay API Contract Compliance', () => {
     // to declare `specificationKey`, `label` and `value` - the same three
     // properties the generation schema requires - so the generated shape is
     // already DTO-valid before the product step adds `optionCategoryId` and
-    // the resolved `specificationId`. It is not, however, a test of that step:
-    // what `products.cjs` sends is still only asserted through the mock that
-    // feeds it.
+    // the resolved `specificationId`. It is not, however, a test of that step.
+    // `productPayloadContract` is: it drives the real steps and asserts the
+    // chunk handed to `createProductsBatch`. See #698.
     it('should generate product specifications that match the DTO', async () => {
       const products = mockData.generateProductData('Electronics', 1);
       const specs = products[0].specifications;

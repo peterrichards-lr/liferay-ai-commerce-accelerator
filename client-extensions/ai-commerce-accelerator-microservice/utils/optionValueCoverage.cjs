@@ -2,6 +2,7 @@ const { COMMERCE_CONSTRAINTS } = require('./commerceConstants.cjs');
 const { label } = require('./productOptionLinks.cjs');
 const { optionPairsToMap } = require('./schemaProjection.cjs');
 const { fromI18n, sanitizeForERC } = require('./misc.cjs');
+const { productOptionsOf } = require('./productShape.cjs');
 
 /**
  * Makes a product's declared option values and the values its SKU variants use
@@ -274,9 +275,10 @@ function firstVariant(product, contributing, taken) {
  * they arrived.
  */
 function coverProductOptionValues(product, { logger, sessionId } = {}) {
-  const declared = (product?.productOptions || product?.options || []).map(
-    (option) => ({ option, values: [...valuesOf(option)] })
-  );
+  const declared = productOptionsOf(product).map((option) => ({
+    option,
+    values: [...valuesOf(option)],
+  }));
   const variants = [...(product?.skuVariants || [])];
 
   const findDeclared = (optionName) => {
