@@ -57,6 +57,13 @@ const LIFERAY_URL =
   process.env.LIFERAY_URL ||
   process.env.LIFERAY_API_URL ||
   'https://aica-e2e.demo';
+// The destructive routes are gated on an administrator *account*, and the
+// client credentials below authenticate the microservice to Liferay rather than
+// the operator to the microservice - the CLI has never sent a credential of its
+// own. Supplying a user's bearer token is what makes `delete` and `config set`
+// reach their endpoints at all (#930).
+const ADMIN_TOKEN = process.env.AICA_ADMIN_TOKEN || '';
+
 const LIFERAY_USERNAME = process.env.LIFERAY_API_USERNAME || 'test@liferay.com';
 const LIFERAY_PASSWORD = process.env.LIFERAY_API_PASSWORD || 'test';
 
@@ -561,7 +568,9 @@ function parseGenerateArgs(flagArgs) {
 function parseControlOptions(flagArgs) {
   const options = {};
 
-  for (const arg of flagArgs) {
+  for (let i = 0; i < flagArgs.length; i += 1) {
+    const arg = flagArgs[i];
+
     if (arg === '--all') options.all = true;
     if (arg === '--selected') options.selected = true;
     if (arg === '-y' || arg === '--yes' || arg === '--non-interactive') {
@@ -571,6 +580,13 @@ function parseControlOptions(flagArgs) {
     if (arg === '--api') options.api = true;
     if (arg === '--bundle' || arg === '--with-media') options.bundle = true;
     if (arg === '--instance') options.instance = true;
+
+    if (arg === '--token') {
+      options.token = flagArgs[i + 1];
+      i += 1;
+    } else if (arg.startsWith('--token=')) {
+      options.token = arg.slice('--token='.length);
+    }
   }
 
   return options;
@@ -948,7 +964,33 @@ async function handleGenerate(opts) {
   await pollProgress(res.sessionId);
 }
 
+/**
+ * The bearer token for a route reserved for administrator accounts.
+ *
+ * Refuses up front rather than sending a request the microservice will reject,
+ * because the rejection it would produce - a 401 about signing headers - says
+ * nothing about why an operator identity is needed. The client credentials the
+ * CLI holds authenticate the microservice to Liferay; they are not an operator,
+ * and no allowlist entry can make them one (#930).
+ */
+function adminToken(opts, command) {
+  const token = (opts && opts.token) || ADMIN_TOKEN;
+
+  if (!token) {
+    throw new Error(
+      `${command} acts on a route reserved for administrator accounts.\n` +
+        `   The CLI's client credentials authenticate the microservice to Liferay;\n` +
+        `   they are not an operator identity, so this route cannot accept them.\n` +
+        `   Supply an administrator's bearer token with --token <token>, or set\n` +
+        `   AICA_ADMIN_TOKEN, and add that account to AICA_ADMINS on the service.`
+    );
+  }
+
+  return token;
+}
+
 async function handleDelete(opts) {
+  const token = adminToken(opts, 'aica delete');
   const isSelected = opts.selected && !opts.all;
   const endpoint = isSelected
     ? 'delete-selected-commerce-data'
@@ -970,7 +1012,8 @@ async function handleDelete(opts) {
 
   const res = await nativePost(
     `${MICROSERVICE_URL}/api/v1/${endpoint}`,
-    payload
+    payload,
+    { token }
   );
   const sessionId = res.sessionId || res.summary?.sessionId;
   if (!res.success || !sessionId) {
@@ -1206,6 +1249,8 @@ async function handleImport(inputPath) {
 }
 
 async function handleConfig(subCommand, arg1, extraArgs) {
+  const configToken = parseControlOptions(extraArgs || []).token;
+
   if (!subCommand || !['get', 'set'].includes(subCommand)) {
     throw new Error(
       'Usage: aica config <get | set> [filePath | --key <name> --value <val>]'
@@ -1319,7 +1364,8 @@ async function handleConfig(subCommand, arg1, extraArgs) {
     // Save configuration parameters to microservice
     const saveRes = await nativePost(
       `${MICROSERVICE_URL}/api/v1/config/save`,
-      savePayload
+      savePayload,
+      { token: adminToken({ token: configToken }, 'aica config set') }
     );
     if (!saveRes.success) {
       throw new Error(
@@ -1405,11 +1451,12 @@ async function pollProgress(sessionId) {
   }
 }
 
-async function nativePost(url, payload) {
+async function nativePost(url, payload, { token } = {}) {
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -1669,6 +1716,7 @@ if (require.main === module) {
 module.exports = {
   GENERATE_OPTIONS,
   WITHHELD_GENERATE_KEYS,
+  adminToken,
   buildGeneratePayload,
   parseControlOptions,
   parseGenerateArgs,
