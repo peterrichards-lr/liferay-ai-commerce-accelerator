@@ -94,14 +94,18 @@ function startMicroservice({ flowType = 'generate', config = {} } = {}) {
     getSession: async () => session,
     getBatch: async (erc) => rows.get(erc),
     getBatchesForSession: async () => [...rows.values()],
+    // `processedCount || 0` and `totalCount || 0` are what the SDK's own
+    // `persistenceService.createBatch` writes, so a marker's absent counts
+    // land here as `0/0` rather than as nulls. Storing nulls instead let this
+    // file assert a row shape no database ever holds.
     createBatch: async ({ erc, stepKey, status, processedCount, totalCount }) =>
       rows.set(erc, {
         erc,
         session_id: SESSION_ID,
         step_key: stepKey,
         status,
-        processed_count: processedCount ?? null,
-        total_count: totalCount ?? null,
+        processed_count: processedCount || 0,
+        total_count: totalCount || 0,
       }),
     updateBatch: async (erc, patch) => {
       const row = rows.get(erc);
@@ -554,8 +558,8 @@ describe('a step that only advanced the workflow reports no work (#799)', () => 
     expect(service.batches()).toEqual([
       expect.objectContaining({
         step_key: S.UPDATE_INVENTORY,
-        processed_count: null,
-        total_count: null,
+        processed_count: 0,
+        total_count: 0,
       }),
     ]);
   });
