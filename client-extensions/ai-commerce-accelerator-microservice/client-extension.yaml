@@ -43,13 +43,17 @@ ai-commerce-accelerator-microservice:
     # JSON body means the scope is fine and the caller lacks the Liferay
     # permission instead. See #660.
     - Custom.Client.Extension.Entry.everything.read
-    # Read a commerce channel's B2B/B2C/B2X site type, provided by the
-    # commerce-site-type module from liferay-custom-osgi-modules. The endpoint
-    # is GET-only, so the read scope is sufficient. Derived from the
-    # application's osgi.jaxrs.name, Custom.Commerce.Site.Type - confirm it
+    # Read and set a commerce channel's B2B/B2C/B2X site type, provided by the
+    # commerce-site-type module from liferay-custom-osgi-modules. Derived from
+    # the application's osgi.jaxrs.name, Custom.Commerce.Site.Type - confirm it
     # against OAuth2 Administration if calls return 403 with an empty body,
     # which is how a missing scope presents. See #610.
+    #
+    # The write scope was not needed while the module was GET-only. v3.3.0
+    # added PUT /channels/{channelId}/site-type, which AICA now calls, and the
+    # read scope alone answers it with a 403 before the module sees it (#1045).
     - Custom.Commerce.Site.Type.everything.read
+    - Custom.Commerce.Site.Type.everything.write
   type: oAuthApplicationHeadlessServer
 
 # The identity an unattended `aica delete` or `aica config set` presents.
