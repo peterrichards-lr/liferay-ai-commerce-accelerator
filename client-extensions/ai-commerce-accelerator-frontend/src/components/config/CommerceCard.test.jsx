@@ -168,6 +168,83 @@ describe('CommerceCard', () => {
     expect(caveat.textContent).toMatch(/Commerce . Channels/);
   });
 
+  // Auto-Create applies a name and a currency the operator never typed. The
+  // currency is the damaging one - selecting the channel adopts it as the
+  // run's currency - so both are stated before the press rather than reported
+  // after it, and the press is refused outright when there is no currency to
+  // state (#745). Asking for either belongs to the create dialog in #746.
+  it('names the channel and the currency the press will apply', () => {
+    useApp.mockReturnValue({
+      config: { currencyCode: 'EUR' },
+      setConfig: vi.fn(),
+    });
+
+    render(
+      <CommerceCard
+        connected={true}
+        catalogs={[]}
+        channels={[]}
+        currencies={[]}
+        errors={{}}
+      />
+    );
+
+    const notice = screen.getByText(/It will be named/i);
+    expect(notice.textContent).toMatch(/AI Commerce Storefront/);
+    expect(notice.textContent).toMatch(/EUR/);
+
+    expect(
+      screen.getByRole('button', { name: 'Auto-Create Channel' })
+    ).toBeEnabled();
+  });
+
+  it('will not auto-create a channel when no currency is set', () => {
+    useApp.mockReturnValue({
+      config: {},
+      setConfig: vi.fn(),
+    });
+
+    render(
+      <CommerceCard
+        connected={true}
+        catalogs={[]}
+        channels={[]}
+        currencies={[]}
+        errors={{}}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Auto-Create Channel' })
+    ).toBeDisabled();
+    expect(
+      screen.getByText(/No currency is set, so Auto-Create cannot run/i)
+    ).toBeInTheDocument();
+  });
+
+  it('shows the configured currency even before a channel exists to list one', () => {
+    // The field is disabled until a channel is selected, and the list it would
+    // be filled from is channel-derived. Rendering nothing made it read as
+    // "no currency" while the create was about to apply one.
+    useApp.mockReturnValue({
+      config: { currencyCode: 'EUR' },
+      setConfig: vi.fn(),
+    });
+
+    render(
+      <CommerceCard
+        connected={true}
+        catalogs={[]}
+        channels={[]}
+        currencies={[]}
+        errors={{}}
+      />
+    );
+
+    expect(screen.getByLabelText('Currency')).toHaveValue('EUR');
+    expect(screen.queryByText('No currencies found')).not.toBeInTheDocument();
+  });
+
   it('links to the channels screen on the configured instance', () => {
     // Built from config.liferayUrl so it works for a remote instance as well
     // as localhost. Portal-scoped, so there is no site segment.

@@ -1,3 +1,9 @@
+// The name Auto-Create Channel applies when the operator has named nothing.
+// It is AICA's choice rather than theirs, so every use of it is reported at
+// the moment it is applied - the create route will not supply it (#745), and
+// asking for a name belongs to the create dialog in #746.
+export const DEFAULT_CHANNEL_NAME = 'AI Commerce Storefront';
+
 export const DEFAULTS = {
   // Hosting / endpoints
   liferayHosted: false,
