@@ -1155,9 +1155,10 @@ class AIService {
             : '',
         groundingMetadata: options.groundingMetadata || null,
 
-        // Composed rather than branched in the template: promptService has no
-        // conditional or loop, so the `{% if %}` and `{% for %}` these replace
-        // were inert and leaked into the prompt. See #643.
+        // Composed here rather than branched in the template. The renderer
+        // understands `{% if %}` and `{% for %}` since #655, but these blocks
+        // build text out of data rather than pick between two sentences, so
+        // they stay where they can be unit tested. See utils/promptContext.cjs.
         brandGuidance: brandGuidance(options.brandName),
         currencyGuidance: currencyGuidance(options.groundingMetadata),
         languageGuidance: languageGuidance(options.groundingMetadata),
@@ -1721,23 +1722,14 @@ class AIService {
       // also the only place `brandName` is available, which images need as
       // much as the PDF and product prompts do.
       //
-      // `noBrand` is passed rather than inferred in the template so the
-      // template stays declarative. The two branches are deliberately
-      // exclusive: with a brand configured the images should carry that brand,
-      // and only without one should they be brand-free. A blanket "no brand
-      // names" instruction would strip the operator's own brand from their
-      // own catalogue.
-      // Composed here rather than branched in the template. promptService
-      // supports only {{var}} and {{=json:var}} - there is no conditional - so
-      // a `{% if %}` in a prompt file is inert and leaks its markers into the
-      // text along with both branches. See #643.
-      //
-      // The two cases are exclusive on purpose. With brand context supplied the
-      // images should carry that brand; only without it should they be
-      // brand-free. A blanket "no brand names" would strip an operator's own
-      // brand from their own catalogue - and the field is free text, labelled
-      // "Brand / Context" in the UI, so it may be a description rather than a
-      // name and must not be quoted as one.
+      // The guidance is composed here rather than branched in the template,
+      // which the renderer has been able to do since #655, because the two
+      // cases are exclusive on purpose and worth asserting on: with brand
+      // context supplied the images should carry that brand, and only without
+      // it should they be brand-free. A blanket "no brand names" would strip
+      // an operator's own brand from their own catalogue - and the field is
+      // free text, labelled "Brand / Context" in the UI, so it may be a
+      // description rather than a name and must not be quoted as one.
       const brandContext = String(options.brandName || '').trim();
       const brandGuidance = brandContext
         ? `BRAND CONTEXT: ${brandContext}\n\nLet that shape the product's ` +
