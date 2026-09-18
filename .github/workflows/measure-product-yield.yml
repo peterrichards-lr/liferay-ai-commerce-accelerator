@@ -43,9 +43,13 @@ on:
         required: false
         default: 'openai'
         type: choice
+        # Only the two the repository actually holds a secret for. Anthropic
+        # is a supported provider in the product but has no ANTHROPIC_API_KEY
+        # here, and offering it would fail at the provider rather than at the
+        # form - see refresh-ai-models.yml on why a missing secret is a
+        # deliberate choice about where a credential may live, not a gap.
         options:
           - openai
-          - anthropic
           - gemini
       model:
         description: 'Model (blank uses the provider default)'
@@ -84,7 +88,6 @@ jobs:
         working-directory: client-extensions/ai-commerce-accelerator-microservice
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           ARGS="--count ${{ inputs.count }} --chunk-size ${{ inputs.chunk_size }} --provider ${{ inputs.provider }}"

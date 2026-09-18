@@ -14,6 +14,15 @@ on:
           - local
           - aws-1
           - aws-2
+      ai_provider:
+        description: 'Live AI provider. Choosing one spends money; none runs the pre-generated dataset.'
+        required: false
+        default: 'none'
+        type: choice
+        options:
+          - none
+          - openai
+          - gemini
   schedule:
     # Nightly. Skipped automatically (see check-for-changes below) if
     # nothing has landed on the default branch since the last successful run,
@@ -248,10 +257,26 @@ jobs:
           # unqualified one (#805).
           LIFERAY_LICENSE_AWS_1: ${{ secrets.LIFERAY_LICENSE_AWS_1 }}
           LIFERAY_LICENSE_AWS_2: ${{ secrets.LIFERAY_LICENSE_AWS_2 }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Injected only when a dispatch explicitly names a provider.
+          #
+          # `dashboard.spec.js` gates Live (AI) Mode on whether a key is
+          # present, and these were injected unconditionally - so the key was
+          # always there, the spec never skipped, and every nightly generated
+          # products against a real model. Presence of a credential was being
+          # treated as permission to spend it.
+          #
+          # The permission is now the trigger. A schedule, a release and a
+          # dispatch left at `none` carry no key, the spec skips itself, and the
+          # suite exercises the pre-generated dataset - deterministic, free, and
+          # a failure that means a regression rather than a model having a bad
+          # day. Choosing a provider by hand is the act that authorises the
+          # spend.
+          #
+          # Anthropic is absent deliberately: it is a supported provider with no
+          # secret in this repository, so offering it would fail at the provider
+          # rather than at the form.
+          OPENAI_API_KEY: ${{ github.event.inputs.ai_provider == 'openai' && secrets.OPENAI_API_KEY || '' }}
+          GEMINI_API_KEY: ${{ github.event.inputs.ai_provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}
 
       - name: Stop background resource monitor
         if: always()
