@@ -1,21 +1,21 @@
 /**
  * Optional prompt blocks, composed here rather than branched in a template.
  *
- * promptService substitutes only `{{var}}` and `{{=json:var}}` - there is no
- * conditional, no loop and no filter. Every prompt file was nonetheless written
- * against Jinja2, so `{% if %}`, `{% for %}` and `{{ x | map(...) }}` pass
- * through unexpanded into the text sent to the model. See #643.
+ * These exist because of #643: promptService substituted only `{{var}}` and
+ * `{{=json:var}}`, every prompt file was nonetheless written against Jinja2,
+ * and so `{% if %}`, `{% for %}` and `{{ x | map(...) }}` passed through
+ * unexpanded into the text sent to the model. Both branches of every
+ * conditional fired, and a loop that never expanded left its instruction
+ * standing with nothing behind it - the product prompt said "You MUST
+ * categorize these products using the following existing Liferay vocabularies"
+ * and then listed none.
  *
- * The consequences are worse than untidy. Both branches of every conditional
- * fire, so a run with no brand configured still told the model the products
- * belong to `the brand/company ""`. And a loop that never expands leaves its
- * instruction standing with nothing behind it: the product prompt says "You
- * MUST categorize these products using the following existing Liferay
- * vocabularies" and then lists none.
- *
- * Each function returns the finished text or an empty string, so a template
- * needs only a plain placeholder and the decision lives in code that can be
- * tested.
+ * #655 put a real engine behind the renderer, so a prompt can now express a
+ * condition itself and a prompt author no longer needs a commit here for one.
+ * These blocks stay because they are not conditions: each builds text out of
+ * data - a vocabulary listing, a date window, per-account-type field
+ * descriptions - which is worth keeping in code that can be unit tested, and
+ * the templates already read them as plain variables.
  */
 
 /**
@@ -107,9 +107,9 @@ function currencyGuidance(groundingMetadata) {
  * The active-language block.
  *
  * The templates wrote this as `{{ groundingMetadata.languages |
- * map(attribute='id') | join(', ') }}`. The renderer's placeholder pattern is
- * `[\w.[\]]+`, which cannot match spaces or pipes, so the whole expression was
- * passed to the model verbatim.
+ * map(attribute='id') | join(', ') }}` against a renderer whose placeholder
+ * pattern was `[\w.[\]]+`, which matches neither spaces nor pipes, so the whole
+ * expression reached the model verbatim (#643).
  */
 function languageGuidance(groundingMetadata) {
   const ids = (groundingMetadata?.languages || [])
