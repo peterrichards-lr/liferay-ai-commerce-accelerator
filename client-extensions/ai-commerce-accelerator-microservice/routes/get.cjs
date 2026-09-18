@@ -112,15 +112,37 @@ module.exports = (app, { commerceSiteTypeService, liferayService, logger }) => {
       try {
         const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
 
-        const defaultChannelPayload = {
-          currencyCode: req.body.currencyCode || 'USD',
-          name: req.body.name || 'AI Commerce Storefront',
-          type: req.body.type || 'site',
-        };
+        // A channel's currency does not stay the channel's: selecting the
+        // channel adopts it as the run's currency, which is what price lists
+        // are then denominated in. A name is how one channel is told from
+        // another. Neither is the route's to invent - substituting one here
+        // produced a USD channel for a run configured as EUR, and nothing said
+        // so (#745). The caller states both or the request is refused.
+        const currencyCode = String(req.body.currencyCode ?? '').trim();
+        const name = String(req.body.name ?? '').trim();
+
+        if (!currencyCode) {
+          throw new Error(
+            'A currencyCode is required to create a channel. Refusing to ' +
+              'choose one, because the channel currency becomes the currency ' +
+              'of every run that selects it.'
+          );
+        }
+
+        if (!name) {
+          throw new Error(
+            'A name is required to create a channel. Refusing to choose one, ' +
+              'because channels are told apart by name.'
+          );
+        }
+
+        // The only type Liferay's own Add Channel dialog offers is Site, so
+        // this is a constant rather than a default standing in for a choice.
+        const channelPayload = { currencyCode, name, type: 'site' };
 
         const channel = await liferayService.createChannel(
           { liferayUrl, clientId, clientSecret, localeCode },
-          defaultChannelPayload
+          channelPayload
         );
 
         res.json({

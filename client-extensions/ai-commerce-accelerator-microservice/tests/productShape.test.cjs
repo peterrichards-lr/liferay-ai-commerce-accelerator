@@ -29,6 +29,34 @@ describe('productShape', () => {
       ).toEqual([]);
     });
 
+    it('prefers Liferay name over the generation schema name for specifications', () => {
+      // Specifications are the half #652 and #698 were actually about, and
+      // until #1008 the precedence was pinned for options alone: reversing
+      // SPECIFICATION_FIELDS left the whole suite green.
+      const product = {
+        productSpecifications: [{ specificationKey: 'liferay' }],
+        specifications: [{ specificationKey: 'schema' }],
+      };
+
+      expect(productSpecificationsOf(product)).toEqual([
+        { specificationKey: 'liferay' },
+      ]);
+    });
+
+    it('falls through an empty Liferay specification list the way the old reads did', () => {
+      expect(
+        productSpecificationsOf({
+          specifications: [{ specificationKey: 'schema' }],
+        })
+      ).toEqual([{ specificationKey: 'schema' }]);
+      expect(
+        productSpecificationsOf({
+          productSpecifications: [],
+          specifications: [{ specificationKey: 'schema' }],
+        })
+      ).toEqual([]);
+    });
+
     it.each([undefined, null, {}, { options: undefined }])(
       'reads an empty list from %s rather than throwing',
       (product) => {
