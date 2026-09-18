@@ -49,7 +49,7 @@
     "postcss": "^8.5.28",
     "prettier": "^3.9.6",
     "sass": "^1.104.0",
-    "vitest": "5.0.0"
+    "vitest": "5.0.1"
   },
   "name": "@liferay/liferay-ai-commerce-accelerator-frontend",
   "private": true,
