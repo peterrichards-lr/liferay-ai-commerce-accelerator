@@ -52,11 +52,42 @@ loadEnv();
 // --- 2. Environment Configurations & Defaults ---
 const MICROSERVICE_URL =
   process.env.AICA_MICROSERVICE_URL || 'http://localhost:3001';
+// Resolves to nothing when nothing is configured, rather than to a host.
+//
+// This used to fall back to `https://aica-e2e.demo` - the end-to-end suite's
+// hostname, which arrived as a default in #456 and was never meant to be one.
+// It fires exactly when the operator has not said where their Liferay is, which
+// is when guessing is least defensible: the substituted host receives a
+// connection attempt, and since #989 it receives an OAuth2 authorization
+// request carrying the client id and the loopback redirect URI, in a browser
+// window that opens itself (#1053).
+//
+// The rule is the one #745 and #1014 settled for the channel currency: nothing
+// is substituted silently. A connection target is the stronger case of the two.
 const LIFERAY_URL =
   process.env.LIFERAY_PORTAL_URL ||
   process.env.LIFERAY_URL ||
   process.env.LIFERAY_API_URL ||
-  'https://aica-e2e.demo';
+  '';
+
+/**
+ * The Liferay this command should act on, or a refusal that says how to say so.
+ *
+ * Checked where the target is used rather than at load, because a message that
+ * can name the command is worth more than one that fires before there is a
+ * command to name.
+ */
+function requireLiferayUrl(command) {
+  if (LIFERAY_URL) return LIFERAY_URL;
+
+  throw new Error(
+    `${command} needs to know which Liferay to act on, and none is configured.\n` +
+      `   Set one of LIFERAY_PORTAL_URL, LIFERAY_URL or LIFERAY_API_URL - in\n` +
+      `   the environment or in a .env file this command can find.\n` +
+      `   Refusing to choose one: the target is where your data is written and,\n` +
+      `   when signing in, where your browser is sent.`
+  );
+}
 // The destructive routes are gated on an administrator *account*, and the
 // client credentials below authenticate the microservice to Liferay rather than
 // the operator to the microservice - the CLI has never sent a credential of its
@@ -993,15 +1024,22 @@ async function handleGenerate(opts) {
  * and no allowlist entry can make them one (#930).
  */
 async function machineToken() {
-  const res = await fetch(`${LIFERAY_URL}/o/oauth2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: ADMIN_CLIENT_ID,
-      client_secret: ADMIN_CLIENT_SECRET,
-    }),
-  });
+  // Guarded here too. This is reachable without `buildConnectionPayload` having
+  // run, and an unset target would otherwise make the request against
+  // `/o/oauth2/token` with no origin - a URL parse failure three frames from
+  // anything that could explain it (#1053).
+  const res = await fetch(
+    `${requireLiferayUrl('Requesting a token')}/o/oauth2/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: ADMIN_CLIENT_ID,
+        client_secret: ADMIN_CLIENT_SECRET,
+      }),
+    }
+  );
 
   if (!res.ok) {
     const text = await res.text();
@@ -1051,7 +1089,12 @@ async function adminToken(opts, command) {
   if (CLI_CLIENT_ID && process.stdin.isTTY) {
     const { login } = require('./pkce-login.cjs');
 
-    return login({ liferayUrl: LIFERAY_URL, clientId: CLI_CLIENT_ID });
+    // Resolved before the browser is opened, not after: a sign-in against a
+    // host the operator never named is the failure this issue is about.
+    return login({
+      liferayUrl: requireLiferayUrl(`Signing in for ${command}`),
+      clientId: CLI_CLIENT_ID,
+    });
   }
 
   throw new Error(
@@ -1498,9 +1541,9 @@ async function handleConfig(subCommand, arg1, extraArgs) {
 
 // --- 6. Helper APIs, Poller, and REST utilities ---
 
-function buildConnectionPayload() {
+function buildConnectionPayload(command = 'This command') {
   const payload = {
-    liferayUrl: LIFERAY_URL,
+    liferayUrl: requireLiferayUrl(command),
     localeCode: 'en-US',
     languageId: 'en_US',
     currencyCode: 'USD',
