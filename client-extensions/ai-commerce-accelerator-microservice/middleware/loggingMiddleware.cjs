@@ -6,12 +6,24 @@ const axios = require('axios');
 const { logger } = require('../utils/logger.cjs');
 const { ENV } = require('../utils/constants.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
+const { isValidAbsoluteUrl } = require('../utils/liferayEnv.cjs');
 
 const JWKS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-let jwksCache = { data: null, fetchedAt: 0 };
+
+// Keyed by instance. It was a single slot, which was harmless while there was
+// exactly one Liferay in the system; once a configuration source can name a
+// second one, the first instance's signing keys would be used to verify the
+// second instance's tokens - rejecting valid tokens, or worse. See #824.
+const jwksCacheByUrl = new Map();
 
 async function fetchLiferayJwks(liferayUrl, forceRefresh = false) {
   const now = Date.now();
+  const cacheKey = String(liferayUrl || '');
+  const jwksCache = jwksCacheByUrl.get(cacheKey) || {
+    data: null,
+    fetchedAt: 0,
+  };
+
   if (
     !forceRefresh &&
     jwksCache.data &&
@@ -23,8 +35,11 @@ async function fetchLiferayJwks(liferayUrl, forceRefresh = false) {
     ? liferayUrl
     : `http://${liferayUrl}`;
   const response = await axios.get(`${baseUrl}/o/oauth2/jwks`);
-  jwksCache = { data: response.data, fetchedAt: Date.now() };
-  return jwksCache.data;
+  jwksCacheByUrl.set(cacheKey, {
+    data: response.data,
+    fetchedAt: Date.now(),
+  });
+  return response.data;
 }
 
 function correlationIdMiddleware(req, res, next) {
@@ -157,9 +172,30 @@ async function verifyBearerToken(token, liferayUrl) {
 }
 
 function resolveLiferayUrl(req) {
+  // A user-context bearer token is minted by the instance the operator signed
+  // in to, which is the configuration source when one is named - so that is the
+  // JWKS the token has to verify against. Verifying against the write target
+  // would reject a perfectly good token whenever the two differ, which is the
+  // topology #824 exists for.
+  //
+  // Reading it from the body rather than deriving it from `iss` is deliberate
+  // and is the smaller half of the change: `iss` is attacker-supplied until the
+  // token is verified, so inverting the resolution needs an issuer allowlist
+  // and is tracked separately on #824.
+  //
   // Through ENV so the LXC configuration layer is consulted as well as the
   // environment, and so the localhost default is written once (#933).
-  return req?.config?.liferayUrl || ENV.LIFERAY_URL;
+  return (
+    configurationSourceUrl(req) || req?.config?.liferayUrl || ENV.LIFERAY_URL
+  );
+}
+
+function configurationSourceUrl(req) {
+  const stated = req?.config?.configSource || req?.body?.configSource;
+  const liferayUrl =
+    typeof stated?.liferayUrl === 'string' ? stated.liferayUrl.trim() : '';
+
+  return isValidAbsoluteUrl(liferayUrl) ? liferayUrl : null;
 }
 
 function userContextMiddleware(req, res, next) {
@@ -238,4 +274,8 @@ module.exports = {
   basicRateLimitMiddleware,
   verifyBearerToken,
   resolveLiferayUrl,
+  // Exported so the per-instance keying can be asserted. It was a single cache
+  // slot, which was harmless while there was one Liferay in the system and is
+  // not once a configuration source can name a second (#824).
+  fetchLiferayJwks,
 };

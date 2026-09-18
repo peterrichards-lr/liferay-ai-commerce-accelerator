@@ -58,6 +58,9 @@ const { ENV, ENV_WARNINGS } = require('./utils/constants.cjs');
 const { INTERNAL_API_PATHS } = require('./utils/internalApiPaths.cjs');
 const { mediaProviderIssue } = require('./utils/providerCapabilities.cjs');
 const { verifyBasicCredentialAtStartup } = require('./utils/liferayEnv.cjs');
+const {
+  describeConfigurationSource,
+} = require('./utils/configurationSource.cjs');
 const { createWebSocketService } = require('./services/webSocketService.cjs');
 
 const { lookupConfig, lxcConfig } = require('@rotty3000/config-node');
@@ -475,6 +478,10 @@ const gracefulShutdown = async (signal) => {
         res.json({
           success: true,
           message: result.message,
+          // Named on the one response the operator always sees before a run.
+          // A configuration source that cannot be read now fails this call
+          // rather than a step 184 seconds in, so this is where they find out.
+          configurationSource: describeConfigurationSource(req.body),
           openAiKeyAvailable: aiTextKeyAvailable, // Legacy field
           aiKeyAvailable,
           aiTextKeyAvailable,

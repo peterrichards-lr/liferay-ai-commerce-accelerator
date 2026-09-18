@@ -3,7 +3,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { createSandbox } = require('./fixtures/rootScriptSandbox.cjs');
+const {
+  createSandbox,
+  sandboxEnv,
+} = require('./fixtures/rootScriptSandbox.cjs');
 
 /**
  * The sandbox must stay in its own directory even when git names another one.
@@ -20,8 +23,16 @@ const { createSandbox } = require('./fixtures/rootScriptSandbox.cjs');
  * reading `run()` as already safe fixes half of this.
  */
 
+// Scrubbed for the same reason the fixture scrubs: GIT_DIR overrides
+// cwd-based discovery, so `{ cwd: dir }` alone does not keep this helper inside
+// the repository it names. It ran unscrubbed, which made the whole file fail
+// whenever an ambient GIT_DIR was already set before `beforeEach` replaced it -
+// `git init` then initialised whatever the ambient variable named instead of
+// `elsewhere`. That is every run under `.husky/pre-push`, and under any git
+// worktree, so the check guarding #1050 could not survive the hook it was
+// written for. Reuses the fixture's own scrubbing rather than a second copy.
 const gitIn = (dir, ...args) =>
-  execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
+  execFileSync('git', args, { cwd: dir, encoding: 'utf8', env: sandboxEnv() });
 
 describe('the root-script sandbox ignores an ambient GIT_DIR', () => {
   let elsewhere;

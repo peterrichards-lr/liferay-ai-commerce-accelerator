@@ -9,7 +9,15 @@ const {
   defaultModelForProvider,
 } = require('../utils/modelCatalog.cjs');
 const { providerEnvVar, resolveCoreKey } = require('../utils/apiKeys.cjs');
-const { DEFAULT_MAX_TOKENS } = require('../utils/aiRequestOptions.cjs');
+const {
+  DEFAULT_CHUNK_SIZES,
+  DEFAULT_MAX_TOKENS,
+} = require('../utils/aiRequestOptions.cjs');
+const {
+  configurationUnavailable,
+  describeConfigurationSource,
+  resolveConfigurationSource,
+} = require('../utils/configurationSource.cjs');
 const { emptyExcludeLists } = require('@liferay/accelerator-sdk');
 const {
   listPromptNames,
@@ -94,6 +102,7 @@ class ConfigService {
   constructor(ctx) {
     this.cache = ctx.cache;
     this.logger = ctx.logger;
+    this._cachedConfigKeys = new Set();
   }
 
   setLiferayService(liferay) {
@@ -114,6 +123,73 @@ class ConfigService {
     return cached ?? null;
   }
 
+  /**
+   * The connection every configuration read goes over, and the description of
+   * it that may be said out loud.
+   *
+   * One place, because the settings in `AICAConfiguration` describe how the
+   * microservice does one job rather than anything about the instance being
+   * written to - so they all move together or none of them do. Every other
+   * getter on this service reaches Liferay through `getConfig`, which is why
+   * this is the only seam that needs to exist. See #824.
+   */
+  _configurationSource(requestConfig) {
+    const resolved = resolveConfigurationSource(requestConfig);
+    const description = {
+      liferayUrl: resolved.liferayUrl,
+      sameAsTarget: resolved.sameAsTarget,
+      source: resolved.source,
+    };
+
+    this._evictForeignConfigurationCache(description);
+
+    return { connection: resolved.connection, description };
+  }
+
+  /**
+   * The config cache is keyed by config key alone, so a value read from one
+   * configuration source would be served for another - which is the #824
+   * defect wearing a different hat, since a stale value is just as silent as
+   * an invented one. The source that populated the cache is remembered, and a
+   * change drops what the previous one put there rather than reusing it.
+   */
+  _evictForeignConfigurationCache(description) {
+    const key = description.sameAsTarget
+      ? `same-as-target:${description.liferayUrl || ''}`
+      : `config-source:${description.liferayUrl}`;
+
+    if (this._configurationSourceKey === key) return;
+
+    if (this._configurationSourceKey !== undefined) {
+      this.logger?.info?.(
+        'Configuration source changed; dropping cached configuration',
+        {
+          operation: 'configuration-source-change',
+          from: this._configurationSourceKey,
+          to: key,
+        }
+      );
+
+      for (const cacheKey of this._cachedConfigKeys) {
+        this.cache.delete(cacheKey);
+      }
+
+      this._cachedConfigKeys.clear();
+    }
+
+    this._configurationSourceKey = key;
+  }
+
+  /**
+   * Remembers what this service put in the shared cache, so a configuration
+   * source change can drop exactly that and nothing else. A static list would
+   * not do: prompts and schemas are cached under keys built from a name.
+   */
+  _cacheConfigValue(cacheKey, value) {
+    this._cachedConfigKeys.add(cacheKey);
+    this.cache.set(cacheKey, value, this.getConfigTTL());
+  }
+
   async getConfig(requestConfig, cacheKey, configKey) {
     const cache = this.cache;
     const logger = this.logger;
@@ -130,6 +206,9 @@ class ConfigService {
       throw new Error('OAuth configuration required (requestConfig missing)');
     }
 
+    const { connection, description } =
+      this._configurationSource(requestConfig);
+
     const cached = cache.get(cacheKey);
     if (cached !== undefined && cached !== null) {
       return cached;
@@ -137,15 +216,16 @@ class ConfigService {
 
     let response;
     try {
-      response = await liferay.getConfig(requestConfig, configKey);
+      response = await liferay.getConfig(connection, configKey);
     } catch (err) {
       const erc = err?.errorReference || createERC(ERC_PREFIX.ERROR);
       logger?.errorWithStack?.(err, {
         operation: 'liferay-get-config',
         errorReference: erc,
+        configurationSource: description,
         message: `Failed to read config for key "${configKey}"`,
       });
-      throw err;
+      throw configurationUnavailable(err, description);
     }
 
     if (response?.items && response.items.length > 0) {
@@ -156,7 +236,7 @@ class ConfigService {
       // HARDENING: Never cache the 'EMPTY' placeholder.
       // This ensures we always try to get the real key if it's not yet configured.
       if (parsedValue !== EMPTY_PLACEHOLDER) {
-        cache.set(cacheKey, parsedValue, this.getConfigTTL());
+        this._cacheConfigValue(cacheKey, parsedValue);
       }
 
       return parsedValue;
@@ -365,63 +445,93 @@ class ConfigService {
     );
   }
 
+  /**
+   * Chunk sizes, from the configuration source, or AICA's own defaults said
+   * out loud.
+   *
+   * Three layers, and only the first two are configuration: the `ai-chunk-sizes`
+   * record, then the `chunkSize` carried on `ai-config`, then
+   * `DEFAULT_CHUNK_SIZES`. What is gone is the fourth behaviour - a `catch`
+   * that turned a failed read into `{ product: 10, ... }`. That made an
+   * unreachable configuration source indistinguishable from a deliberate 10,
+   * so the panel setting could not be corrected because nothing said it had not
+   * been applied. A read that does not complete now refuses. See #824.
+   */
   async getAIChunkSizes(requestConfig) {
-    const logger = this.logger;
-    try {
-      const chunkSizes = await this.getConfig(
-        requestConfig,
-        AI_CHUNK_SIZES_CACHE_KEY,
-        AI_CHUNK_SIZES_CONFIG_KEY
-      );
-      if (chunkSizes && typeof chunkSizes === 'object') {
-        const sanitize = (val) =>
-          Number.isInteger(val) && val >= 1 && val <= 50 ? val : 10;
-        return {
-          product: sanitize(chunkSizes.product),
-          account: sanitize(chunkSizes.account),
-          order: sanitize(chunkSizes.order),
-          warehouse: sanitize(chunkSizes.warehouse),
-          pricing: sanitize(chunkSizes.pricing),
-        };
-      }
-    } catch (error) {
-      logger?.debug?.(
-        'Failed to get ai-chunk-sizes from Liferay Object, falling back',
-        { error: error?.message }
-      );
+    const chunkSizes = await this.getConfig(
+      requestConfig,
+      AI_CHUNK_SIZES_CACHE_KEY,
+      AI_CHUNK_SIZES_CONFIG_KEY
+    );
+
+    if (chunkSizes && typeof chunkSizes === 'object') {
+      const sanitize = (val, task) =>
+        Number.isInteger(val) && val >= 1 && val <= 50
+          ? val
+          : DEFAULT_CHUNK_SIZES[task];
+
+      return {
+        product: sanitize(chunkSizes.product, 'product'),
+        account: sanitize(chunkSizes.account, 'account'),
+        order: sanitize(chunkSizes.order, 'order'),
+        warehouse: sanitize(chunkSizes.warehouse, 'warehouse'),
+        pricing: sanitize(chunkSizes.pricing, 'pricing'),
+      };
     }
 
-    // Graceful fallback to aiConfig if ai-chunk-sizes is not yet seeded
-    try {
-      const aiConfig = await this.getAIConfig(requestConfig);
-      const fallback = aiConfig?.chunkSize || 10;
-      return {
-        product: aiConfig?.chunkSizes?.product || fallback,
-        account: aiConfig?.chunkSizes?.account || fallback,
-        order: aiConfig?.chunkSizes?.order || fallback,
-        warehouse: aiConfig?.chunkSizes?.warehouse || fallback,
-        pricing: aiConfig?.chunkSizes?.pricing || fallback,
-      };
-    } catch {
-      return {
-        product: 10,
-        account: 10,
-        order: 10,
-        warehouse: 10,
-        pricing: 10,
-      };
+    const aiConfig = await this.getAIConfig(requestConfig);
+    const configured = aiConfig?.chunkSize;
+
+    if (!configured && !aiConfig?.chunkSizes) {
+      this.reportDefaultApplied(requestConfig, 'ai-chunk-sizes', {
+        appliedDefault: DEFAULT_CHUNK_SIZES,
+      });
+
+      return { ...DEFAULT_CHUNK_SIZES };
     }
+
+    const fallback = configured || DEFAULT_CHUNK_SIZES.product;
+
+    return {
+      product: aiConfig?.chunkSizes?.product || fallback,
+      account: aiConfig?.chunkSizes?.account || fallback,
+      order: aiConfig?.chunkSizes?.order || fallback,
+      warehouse: aiConfig?.chunkSizes?.warehouse || fallback,
+      pricing: aiConfig?.chunkSizes?.pricing || fallback,
+    };
   }
 
   getAIChunkSizesCached() {
     const cached = this.getConfigCached(AI_CHUNK_SIZES_CACHE_KEY);
-    return (
-      cached || {
-        product: 10,
-        account: 10,
-        order: 10,
-        warehouse: 10,
-        pricing: 10,
+    return cached || { ...DEFAULT_CHUNK_SIZES };
+  }
+
+  /**
+   * Says that a value AICA invented is about to be used, and where AICA looked
+   * before inventing it.
+   *
+   * The harm #824 records is not that a default applied; it is that nothing
+   * said so, so a `requestTimeoutMs` of 300000 set in the panel looked applied
+   * while the run died at 60s three times over. WARN rather than DEBUG for the
+   * same reason `liferayEnv` warns about an inferred target: whatever reaches
+   * here was not configured anywhere the operator can see.
+   */
+  reportDefaultApplied(requestConfig, configKey, detail = {}) {
+    let description;
+
+    try {
+      description = describeConfigurationSource(requestConfig);
+    } catch {
+      description = null;
+    }
+
+    this.logger?.warn?.(
+      `No "${configKey}" configuration was found; AICA's own default applies`,
+      {
+        operation: 'configuration-default-applied',
+        configKey,
+        configurationSource: description,
+        ...detail,
       }
     );
   }
@@ -538,6 +648,14 @@ class ConfigService {
         errorReference: erc,
         message: 'Failed to get AI key from Liferay Object',
       });
+
+      // "Not configured" is a claim about the configuration, and this code
+      // never got far enough to make it: the read itself did not complete. The
+      // original error already names the instance, so it travels rather than
+      // being replaced by a diagnosis nothing here established. See #824, and
+      // #950 for the same rule applied to a Basic credential probe.
+      if (error?.name === 'ConfigurationSourceUnavailableError') throw error;
+
       throw new Error('AI API key not configured.', { cause: error });
     }
   }
@@ -749,52 +867,89 @@ class ConfigService {
     return this.getConfigCached(QUEUE_CONFIG_CACHE_KEY) || {};
   }
 
+  /**
+   * The `ai-config` record, read from the configuration source.
+   *
+   * Two behaviours changed here, and both are the same rule. A read that does
+   * not complete now throws instead of returning `null`, because a caller given
+   * `null` treats it as `{}` and every AI setting lands on a literal. And when
+   * the configuration source answers but holds no record, the result no longer
+   * carries an invented `provider: 'openai'` and `defaultModel: 'gpt-4o'` - a
+   * key that arrived from ENV is a real value and is kept, but a model nobody
+   * chose is not one, so `aicaFallback` travels in its place and
+   * `getRuntimeAIConfig` refuses by name rather than running on gpt-4o at chunk
+   * size 10. See #824.
+   */
   async getAIConfig(requestConfig) {
     const cache = this.cache;
-    const logger = this.logger;
     const liferay = this._requireLiferay();
     const cached = cache.get(AI_CONFIG_CACHE_KEY);
     if (cached) return cached;
 
+    const { connection, description } =
+      this._configurationSource(requestConfig);
+
+    let resp;
     try {
-      const resp = await liferay.getConfig(requestConfig, AI_CONFIG_KEY);
-      if (resp?.items?.length) {
-        const raw = resp.items[0].configValue;
-        const parsed = typeof raw === 'string' ? tryParseJSON(raw, {}) : raw;
-        if (typeof parsed === 'object' && parsed !== null) {
-          parsed.chunkSize =
-            Number.isInteger(parsed.chunkSize) && parsed.chunkSize > 0
-              ? parsed.chunkSize
-              : 10;
-        }
-        const apiKey = await this.getAIKey(requestConfig);
-        if (typeof apiKey === 'string' && apiKey.trim().length > 0) {
-          parsed.apiKey = apiKey.trim();
-        }
-        cache.set(AI_CONFIG_CACHE_KEY, parsed, this.getConfigTTL());
-        return parsed;
-      }
-      const apiKey = await this.getAIKey(requestConfig);
-      if (typeof apiKey === 'string' && apiKey.trim().length > 0) {
-        const fallback = {
-          provider: 'openai',
-          defaultModel: 'gpt-4o',
-          chunkSize: 10,
-          apiKey: apiKey.trim(),
-        };
-        cache.set(AI_CONFIG_CACHE_KEY, fallback, this.getConfigTTL());
-        return fallback;
-      }
-      return null;
+      resp = await liferay.getConfig(connection, AI_CONFIG_KEY);
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
-      logger?.errorWithStack?.(error, {
+      this.logger?.errorWithStack?.(error, {
         operation: 'get-ai-config',
         errorReference: erc,
+        configurationSource: description,
         message: 'Failed to get AI configuration',
       });
-      return null;
+      throw configurationUnavailable(error, description);
     }
+
+    const raw = resp?.items?.length ? resp.items[0].configValue : undefined;
+    const parsed = typeof raw === 'string' ? tryParseJSON(raw, {}) : raw;
+    // A record whose value is not a JSON object carries no settings, which is
+    // the same situation as no record at all and is reported the same way. It
+    // used to throw here - `parsed.apiKey = ...` on a string - and the throw was
+    // swallowed by a `catch` that returned null, so a malformed record looked
+    // exactly like a healthy one that had never been read.
+    const held = parsed && typeof parsed === 'object' ? parsed : null;
+
+    if (held) {
+      held.chunkSize =
+        Number.isInteger(held.chunkSize) && held.chunkSize > 0
+          ? held.chunkSize
+          : DEFAULT_CHUNK_SIZES.product;
+    }
+
+    const apiKey = await this.getAIKey(requestConfig);
+    const trimmedKey =
+      typeof apiKey === 'string' && apiKey.trim().length > 0
+        ? apiKey.trim()
+        : null;
+
+    if (held) {
+      if (trimmedKey) held.apiKey = trimmedKey;
+      this._cacheConfigValue(AI_CONFIG_CACHE_KEY, held);
+      return held;
+    }
+
+    if (trimmedKey) {
+      const reason = raw
+        ? `the "${AI_CONFIG_KEY}" record does not hold a JSON object`
+        : `no "${AI_CONFIG_KEY}" record was found`;
+
+      this.reportDefaultApplied(requestConfig, AI_CONFIG_KEY, {
+        appliedDefault: 'an API key only - no provider, model or chunk sizes',
+        reason,
+      });
+
+      const fallback = {
+        apiKey: trimmedKey,
+        aicaFallback: { configurationSource: description, reason },
+      };
+      this._cacheConfigValue(AI_CONFIG_CACHE_KEY, fallback);
+      return fallback;
+    }
+
+    return null;
   }
 
   getAIConfigCached() {

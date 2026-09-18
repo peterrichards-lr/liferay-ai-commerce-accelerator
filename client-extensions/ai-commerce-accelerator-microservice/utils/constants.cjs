@@ -173,6 +173,17 @@ const ENV = {
   LIFERAY_COMPANY_ID: num('LIFERAY_COMPANY_ID', 20101),
   LIFERAY_OAUTH_CLIENT_ID: str('LIFERAY_OAUTH_CLIENT_ID', ''),
   LIFERAY_OAUTH_CLIENT_SECRET: str('LIFERAY_OAUTH_CLIENT_SECRET', ''),
+
+  // Where AICA reads its own configuration, when that is not the instance it
+  // writes data to. Blank by default, which means "the same instance" - the
+  // topology every colocated deployment has. A layer below the request rather
+  // than above it, because on a shared deployment ENV is one value for every
+  // user of the server, and it exists so a CLI or a scripted run can name a
+  // configuration source without putting a client secret in shell history.
+  // See #824.
+  AICA_CONFIG_SOURCE_URL: str('AICA_CONFIG_SOURCE_URL', ''),
+  AICA_CONFIG_SOURCE_CLIENT_ID: str('AICA_CONFIG_SOURCE_CLIENT_ID', ''),
+  AICA_CONFIG_SOURCE_CLIENT_SECRET: str('AICA_CONFIG_SOURCE_CLIENT_SECRET', ''),
   // Application base of the search-reindex OSGi module this deployment
   // targets. Left blank by default rather than defaulted here to
   // '/o/search-reindex' - that literal belongs to the SDK's own

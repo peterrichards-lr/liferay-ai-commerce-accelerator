@@ -836,6 +836,38 @@ function DataGeneratorForm({
                       channel needs business accounts, a B2C channel needs
                       individual ones.
                     </p>
+
+                    <div className="custom-control custom-checkbox mt-3">
+                      <input
+                        checked={!!generationConfig.aicaOwnedEntitiesOnly}
+                        className="custom-control-input"
+                        disabled={lockFields}
+                        id="dataGeneration_aicaOwnedEntitiesOnly"
+                        onChange={(e) =>
+                          handleConfigChange(
+                            'aicaOwnedEntitiesOnly',
+                            e.target.checked
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      <label
+                        className="custom-control-label"
+                        htmlFor="dataGeneration_aicaOwnedEntitiesOnly"
+                      >
+                        <span className="custom-control-label-text">
+                          Use only accounts AICA created
+                        </span>
+                        <small className="form-text text-muted d-block mt-1">
+                          Matches the external reference code prefixes AICA
+                          writes. Off, a run draws from every matching account
+                          already on the instance, whoever created it. If
+                          nothing qualifies the run stops and says the filter
+                          was what emptied the pool, rather than proceeding
+                          against accounts it does not own.
+                        </small>
+                      </label>
+                    </div>
                   </div>
                 )}
 

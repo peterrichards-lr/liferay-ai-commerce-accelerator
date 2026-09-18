@@ -34,6 +34,34 @@
  */
 const DEFAULT_MAX_TOKENS = 16384;
 
+/**
+ * How long one AI call may take when nothing has been configured.
+ *
+ * Written once, here, because the value that actually applied was a literal in
+ * `getRuntimeAIConfig` and a `requestTimeoutMs` of 300000 set in the panel
+ * could not displace it - the configuration it would have come from was read
+ * from the write target, which held none. Landing on this number is not the
+ * defect; landing on it without saying so is, so the resolution names it. See
+ * #824.
+ */
+const DEFAULT_AI_REQUEST_TIMEOUT_MS = 60000;
+
+/**
+ * How many entities go into one AI call when nothing has been configured.
+ *
+ * The same numbers were written in three places - `getAIChunkSizes`'s fallback,
+ * `getAIChunkSizesCached`'s, and `getRuntimeAIConfig`'s - and the third was
+ * missing `pricing` entirely, so a context without `getAIChunkSizes` silently
+ * lost the pricing chunk size. One home, and the omission with it.
+ */
+const DEFAULT_CHUNK_SIZES = Object.freeze({
+  account: 10,
+  order: 10,
+  pricing: 10,
+  product: 10,
+  warehouse: 10,
+});
+
 /** Anything non-positive means "no explicit timeout", not "time out at once". */
 function requestOptions(options = {}) {
   const timeout = Number(options.requestTimeoutMs);
@@ -57,4 +85,10 @@ function resolveMaxTokens(configured) {
     : DEFAULT_MAX_TOKENS;
 }
 
-module.exports = { DEFAULT_MAX_TOKENS, requestOptions, resolveMaxTokens };
+module.exports = {
+  DEFAULT_AI_REQUEST_TIMEOUT_MS,
+  DEFAULT_CHUNK_SIZES,
+  DEFAULT_MAX_TOKENS,
+  requestOptions,
+  resolveMaxTokens,
+};

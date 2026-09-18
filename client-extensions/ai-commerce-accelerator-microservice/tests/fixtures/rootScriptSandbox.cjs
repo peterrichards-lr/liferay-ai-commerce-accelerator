@@ -144,4 +144,4 @@ function createSandbox(scriptName, files = {}, { dependencies = [] } = {}) {
   };
 }
 
-module.exports = { REPO_ROOT, SCRIPTS_DIR, createSandbox };
+module.exports = { REPO_ROOT, SCRIPTS_DIR, createSandbox, sandboxEnv };

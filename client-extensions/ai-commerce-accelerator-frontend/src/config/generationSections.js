@@ -49,7 +49,10 @@ export const SECTION_FIELDS = {
   accounts: ['accountType', 'businessAccountRatio'],
   orders: ['orderDateRangeDays', 'orderDistribution'],
   categories: ['categories'],
-  orderAccountType: ['orderAccountType'],
+  // Both narrow which *existing* accounts may receive orders - one by type,
+  // the other by whether AICA created them - so they appear and are submitted
+  // together.
+  orderAccountType: ['orderAccountType', 'aicaOwnedEntitiesOnly'],
 };
 
 /**
