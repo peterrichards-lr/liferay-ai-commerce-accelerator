@@ -19,11 +19,20 @@
  * stand-ins are a database, an HTTP client and a socket, none of which
  * contain arithmetic.
  *
+ * Both flows are here. A generation run reaches the dashboard through batch
+ * frames and the callback service; a deletion reaches it through neither.
+ * Every delete service in the SDK passes `nativeBatch: false`, so
+ * `_runGenericDeletionStep` never takes its `batchRefs` branch, and a delete's
+ * whole arithmetic is the crawl's census and each step's own completion. That
+ * is a different seam through the same modules, and it is the one #786 broke
+ * three separate times (#1011).
+ *
  * What this cannot do without a live instance: prove Liferay's callback
  * bodies look like the fixtures here, or that a generator submits the batches
- * it should. Those need an instance and are out of scope. What it does prove
- * is that a number leaving the SDK arrives on the dashboard meaning the same
- * thing - which is the specific failure #800 was raised about.
+ * it should, or that a crawl finds what is actually in an instance. Those need
+ * one and are out of scope. What it does prove is that a number leaving the
+ * SDK arrives on the dashboard meaning the same thing - which is the specific
+ * failure #800 was raised about.
  *
  * It lives in the frontend because the hook needs React and a DOM, and reaches
  * across the client-extension boundary to read the microservice's modules.
@@ -51,6 +60,7 @@ const {
 const {
   WORKFLOW_STEPS: S,
 } = require('../../../ai-commerce-accelerator-microservice/utils/constants.cjs');
+const DeleteCoordinatorService = require('../../../ai-commerce-accelerator-microservice/services/deleteCoordinatorService.cjs');
 const {
   BaseGenerator,
   BatchCallbackService,
@@ -76,7 +86,12 @@ const silentLogger = () => ({
  * stores it - snake_case columns - because that is what the status route
  * reads back and what `summariseSessionProgress` is given.
  */
-function startMicroservice({ flowType = 'generate', config = {} } = {}) {
+function startMicroservice({
+  flowType = 'generate',
+  config = {},
+  context = {},
+  liferay: instance = {},
+} = {}) {
   const frames = [];
   const rows = new Map();
   const importTasks = new Map();
@@ -87,7 +102,7 @@ function startMicroservice({ flowType = 'generate', config = {} } = {}) {
     flow_type: flowType,
     status: 'STARTED',
     correlationId: CORRELATION_ID,
-    context: { config, generator: 'product' },
+    context: { config, generator: 'product', ...context },
   };
 
   const persistence = {
@@ -106,6 +121,7 @@ function startMicroservice({ flowType = 'generate', config = {} } = {}) {
         status,
         processed_count: processedCount || 0,
         total_count: totalCount || 0,
+        error_count: 0,
       }),
     updateBatch: async (erc, patch) => {
       const row = rows.get(erc);
@@ -114,10 +130,18 @@ function startMicroservice({ flowType = 'generate', config = {} } = {}) {
       if (patch.processedCount !== undefined)
         row.processed_count = patch.processedCount;
       if (patch.totalCount !== undefined) row.total_count = patch.totalCount;
+      if (patch.errorCount !== undefined) row.error_count = patch.errorCount;
     },
     logWorkflowEvent: vi.fn(),
     tryFailSession: async () => false,
     updateSession: async () => {},
+    // A shallow merge, as `persistenceService.updateSessionContext` performs.
+    // The delete crawl writes its manifest here and every deletion step reads
+    // it back, so the two have to be the same context.
+    updateSessionContext: async (_sessionId, patch) => {
+      session.context = { ...session.context, ...patch };
+      return session;
+    },
   };
 
   const ws = new WebSocketService({ logger });
@@ -135,6 +159,7 @@ function startMicroservice({ flowType = 'generate', config = {} } = {}) {
     getImportTask: async (_config, batchId) => importTasks.get(String(batchId)),
     getImportTaskFailedItemReport: async (_config, batchId) =>
       importTasks.get(String(batchId))?.failedItems || [],
+    ...instance,
   };
 
   // `executeNextStep` is the orchestration loop, not progress reporting, and
@@ -154,10 +179,13 @@ function startMicroservice({ flowType = 'generate', config = {} } = {}) {
   ctx.batchCallback = batchCallback;
 
   return {
+    ctx,
     frames,
     generator,
     progress,
     batches: () => [...rows.values()],
+    /** The frames sent since this was last called, in order. */
+    drain: () => frames.splice(0),
 
     /** A step submits `itemsCount` items and Liferay accepts them. */
     async submitBatch(stepKey, itemsCount, batchId) {
@@ -583,6 +611,344 @@ describe('a step that only advanced the workflow reports no work (#799)', () => 
     expect(bar('inventory', dashboard.read())).toEqual({
       completed: 139,
       total: 139,
+    });
+  });
+});
+
+const CATALOG_ID = 41;
+const CHANNEL_ID = 40;
+
+/**
+ * The instance a delete run finds, and what Liferay reports removing from it.
+ *
+ * Every method reads a fixture list. The crawl, each deletion step and the
+ * catalog base-flag read-back all run for real; `removes` is the one figure
+ * only an instance can supply - how many of a step's targets Liferay actually
+ * deleted - and it is what every count in this flow is measured against.
+ */
+function liferayHolding({
+  accounts = [],
+  accountGroups = [],
+  orders = [],
+  products = [],
+  priceLists = [],
+  promotions = [],
+  specifications = [],
+  options = [],
+  warehouses = [],
+  notAicas = [],
+  removes = {},
+}) {
+  // What `deleteByFilter` answers: a count of what went, and an empty
+  // `batchRefs`. Every delete service in the SDK passes `nativeBatch: false`,
+  // so a deletion hands Liferay's batch engine nothing to call back about -
+  // which is why this flow reaches the dashboard through step events alone,
+  // with no batch frames at all, and why its counts rest entirely on the
+  // crawl's census and each step's own report.
+  const removed = (entity) => async () => ({
+    success: true,
+    count: removes[entity],
+    batchRefs: [],
+  });
+
+  return {
+    getChannels: async () => [{ id: CHANNEL_ID }],
+    getCatalogs: async () => [{ id: CATALOG_ID }],
+    getAccounts: async () => ({ items: accounts }),
+    getAccountGroups: async () => ({ items: accountGroups }),
+    getOrders: async () => ({ items: orders }),
+    getProducts: async () => ({ items: products }),
+    // `ignoreExclusions` is how the reset step sees the lists a delete may not
+    // touch: the base price list and base promotion Liferay creates with every
+    // catalog and refuses to delete while they hold the flag.
+    getPriceLists: async (_config, { ignoreExclusions } = {}) => ({
+      items: ignoreExclusions ? [...priceLists, ...notAicas] : priceLists,
+    }),
+    getPromotions: async () => ({ items: promotions }),
+    getSpecifications: async () => ({ items: specifications }),
+    getSpecificationsByProductIds: async () => specifications,
+    getOptions: async () => ({ items: options }),
+    getOptionsByProductIds: async () => options,
+    getOptionCategories: async () => ({ items: [] }),
+    getWarehouses: async () => ({ items: warehouses }),
+    getProductOptions: async () => [],
+    getProductSpecifications: async () => [],
+
+    patchPriceList: async (_config, priceListId, patch) => {
+      const list = notAicas.find((pl) => String(pl.id) === String(priceListId));
+      if (list) list.catalogBasePriceList = patch.catalogBasePriceList;
+      return {};
+    },
+
+    deleteAccountsBatch: removed('accounts'),
+    deletePriceListsBatch: removed('priceLists'),
+    deleteProductsBatch: removed('products'),
+    deletePromotionsBatch: removed('promotions'),
+  };
+}
+
+/** A fixture list of AICA-owned entities, numbered from `firstId`. */
+const owned = (prefix, count, firstId) =>
+  Array.from({ length: count }, (_value, offset) => ({
+    id: firstId + offset,
+    externalReferenceCode: `AICA-${prefix}-${offset}`,
+    name: `${prefix} ${offset}`,
+  }));
+
+describe('a delete counts the entities it removed (#786, #1011)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * Ten accounts in two groups, five products, twelve price lists, and the
+   * base price list and base promotion Liferay created with the catalog.
+   */
+  const AN_INSTANCE = {
+    accounts: owned('ACC', 10, 500),
+    accountGroups: owned('AGR', 2, 600),
+    orders: [],
+    // Crawled `Product` DTOs carry both ids, and the deletion path addresses
+    // the definition rather than the catalog entry.
+    products: owned('PROD', 5, 700).map((product) => ({
+      ...product,
+      productId: product.id + 1,
+    })),
+    priceLists: owned('PL', 12, 800),
+    promotions: owned('PROMO', 2, 900),
+    specifications: owned('SPEC', 6, 1000),
+    options: owned('OPT', 9, 1100),
+    warehouses: owned('WH', 4, 1200),
+    notAicas: [
+      {
+        id: 10,
+        externalReferenceCode: 'MASTER-PL',
+        name: 'Master Price List',
+        type: 'price-list',
+        catalogBasePriceList: true,
+      },
+      {
+        id: 11,
+        externalReferenceCode: 'MASTER-PROMO',
+        name: 'Master Promotion',
+        type: 'promotion',
+        catalogBasePriceList: true,
+      },
+    ],
+  };
+
+  /**
+   * A delete session, crawled.
+   *
+   * The dashboard is opened without `seedFromForm`, because a delete has no
+   * form to seed from: `runDeleteAndMonitor` starts its session with
+   * `totals: {}` and the hook returns before `RESET_ALL` for a delete flow.
+   * Whatever denominator a delete bar ends up with came from the crawl.
+   */
+  async function startDeletionRun(removes = {}) {
+    const service = startMicroservice({
+      flowType: 'delete',
+      liferay: liferayHolding({ ...AN_INSTANCE, removes }),
+      context: {
+        generator: 'delete',
+        config: { catalogId: CATALOG_ID },
+        options: {},
+        channelId: CHANNEL_ID,
+        catalogId: CATALOG_ID,
+        isTotal: true,
+        ownershipScope: 'aica-owned',
+      },
+    });
+
+    const coordinator = new DeleteCoordinatorService(service.ctx);
+    service.ctx.batchCallback.registerGenerator('delete', coordinator);
+
+    const dashboard = openDashboard();
+    await coordinator._runDiscoveryStep(SESSION_ID);
+
+    return {
+      coordinator,
+      dashboard,
+      service,
+      /** One deletion step, and everything it put on the wire. */
+      async runStep(handlerName, stepKey) {
+        await coordinator._runGenericDeletionStep(
+          handlerName,
+          SESSION_ID,
+          stepKey
+        );
+        dashboard.receive(service.drain());
+      },
+      showCrawl() {
+        dashboard.receive(service.drain());
+      },
+    };
+  }
+
+  const rowsFor = (service, stepKey) =>
+    service.batches().filter((row) => row.step_key === stepKey);
+
+  it('seeds every bar from the crawl, because a delete asks for nothing', async () => {
+    const run = await startDeletionRun();
+    run.showCrawl();
+
+    // The census the crawl emits is the whole denominator. Nothing else in a
+    // delete sets one: `stepStarted` carries no count, and a simulated
+    // deletion sends no batch frames.
+    const state = run.dashboard.read();
+
+    expect(bar('products', state)).toEqual({ completed: 0, total: 5 });
+    expect(bar('priceLists', state)).toEqual({ completed: 0, total: 12 });
+    expect(bar('promotions', state)).toEqual({ completed: 0, total: 2 });
+    expect(bar('warehouses', state)).toEqual({ completed: 0, total: 4 });
+    expect(bar('specifications', state)).toEqual({ completed: 0, total: 6 });
+    expect(bar('options', state)).toEqual({ completed: 0, total: 9 });
+    expect(state.products.isDone).toBe(false);
+  });
+
+  it('keeps the ten accounts the crawl found when the two groups follow (#786)', async () => {
+    // The census emits `accounts` and then `accountGroups`, and the dashboard
+    // folds the second into the first bar - `normalizeEntityType` has no entry
+    // for account groups and falls through to its `account` prefix. So the
+    // last figure to reach the accounts bar is the smaller one. A delete
+    // requests nothing, which leaves the crawl's census as the only floor
+    // there is, and a run that removed all ten accounts read `10 / 2`.
+    const run = await startDeletionRun({ accounts: 10 });
+    await run.runStep('deleteAccounts', S.DELETE_ACCOUNTS);
+
+    expect(bar('accounts', run.dashboard.read())).toEqual({
+      completed: 10,
+      total: 10,
+    });
+  });
+
+  it('reports the seven price lists Liferay removed, not the twelve handed to it (#657)', async () => {
+    // A step whose targets are the entities themselves reports what it
+    // removed. Taking the targeted figure on trust is what let a step that
+    // deleted nothing report a full success, and it is invisible from either
+    // side alone: the row and the bar are written by different deployables.
+    const run = await startDeletionRun({ priceLists: 7 });
+    await run.runStep('deletePriceLists', S.DELETE_PRICE_LISTS);
+
+    expect(bar('priceLists', run.dashboard.read())).toEqual({
+      completed: 7,
+      total: 12,
+    });
+    expect(run.dashboard.read().priceLists.isDone).toBe(true);
+
+    expect(rowsFor(run.service, S.DELETE_PRICE_LISTS)).toEqual([
+      expect.objectContaining({
+        status: 'COMPLETED',
+        processed_count: 7,
+        total_count: 12,
+      }),
+      expect.objectContaining({ status: 'COMPLETED' }),
+    ]);
+  });
+
+  it('leaves the bar at nothing when the step removed nothing (#657)', async () => {
+    // Two promotions targeted and none gone. The bar reading 0 of 2 is the
+    // point: the run failed to do this and the entities are still there.
+    const run = await startDeletionRun({ promotions: 0 });
+    await run.runStep('deletePromotions', S.DELETE_PROMOTIONS);
+
+    expect(bar('promotions', run.dashboard.read())).toEqual({
+      completed: 0,
+      total: 2,
+    });
+
+    expect(rowsFor(run.service, S.DELETE_PROMOTIONS)[0]).toEqual(
+      expect.objectContaining({
+        status: 'FAILED',
+        processed_count: 0,
+        total_count: 2,
+        error_count: 2,
+      })
+    );
+  });
+
+  it('does not let the catalog reset answer for the Products bar (#786)', async () => {
+    // `reset-catalog-config` deletes nothing and reports the single unit it
+    // processed. Counting that against products made a delete run show
+    // "Products 1 Deleted, Done" while `delete-products` was still at 0 of 50,
+    // and the bar stayed finished for the rest of the run.
+    const run = await startDeletionRun({ products: 5 });
+    await run.runStep('resetCatalogConfiguration', S.RESET_CATALOG_CONFIG);
+
+    expect(bar('products', run.dashboard.read())).toEqual({
+      completed: 0,
+      total: 5,
+    });
+    expect(run.dashboard.read().products.isDone).toBe(false);
+
+    expect(rowsFor(run.service, S.RESET_CATALOG_CONFIG)[0]).toEqual(
+      expect.objectContaining({
+        status: 'COMPLETED',
+        processed_count: 1,
+        total_count: 1,
+      })
+    );
+
+    await run.runStep('deleteProducts', S.DELETE_PRODUCTS);
+
+    expect(bar('products', run.dashboard.read())).toEqual({
+      completed: 5,
+      total: 5,
+    });
+    expect(run.dashboard.read().products.isDone).toBe(true);
+  });
+
+  it('agrees on every bar whether the dashboard watched the delete or reconnected', async () => {
+    const run = await startDeletionRun({
+      accounts: 10,
+      priceLists: 7,
+      products: 5,
+    });
+
+    await run.runStep('resetCatalogConfiguration', S.RESET_CATALOG_CONFIG);
+    await run.runStep('deleteProducts', S.DELETE_PRODUCTS);
+    await run.runStep('deleteAccounts', S.DELETE_ACCOUNTS);
+    await run.runStep('deletePriceLists', S.DELETE_PRICE_LISTS);
+
+    // A delete submits no form, so the status route is given the rows the run
+    // wrote and no requested figures at all.
+    const summary = summariseSessionProgress({
+      batches: run.service.batches(),
+      options: {},
+    });
+
+    const reconnecting = openDashboard({
+      statusResponse: {
+        success: true,
+        status: 'RUNNING',
+        flowType: 'delete',
+        progress: summary,
+      },
+    });
+    await reconnecting.rehydrate();
+
+    ['products', 'accounts', 'priceLists'].forEach((entity) => {
+      expect([entity, bar(entity, reconnecting.read())]).toEqual([
+        entity,
+        bar(entity, run.dashboard.read()),
+      ]);
+    });
+
+    expect(bar('products', run.dashboard.read())).toEqual({
+      completed: 5,
+      total: 5,
+    });
+    expect(bar('accounts', run.dashboard.read())).toEqual({
+      completed: 10,
+      total: 10,
+    });
+    expect(bar('priceLists', run.dashboard.read())).toEqual({
+      completed: 7,
+      total: 12,
     });
   });
 });
