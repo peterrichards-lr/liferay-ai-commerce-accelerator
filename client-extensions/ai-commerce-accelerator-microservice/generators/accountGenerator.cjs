@@ -2,6 +2,7 @@ const BaseGenerator = require('./baseGenerator.cjs');
 const { deepCleanIds } = require('../utils/payload-cleaner.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS, ENV } = require('../utils/constants.cjs');
 const {
+  buildStableERC,
   createERC,
   toTitleCase,
   delay,
@@ -569,14 +570,32 @@ class AccountGenerator extends BaseGenerator {
       });
 
       const groupedAddresses = new Map();
-      addressesToCreate.forEach((addr) => {
+      addressesToCreate.forEach((addr, position) => {
         const accountId = accountERCtoId.get(addr.accountERC);
         if (accountId) {
           if (!groupedAddresses.has(accountId)) {
             groupedAddresses.set(accountId, []);
           }
           const { accountERC: _accountERC, ...addressWithoutErc } = addr;
-          groupedAddresses.get(accountId).push(addressWithoutErc);
+          groupedAddresses.get(accountId).push({
+            ...addressWithoutErc,
+            // Derived rather than minted, and derived here because
+            // `accountERC` is what makes it unique and the destructuring above
+            // has just removed it. A random ERC per attempt made this the one
+            // place a rerun silently duplicated: the batch upserts on the
+            // external reference code, a fresh code is a fresh row, and it was
+            // never written back to the context for the next attempt to find.
+            // An operator resuming a failed import would have got every
+            // address twice, with no error to say so (#895).
+            externalReferenceCode:
+              addr.externalReferenceCode ||
+              buildStableERC(ERC_PREFIX.ADDRESS, [
+                addr.accountERC,
+                addr.name,
+                addr.city,
+                String(position),
+              ]),
+          });
         }
       });
 
@@ -594,8 +613,6 @@ class AccountGenerator extends BaseGenerator {
         const prepared = addresses.map((addr) => ({
           ...addr,
           accountId: parseInt(accountId, 10),
-          externalReferenceCode:
-            addr.externalReferenceCode || createERC(ERC_PREFIX.ADDRESS),
         }));
 
         if (prepared.length > 0) {

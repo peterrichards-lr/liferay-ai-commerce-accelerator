@@ -95,15 +95,40 @@ function resolveDeclaredPaths(source) {
 
   return new Set(
     [...constants.values()]
-      .map((value) => expand(value))
+      .map((value) => withoutParameterNames(expand(value)))
       .filter((value) => value.startsWith(API_PREFIX))
   );
 }
 
-/** The CLI builds its URLs inline, so its paths are read as literals. */
+/**
+ * One spelling for "a segment whose value is supplied at the call".
+ *
+ * The route declares it `:sessionId`, the CLI interpolates `${sessionId}`, and
+ * neither name matters to the question this file asks. Reducing both to the
+ * same token is what lets the two be compared for equality instead of by
+ * prefix - and prefix matching is not a detail: `/api/v1/workflows/sessions`
+ * is a prefix of the session context and summary endpoints as well, so a CLI
+ * that reached one of those paths would report having reached all three.
+ */
+const PARAMETER = ':parameter';
+
+const withoutParameterNames = (apiPath) =>
+  apiPath.replace(/:[A-Za-z_][A-Za-z0-9_]*/g, PARAMETER);
+
+/**
+ * The CLI builds its URLs inline, so its paths are read as literals - with the
+ * interpolated segments read too, rather than truncating the path at the first
+ * one. `/api/v1/workflows/sessions/${sessionId}/status` is the CLI polling a
+ * run, and reading it as `/api/v1/workflows/sessions/` said the CLI could not
+ * do the one thing it does on every command that starts a run.
+ */
 function resolveCliPaths(source) {
+  const apiPath = /\/api\/v1(?:\/(?:\$\{[^}]*\}|[a-z0-9-]+))+/g;
+
   return new Set(
-    [...source.matchAll(/\/api\/v1\/[a-z0-9/-]+/g)].map((found) => found[0])
+    [...source.matchAll(apiPath)].map((found) =>
+      found[0].replace(/\$\{[^}]*\}/g, PARAMETER)
+    )
   );
 }
 
@@ -125,16 +150,10 @@ const SURFACES = {
 };
 
 function surfacesFor(apiPath) {
-  const full = `${API_PREFIX}${apiPath}`;
+  const full = withoutParameterNames(`${API_PREFIX}${apiPath}`);
 
   return Object.entries(SURFACES)
-    .filter(([name, paths]) =>
-      name === 'cli'
-        ? [...paths].some(
-            (declared) => declared === full || full.startsWith(`${declared}/`)
-          )
-        : paths.has(full)
-    )
+    .filter(([, paths]) => paths.has(full))
     .map(([name]) => name);
 }
 

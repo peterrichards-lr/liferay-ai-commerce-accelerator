@@ -58,6 +58,9 @@ aica extract --instance ./from-uat.aicap
 # Import and re-scaffold a saved dataset or package on another Liferay DXP instance
 aica import ./solara-moto.aicap
 
+# Pick a failed import up where it stopped, instead of redoing what already worked
+aica import --resume AICA-SESSION-12345
+
 # Wipe all generated commerce entities globally, leaving Liferay perfectly clean
 aica delete --all
 ```

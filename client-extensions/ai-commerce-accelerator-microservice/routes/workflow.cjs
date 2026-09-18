@@ -1,4 +1,5 @@
 const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
+const { planSessionResume } = require('../utils/resumePlan.cjs');
 const { sweepOrphanMediaArchives } = require('../utils/mediaArchive.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
@@ -222,7 +223,10 @@ function summariseSessionProgress({ batches = [], options = {} }) {
   );
 }
 
-module.exports = (app, { logger, persistenceService, progressService }) => {
+module.exports = (
+  app,
+  { batchCallbackService, logger, persistenceService, progressService }
+) => {
   /**
    * Media whose session no longer exists, removed.
    *
@@ -363,6 +367,123 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
         operation: 'workflow-cancel',
         statusCode: 500,
         fallbackMessage: 'Failed to cancel workflow session',
+      });
+    }
+  });
+
+  /**
+   * Re-enters a failed run at the step that failed.
+   *
+   * The engine already knows how to skip a step whose batch rows say it
+   * finished, so this route does not decide what to skip - it clears the failed
+   * step's own rows, moves the session out of FAILED and hands it back to the
+   * orchestrator, which then advances it with the same code a first run uses.
+   * That is what keeps a resumed run's progress meaning what a fresh one's
+   * means: every completed step keeps the rows its share of the bar is summed
+   * from (#1003, #1011).
+   *
+   * A refusal is a 409 carrying the reason, because "this cannot be resumed
+   * and here is the step that stops it" is the answer #895 asks for. An
+   * operator who is told plainly can restart; one who is quietly resumed past
+   * a step that duplicates cannot tell what happened.
+   */
+  app.post(INTERNAL_API_PATHS.WORKFLOW_RESUME, async (req, res) => {
+    const { sessionId } = req.params;
+
+    try {
+      const session = await persistenceService.getSession(sessionId);
+
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: 'Session not found',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const batches = await persistenceService.getBatchesForSession(sessionId);
+      const plan = planSessionResume({ session, batches });
+
+      if (!plan.resumable) {
+        logger.warn(`Refusing to resume session ${sessionId}: ${plan.reason}`, {
+          sessionId,
+          correlationId: req.correlationId,
+          operation: 'workflow-resume',
+        });
+
+        return res.status(409).json({
+          success: false,
+          error: plan.reason,
+          plan,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      let clearedBatches = 0;
+
+      for (const stepKey of plan.stepsToClear) {
+        clearedBatches += await persistenceService.clearFailedBatchesForStep(
+          sessionId,
+          stepKey
+        );
+      }
+
+      // Ordered after the clear on purpose. The orchestrator wakes on a
+      // non-terminal status, and waking it while the failed rows were still
+      // there would have it read the step as FAILED and fail the session
+      // again - with a second, emptier failure over the first.
+      if (!(await persistenceService.tryReviveSession(sessionId))) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'The session stopped being resumable while it was being resumed.',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      logger.info(
+        `Resuming session ${sessionId} at ${
+          plan.stepsToClear.join(', ') || 'the first step it had not reached'
+        }, skipping ${plan.completedSteps.length} completed step(s)`,
+        {
+          sessionId,
+          correlationId: req.correlationId,
+          operation: 'workflow-resume',
+        }
+      );
+
+      progressService.sessionStarted({
+        sessionId,
+        flowType: session.flow_type,
+        correlationId: session.correlationId,
+      });
+
+      // Not awaited: advancing a run takes as long as the run does, and the
+      // import route does not await it either.
+      batchCallbackService._checkSessionCompletion(
+        sessionId,
+        session.correlationId
+      );
+
+      res.json({
+        success: true,
+        sessionId,
+        clearedBatches,
+        resumedAt: plan.stepsToClear,
+        skippedSteps: plan.completedSteps,
+        message: 'Workflow session resumed.',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      safeErrorResponse({
+        res,
+        logger,
+        req,
+        error,
+        operation: 'workflow-resume',
+        meta: { sessionId },
+        statusCode: 500,
+        fallbackMessage: 'Failed to resume workflow session',
       });
     }
   });

@@ -33,6 +33,70 @@ To ensure environment parity and support the "Replay" feature, the system mandat
 
     `siteGroupId` is always taken from the resolved channel rather than trusted from the request, because the channel record is authoritative about which site it belongs to.
 
+## Resuming a Failed Run
+
+A failed session is re-entered at the step that failed rather than restarted
+from the beginning (#895). The mechanism is deliberately small, because the
+workflow engine already holds everything it needs:
+
+1.  **Step state is derived, not stored.** `executeNextStep` reads each step's
+    state off its `workflow_batches` rows - FAILED if any row failed, COMPLETE
+    if every row is terminal, and PENDING when the step has no rows at all. A
+    resume therefore never lists what still has to happen. It deletes the
+    failed step's rows so the step reads PENDING again, moves the session out
+    of `FAILED`, and hands it back to the orchestrator, which skips the
+    completed steps using the same code a first run uses.
+2.  **The session id is reused.** Not a convenience: `_resolvePriceListTargets`
+    keys this run's price lists on an ERC containing the session id, and
+    `_deleteStalePriceLists` removes catalogue lists that are not in that set.
+    A resume under a new session id would delete the previous attempt's price
+    lists and the entries in them.
+3.  **Progress is untouched.** Every completed step keeps the rows its share of
+    the bar was summed from, so a resumed run's progress means what a fresh
+    one's means. Only the failed step's rows are replaced.
+
+### The idempotency classification
+
+`utils/stepIdempotency.cjs` classifies every key in `WORKFLOW_STEPS` by what a
+second attempt leaves behind - `NO_WRITE`, `ERC_UPSERT`, `CONVERGES` or
+`UNSAFE` - each entry citing the call site that decides it.
+`tests/stepIdempotency.test.cjs` fails when a step has no entry, so a new step
+is a new decision rather than an assumption. An unclassified step is treated as
+`UNSAFE`.
+
+### What resume refuses
+
+`utils/resumePlan.cjs` answers with a refusal and a reason, never with a
+partial guess:
+
+- a failed step classified `UNSAFE` - running it again would duplicate rather
+  than continue;
+- a step still holding non-terminal batch rows, meaning a batch was submitted
+  to Liferay and its callback never arrived - clearing it would abandon work
+  that may still land, and leaving it would stall the advance;
+- a session that is not `FAILED`.
+
+### Surfaces
+
+`POST /api/v1/workflows/sessions/:sessionId/resume`, and
+`aica import --resume <sessionId>` on the CLI. The dataset is not re-sent: the
+session already holds it, along with the catalog, channel, product and SKU ids
+its earlier steps resolved.
+
+### Known limits
+
+- **Extract and export do not resume.** They do not run on the session/step
+  machinery; `extractionFacade` is a separate path, and #972 covers the media
+  half of extract.
+- **A package import's media bundle is held in `cacheService`**, which is
+  memory only (#877). A resume after a service restart reaches the attach steps
+  with nothing to attach; they record `BYPASSED` rather than failing, so the
+  run completes without its media.
+- **`create-images` and `create-pdfs` remain `UNSAFE`.** Both POST an
+  attachment with no external reference code. Neither can be a resume's entry
+  point, because a media failure is recorded `BYPASSED` - which is terminal -
+  so the planner never needs to re-enter one.
+
 ## Purpose
 
 Define a clear, race-safe, event-driven architecture for multi-step
@@ -49,4 +113,4 @@ building or refactoring the system.
 
 ---
 
-_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
+_Last Updated: 2026-09-18_ | _Last Reviewed: 2026-09-18_

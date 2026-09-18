@@ -70,9 +70,18 @@ describe('SKU option links', () => {
       addProductOptions: vi
         .fn()
         .mockResolvedValue({ items: [linkedColour(liferayValues)] }),
+      // A definition carries the options something has written to it, and no
+      // others. link-product-options now reads before it writes (#895), so a
+      // stub that reported the colour option on an untouched definition would
+      // have the step decide it had nothing to send - and every test here
+      // would be exercising the rerun path rather than the first run.
       getProductOptions: vi
         .fn()
-        .mockResolvedValue([linkedColour(liferayValues)]),
+        .mockImplementation(async () =>
+          liferay.addProductOptions.mock.calls.length > 0
+            ? [linkedColour(liferayValues)]
+            : []
+        ),
       createProductsBatch: vi.fn().mockResolvedValue({ batchId: 'b1' }),
     };
 
@@ -237,6 +246,11 @@ describe('SKU option links', () => {
     for (const call of liferay.addProductOptions.mock.calls) {
       expect(call[2][0].optionId).toBe(44862);
     }
+
+    // And the second run sends nothing at all, because the definition already
+    // carries the option. Without this the loop above passes on an empty set
+    // of calls, which is the shape of assertion #895 warns about.
+    expect(liferay.addProductOptions).toHaveBeenCalledTimes(1);
   });
 
   /**
@@ -475,6 +489,81 @@ describe('SKU option links', () => {
         expect.stringContaining('SKU-contributing'),
         expect.anything()
       );
+    });
+  });
+  /**
+   * A CPDefinitionOptionRel has no external reference code, so POSTing one the
+   * definition already holds is not an upsert. That is run 4 of #895: the
+   * three attempts before it had created the products, so the fourth failed
+   * *earlier* than the third, at linking options that were already linked.
+   */
+  describe('linking options a second time', () => {
+    const alreadyLinked = () => {
+      liferay.getProductOptions.mockResolvedValue([
+        linkedColour(liferayValues),
+      ]);
+    };
+
+    it('reads the definition before it writes anything', async () => {
+      await generator.steps[S.ENSURE_OPTIONS]('sess-1');
+      await generator.steps[S.LINK_PRODUCT_OPTIONS]('sess-1');
+
+      expect(liferay.getProductOptions).toHaveBeenCalledWith(
+        session.context.config,
+        71552
+      );
+      expect(
+        liferay.getProductOptions.mock.invocationCallOrder[0]
+      ).toBeLessThan(liferay.addProductOptions.mock.invocationCallOrder[0]);
+    });
+
+    it('sends nothing when the definition already carries every option', async () => {
+      alreadyLinked();
+
+      await generator.steps[S.ENSURE_OPTIONS]('sess-1');
+      await generator.steps[S.LINK_PRODUCT_OPTIONS]('sess-1');
+
+      expect(liferay.addProductOptions).not.toHaveBeenCalled();
+    });
+
+    it('still resolves the SKU option links from what it read', async () => {
+      // Skipping the write must not skip the ids. A rerun that linked nothing
+      // and also resolved nothing would leave every variant inactive, which is
+      // the #662 failure by another route.
+      alreadyLinked();
+
+      await runToSkus();
+
+      expect(skuOptionsOf()).toEqual([
+        { optionId: 71565, optionValueId: 71566 },
+      ]);
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it('sends only the options the definition is missing', async () => {
+      session.context.productDataList[0].options.push({
+        name: 'Strap',
+        fieldType: 'select',
+        skuContributor: false,
+        productOptionValues: ['Leather'],
+      });
+      // Two global options, two ids. Sharing one would make the colour already
+      // on the definition answer for the strap as well, since findLinkedOption
+      // falls back to the global id when the key does not match.
+      liferay.createOptionWithReuse.mockImplementation(async (_cfg, data) => ({
+        id: data.key === 'STRAP' ? 44863 : 44862,
+        key: data.key,
+      }));
+      alreadyLinked();
+
+      await generator.steps[S.ENSURE_OPTIONS]('sess-1');
+      await generator.steps[S.LINK_PRODUCT_OPTIONS]('sess-1');
+
+      expect(liferay.addProductOptions).toHaveBeenCalledTimes(1);
+
+      const sent = liferay.addProductOptions.mock.calls[0][2];
+
+      expect(sent.map((option) => option.key)).toEqual(['STRAP']);
     });
   });
 });

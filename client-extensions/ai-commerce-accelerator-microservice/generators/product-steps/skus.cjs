@@ -251,18 +251,9 @@ async function runLinkProductOptionsStep(sessionId) {
         return cleanOpt;
       });
 
-      const createdOptions = await this.liferay.addProductOptions(
-        config,
-        definitionId,
-        cleanedOptions,
-        product.externalReferenceCode // HARDENING: Pass ERC to bypass indexing race condition
-      );
-
       // Map the generated IDs back to the product context for SKU mapping
       const asLinkedOptions = (response) =>
         Array.isArray(response) ? response : response?.items || [];
-
-      let linkedOptions = asLinkedOptions(createdOptions);
 
       const optionKeys = sourceOptions.map(
         (opt) =>
@@ -272,6 +263,64 @@ async function runLinkProductOptionsStep(sessionId) {
               opt.name
           )
       );
+
+      // What the definition already carries, read before anything is written.
+      //
+      // A CPDefinitionOptionRel has no external reference code and this step
+      // POSTs, so sending an option the definition already holds is not an
+      // upsert - Liferay either duplicates it or rejects the write. That is
+      // run 4 of #895: three earlier attempts had created the products, so the
+      // fourth failed *earlier* than the third, at linking options that were
+      // already linked. It is not only a resume problem - importing a dataset
+      // onto a catalogue that already holds it failed here for the same
+      // reason.
+      //
+      // The read is not conditional on a rerun because nothing at this point
+      // knows whether it is one. On a first run it costs one GET per product
+      // and returns nothing; on a second it is also the read-back the value
+      // ids are taken from, so it replaces the call below rather than adding
+      // to it.
+      let linkedOptions = [];
+
+      if (typeof this.liferay.getProductOptions === 'function') {
+        try {
+          linkedOptions = asLinkedOptions(
+            await this.liferay.getProductOptions(config, definitionId)
+          );
+        } catch (existingReadError) {
+          // Not a failure of the product: a definition with no options answers
+          // this way on some lines, and the write below is what settles it.
+          this.logger.debug(
+            `Could not read the existing options for product ${product.externalReferenceCode}; treating the definition as unlinked`,
+            { sessionId, error: existingReadError.message }
+          );
+          linkedOptions = [];
+        }
+      }
+
+      const unlinked = cleanedOptions.filter(
+        (_cleanOpt, index) =>
+          !findLinkedOption(linkedOptions, {
+            key: optionKeys[index],
+            optionId: sourceOptions[index].optionId,
+          })
+      );
+
+      if (unlinked.length > 0) {
+        const createdOptions = await this.liferay.addProductOptions(
+          config,
+          definitionId,
+          unlinked,
+          product.externalReferenceCode // HARDENING: Pass ERC to bypass indexing race condition
+        );
+
+        linkedOptions = [...linkedOptions, ...asLinkedOptions(createdOptions)];
+      } else {
+        this.logger.debug(
+          `Product ${product.externalReferenceCode} already carries every option this run declares; nothing sent`,
+          { sessionId }
+        );
+      }
 
       const readLinkedIds = () =>
         optionKeys.map((key, index) =>
@@ -296,8 +345,13 @@ async function runLinkProductOptionsStep(sessionId) {
             (cleanedOptions[index].productOptionValues || []).length > 0)
       );
 
+      // `unlinked.length > 0` is what stops a rerun paying for the same GET
+      // twice: when nothing was sent, `linkedOptions` already *is* the
+      // definition read back, so re-reading it could only return the same
+      // thing.
       if (
         needsReadBack &&
+        unlinked.length > 0 &&
         typeof this.liferay.getProductOptions === 'function'
       ) {
         // The definition id, not the CProduct id. Every product-scoped path

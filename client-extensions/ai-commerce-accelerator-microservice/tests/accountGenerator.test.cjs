@@ -264,4 +264,111 @@ describe('AccountGenerator', () => {
       regionTitle: 'Tashkent',
     });
   });
+  describe('create-addresses on a second attempt (#895)', () => {
+    const addressSession = async (sessionId) => {
+      await persistence.createSession({
+        sessionId,
+        flowType: 'accounts',
+        status: 'STARTED',
+        context: {
+          config: {},
+          options: {},
+          accountsToCreate: [{ externalReferenceCode: 'ACC-1', id: 1001 }],
+          addressesToCreate: [
+            {
+              accountERC: 'ACC-1',
+              name: 'Head Office',
+              city: 'Reading',
+              streetAddressLine1: '1 Kings Road',
+            },
+            {
+              accountERC: 'ACC-1',
+              name: 'Warehouse',
+              city: 'Slough',
+              streetAddressLine1: '2 Trading Estate',
+            },
+          ],
+          steps: [{ name: 'create-addresses' }],
+        },
+      });
+    };
+
+    const ercsSent = () =>
+      mockCtx.liferay.createAccountAddressBatch.mock.calls.flatMap(
+        ([, , addresses]) =>
+          addresses.map((address) => address.externalReferenceCode)
+      );
+
+    beforeEach(() => {
+      mockCtx.liferay.createAccountAddressBatch = vi
+        .fn()
+        .mockResolvedValue({ batchId: 'batch-addr' });
+      generator.submitBatch = vi
+        .fn()
+        .mockImplementation(async (_sessionId, _step, _kind, _op, send) => {
+          await send('BATCH-ERC');
+        });
+    });
+
+    it('sends the same external reference codes every time', async () => {
+      // The step used to mint `createERC(ERC_PREFIX.ADDRESS)` per attempt and
+      // never write it back to the context, so the batch upsert had a fresh
+      // key on every run. A resumed import would have given each account its
+      // addresses twice, with nothing failing to say so.
+      await addressSession('first');
+      await generator._runAddressCreationStep('first');
+      const first = ercsSent();
+
+      await addressSession('second');
+      await generator._runAddressCreationStep('second');
+      const second = ercsSent().slice(first.length);
+
+      expect(first).toHaveLength(2);
+      expect(second).toEqual(first);
+    });
+
+    it('gives two addresses of one account different codes', async () => {
+      // Derived, not random - so the derivation has to separate them itself.
+      await addressSession('first');
+      await generator._runAddressCreationStep('first');
+
+      const [one, two] = ercsSent();
+
+      expect(one).not.toEqual(two);
+    });
+
+    it('separates two addresses that are otherwise identical', async () => {
+      // Which is why the derivation includes the address's position in the
+      // list. Collapsing a genuine duplicate into one row would be silent data
+      // loss of exactly the kind this change is meant to remove.
+      await addressSession('first');
+      const session = await persistence.getSession('first');
+      session.context.addressesToCreate[1] = {
+        ...session.context.addressesToCreate[0],
+      };
+      await persistence.updateSessionContext('first', {
+        addressesToCreate: session.context.addressesToCreate,
+      });
+
+      await generator._runAddressCreationStep('first');
+
+      const [one, two] = ercsSent();
+
+      expect(one).not.toEqual(two);
+    });
+
+    it('keeps a code the dataset supplied rather than deriving over it', async () => {
+      await addressSession('first');
+      const session = await persistence.getSession('first');
+      session.context.addressesToCreate[0].externalReferenceCode =
+        'FROM-SOURCE';
+      await persistence.updateSessionContext('first', {
+        addressesToCreate: session.context.addressesToCreate,
+      });
+
+      await generator._runAddressCreationStep('first');
+
+      expect(ercsSent()).toContain('FROM-SOURCE');
+    });
+  });
 });
