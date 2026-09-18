@@ -111,22 +111,28 @@ describe('Planning a resume', () => {
   });
 
   it('refuses to re-enter a step that cannot be re-run, naming it', () => {
-    // The whole point of the audit. create-images posts an attachment with no
-    // external reference code, so running it again leaves the product carrying
-    // the picture twice - and an operator who believes they are recovering
-    // while they are duplicating is worse off than one who restarted.
+    // The whole point of the audit. This used the media steps, which were the
+    // only two classified UNSAFE - #1040 gave them a deterministic ERC and an
+    // existence check, so today no step in WORKFLOW_STEPS is unsafe and the
+    // refusal has no real subject to exercise it.
+    //
+    // A step the table does not know is used instead, because `rerunSafetyOf`
+    // defaults an unclassified step to UNSAFE. That is the condition worth
+    // covering anyway: the guard has to hold for the next step somebody adds
+    // and forgets to classify, which is exactly when nobody is looking.
+    const unclassified = 'a-step-nobody-classified';
+
     const plan = planSessionResume({
       session: failed,
       batches: [
         batch(S.CREATE_PRODUCTS, 'COMPLETED', { processed: 22, total: 22 }),
-        batch(S.ATTACH_IMAGES, 'FAILED'),
+        batch(unclassified, 'FAILED'),
       ],
     });
 
     expect(plan.resumable).toBe(false);
-    expect(plan.reason).toContain(S.ATTACH_IMAGES);
-    expect(plan.reason).toContain('no ERC');
-    expect(plan.unsafeSteps).toEqual([S.ATTACH_IMAGES]);
+    expect(plan.reason).toContain(unclassified);
+    expect(plan.unsafeSteps).toEqual([unclassified]);
   });
 
   it('refuses while a batch is still outstanding, rather than repeating it', () => {
@@ -678,15 +684,21 @@ describe('The resume route', () => {
   });
 
   it('refuses with the reason rather than resuming into a duplicate', async () => {
+    // Was the media steps; #1040 made those converge, so an unclassified step
+    // stands in - `rerunSafetyOf` defaults one to UNSAFE, which is the same
+    // path and the one that has to hold for a step somebody forgets to
+    // classify.
+    const unclassified = 'a-step-nobody-classified';
+
     persistenceService.getSession.mockResolvedValue({ status: 'FAILED' });
     persistenceService.getBatchesForSession.mockResolvedValue([
-      batch(S.ATTACH_IMAGES, 'FAILED'),
+      batch(unclassified, 'FAILED'),
     ]);
 
     await callResume();
 
     expect(res.sent.status).toBe(409);
-    expect(res.sent.body.error).toContain(S.ATTACH_IMAGES);
+    expect(res.sent.body.error).toContain(unclassified);
     expect(persistenceService.clearFailedBatchesForStep).not.toHaveBeenCalled();
     expect(persistenceService.tryReviveSession).not.toHaveBeenCalled();
     expect(batchCallbackService._checkSessionCompletion).not.toHaveBeenCalled();

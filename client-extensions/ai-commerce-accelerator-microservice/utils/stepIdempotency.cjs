@@ -209,19 +209,23 @@ const STEP_RERUN_SAFETY = {
 
   // --- media --------------------------------------------------------------
   //
-  // Both POST an attachment with no external reference code and no existence
-  // check, so a second attempt leaves the product carrying the file twice.
-  // Neither can be the step a resume re-enters - a media failure is recorded
-  // BYPASSED rather than FAILED (media.cjs:137), which is terminal - but the
-  // classification is what makes that a fact the planner checks rather than an
-  // assumption it relies on.
+  // Both carry a deterministic ERC and read the product's existing attachments
+  // before posting, so a second attempt attaches nothing it already attached
+  // (#1040). They converge rather than upsert: the ERC identifies the
+  // attachment and the read decides, because a POST carrying an existing ERC is
+  // not established to upsert and that could not be established without a live
+  // instance.
+  //
+  // A media failure is still recorded BYPASSED rather than FAILED
+  // (media.cjs:137), which is terminal, so neither is a step a resume re-enters
+  // today. That is now true by two independent facts rather than one.
   [S.ATTACH_IMAGES]: {
-    safety: UNSAFE,
-    why: 'posts the image with no ERC and no existence check (mediaGenerator.cjs:576)',
+    safety: CONVERGES,
+    why: 'reads the product images and posts only the ERCs it does not carry (mediaGenerator.cjs)',
   },
   [S.ATTACH_PDFS]: {
-    safety: UNSAFE,
-    why: 'posts the document with no ERC and no existence check (mediaGenerator.cjs:778)',
+    safety: CONVERGES,
+    why: 'reads the product attachments and posts only the ERCs it does not carry (mediaGenerator.cjs)',
   },
 
   // --- structural ---------------------------------------------------------

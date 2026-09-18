@@ -10,12 +10,58 @@ const {
   now,
   elapsedMs,
   createERC,
+  buildStableERC,
   isValidUrl,
 } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { KIND } = require('../utils/mediaBundle.cjs');
 const { openMediaArchive } = require('../utils/mediaArchive.cjs');
 const { SELECTION_KEYS, selectShare } = require('../utils/shareSelection.cjs');
+
+/**
+ * The attachment ERCs a product already carries.
+ *
+ * An attachment had no reference of its own, so nothing distinguished "attach
+ * this picture" from "attach this picture again" and a second attempt left the
+ * product holding both copies with no error to say so (#1040). Two changes
+ * close that: every attachment now carries a deterministic ERC, and the product
+ * is read before anything is posted.
+ *
+ * The read is deliberate rather than relying on a POST carrying an existing ERC
+ * to upsert. Nothing in this tree establishes that it does, and it cannot be
+ * established without a live instance - so the duplication is not fixed by
+ * assuming something about the exact call that duplicates. `link-product-options`
+ * was fixed the same way and for the same reason (#1039, skus.cjs).
+ *
+ * A product that cannot be read is treated as carrying nothing: the attach then
+ * behaves exactly as it did before this change, rather than being skipped
+ * wholesale on the strength of a failed GET.
+ */
+async function attachedERCs(read, config, productERC, onWarn) {
+  // A client that cannot read attachments is treated the same as a product
+  // that carries none: the attach behaves exactly as it did before #1040
+  // rather than refusing to run. The duplicate check is a safeguard, not a
+  // prerequisite, and making it one would turn a missing read into a failed
+  // media run.
+  if (typeof read !== 'function') {
+    return new Set();
+  }
+
+  try {
+    const response = await read(config, productERC);
+    const items = Array.isArray(response) ? response : response?.items || [];
+
+    return new Set(
+      items.map((item) => item?.externalReferenceCode).filter(Boolean)
+    );
+  } catch (error) {
+    onWarn?.(
+      `Could not read existing media for ${productERC}; attaching without a duplicate check: ${error.message}`
+    );
+
+    return new Set();
+  }
+}
 
 class MediaGenerator {
   constructor(ctx) {
@@ -462,6 +508,13 @@ class MediaGenerator {
     const createdImages = [];
     for (const product of productsToProcess) {
       try {
+        const attached = await attachedERCs(
+          liferay.getProductImages?.bind(liferay),
+          config,
+          product.externalReferenceCode,
+          (message) => logger.warn(message)
+        );
+
         let imageSet = [];
 
         if (imageMode === 'ai' && !options.demoMode) {
@@ -573,10 +626,22 @@ class MediaGenerator {
             title,
           });
 
+          const imageERC = buildStableERC(ERC_PREFIX.PRODUCT_IMAGE, [
+            product.externalReferenceCode,
+            KIND.IMAGE,
+            title?.en_US || title,
+            String(imageData.priority || 1),
+          ]);
+
+          if (attached.has(imageERC)) {
+            continue;
+          }
+
           const created = await liferay.addProductImageByBase64(
             config,
             product.externalReferenceCode,
             {
+              externalReferenceCode: imageERC,
               attachment: base64,
               contentType: contentType,
               title: title,
@@ -708,6 +773,13 @@ class MediaGenerator {
     const createdPdfs = [];
     for (const product of productsToProcess) {
       try {
+        const attached = await attachedERCs(
+          liferay.getProductAttachments?.bind(liferay),
+          config,
+          product.externalReferenceCode,
+          (message) => logger.warn(message)
+        );
+
         const sku = product.skus?.[0]?.sku || product.externalReferenceCode;
 
         // A generated run makes exactly one PDF per product. A bundle may
@@ -775,10 +847,22 @@ class MediaGenerator {
             title: pdf.title,
           });
 
+          const pdfERC = buildStableERC(ERC_PREFIX.PRODUCT_ATTACHMENT, [
+            product.externalReferenceCode,
+            KIND.PDF,
+            pdf.title?.en_US || pdf.title,
+            String(pdf.priority || 1),
+          ]);
+
+          if (attached.has(pdfERC)) {
+            continue;
+          }
+
           const created = await liferay.addProductDocumentAttachmentByBase64(
             config,
             product.externalReferenceCode,
             {
+              externalReferenceCode: pdfERC,
               attachment: pdf.base64,
               contentType: pdf.contentType,
               title: pdf.title,
