@@ -1,0 +1,124 @@
+name: Measure Product Yield
+
+# #825: product generation plateaus near 21 of 50 because the model returns items
+# it has already been told it produced. `nameFirstProducts` ships behind a flag,
+# off, because it could not be validated without a live model - and the one thing
+# needed to validate it, a provider key, exists only as a repository secret and
+# cannot be read back out.
+#
+# So the measurement runs here, where the secret is injected, rather than on a
+# developer's machine.
+#
+# THIS SPENDS REAL MONEY. Roughly ten model calls per arm, plus one naming call
+# for the on arm. That is why it is `workflow_dispatch` only and will never be
+# scheduled: a cron that quietly bills someone is exactly the wrong shape for
+# this. `--simulate` costs nothing and proves the harness rather than the
+# hypothesis, so it is the default here too - a dispatch that spends has to say
+# so explicitly.
+#
+# No Liferay is involved. The plateau is settled inside `generateProductData`
+# before a product reaches an instance: the model returns items, the ledger
+# discards repeats, and what survives is the answer.
+
+on:
+  workflow_dispatch:
+    inputs:
+      simulate:
+        description: 'Simulate (spends nothing). Untick to make real model calls.'
+        required: true
+        default: true
+        type: boolean
+      count:
+        description: 'Products to request'
+        required: false
+        default: '50'
+        type: string
+      chunk_size:
+        description: 'Chunk size'
+        required: false
+        default: '5'
+        type: string
+      provider:
+        description: 'Provider'
+        required: false
+        default: 'openai'
+        type: choice
+        # Only the two the repository actually holds a secret for. Anthropic
+        # is a supported provider in the product but has no ANTHROPIC_API_KEY
+        # here, and offering it would fail at the provider rather than at the
+        # form - see refresh-ai-models.yml on why a missing secret is a
+        # deliberate choice about where a credential may live, not a gap.
+        options:
+          - openai
+          - gemini
+      model:
+        description: 'Model (blank uses the provider default)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: Distinct yield, name-first off vs on
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Say what this run will cost
+        run: |
+          if [ "${{ inputs.simulate }}" = "true" ]; then
+            echo "SIMULATED: no provider is called and nothing is spent."
+          else
+            echo "::warning::This run makes real model calls against ${{ inputs.provider }} and will be billed."
+          fi
+
+      - name: Measure
+        working-directory: client-extensions/ai-commerce-accelerator-microservice
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          ARGS="--count ${{ inputs.count }} --chunk-size ${{ inputs.chunk_size }} --provider ${{ inputs.provider }}"
+
+          if [ "${{ inputs.simulate }}" = "true" ]; then
+            ARGS="$ARGS --simulate"
+          fi
+
+          if [ -n "${{ inputs.model }}" ]; then
+            ARGS="$ARGS --model ${{ inputs.model }}"
+          fi
+
+          echo "Running: node scripts/measure-product-yield.cjs $ARGS"
+          node scripts/measure-product-yield.cjs $ARGS | tee yield-report.txt
+
+      - name: Publish the comparison to the run summary
+        if: always()
+        working-directory: client-extensions/ai-commerce-accelerator-microservice
+        run: |
+          {
+            echo '## Product yield'
+            echo
+            echo '```'
+            cat yield-report.txt 2>/dev/null || echo 'no report produced'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yield-report
+          path: client-extensions/ai-commerce-accelerator-microservice/yield-report.txt
+          if-no-files-found: warn
