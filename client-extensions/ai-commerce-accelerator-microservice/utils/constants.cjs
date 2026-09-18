@@ -378,6 +378,10 @@ const ERC_PREFIX = {
   ERROR: 'AICA-ERR',
   USER_SEGMENT: 'AICA-SEG',
   PROMOTION: 'AICA-PROMO',
+  // Attachments are the one write that had no reference of its own, so a
+  // second attempt attached the same file again (#1040).
+  PRODUCT_IMAGE: 'AICA-IMG',
+  PRODUCT_ATTACHMENT: 'AICA-ATT',
 };
 
 const IMAGE_BATCH_ID = crypto.randomUUID();
