@@ -6,6 +6,35 @@ const path = require('path');
 const SCRIPT = path.resolve(__dirname, '../../../scripts/detect-secrets.mjs');
 
 /**
+ * The environment every child here runs with, minus git's own variables.
+ *
+ * git exports `GIT_DIR`, `GIT_INDEX_FILE` and `GIT_WORK_TREE` to its hooks, and
+ * `GIT_DIR` OVERRIDES cwd-based discovery - so `{ cwd: repo }` is not enough to
+ * keep a git command inside the sandbox. `.husky/pre-push` runs `yarn test`,
+ * which means that without this every `git` call below, and every call the
+ * script under test makes, would run against the developer's real repository:
+ * `git add .` and `git commit` of their working tree, then `git branch -M
+ * base-branch` renaming whatever they were on (#1033).
+ *
+ * It was not hypothetical - it happened during #1022, leaving a renamed branch,
+ * a commit nobody asked for and four staged files.
+ *
+ * The script's own `execSync` inherits this too, which is why `runCheck` takes
+ * it as well: pointed at the real repository it would read that repository's
+ * diff, and the assertions below would be reporting on the wrong thing rather
+ * than merely doing damage.
+ *
+ * Computed per call rather than once at module load, so the guard below can set
+ * GIT_DIR and actually observe it being dropped. Frozen at load it would be
+ * untestable, and a test that cannot fail is what this file is for.
+ */
+function sandboxEnv() {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))
+  );
+}
+
+/**
  * The secrets check ran in exactly one place - the pre-commit hook - and that
  * place is skippable with `--no-verify`, which worktree work does routinely
  * because a fresh worktree has no node_modules for lint-staged. Nothing scanned
@@ -58,7 +87,11 @@ describe('detect-secrets: it actually fails on a planted secret (#1001)', () => 
   let repo;
 
   const git = (...args) =>
-    execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
+    execFileSync('git', args, {
+      cwd: repo,
+      encoding: 'utf8',
+      env: sandboxEnv(),
+    });
 
   // The script reads file contents from `path.resolve(__dirname, '..')`, not
   // from the working directory, so a copy has to live inside the sandbox for
@@ -74,6 +107,7 @@ describe('detect-secrets: it actually fails on a planted secret (#1001)', () => 
       const stdout = execFileSync('node', [sandboxed, ...args], {
         cwd: repo,
         encoding: 'utf8',
+        env: sandboxEnv(),
       });
       return { status: 0, stdout };
     } catch (error) {
@@ -127,6 +161,42 @@ describe('detect-secrets: it actually fails on a planted secret (#1001)', () => 
 
     expect(status).toBe(0);
     expect(stdout).toMatch(/No staged files/);
+  });
+
+  // The reason `sandboxEnv` exists. Running under a hook, git hands the child
+  // GIT_DIR, and GIT_DIR beats `cwd` - so without scrubbing it these commands
+  // would leave the sandbox entirely and operate on whatever repository the
+  // hook was invoked from. Here that is a second scratch repository, which is
+  // the same mechanism with somewhere harmless to land: with the scrub, the
+  // planted secret is still found in the sandbox; without it, the sandbox never
+  // receives the commits and the range finds nothing (#1033).
+  it('stays in the sandbox when git hands it a GIT_DIR, as a hook does', () => {
+    const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), 'secrets-hook-'));
+
+    execFileSync('git', ['init', '-q'], { cwd: elsewhere, encoding: 'utf8' });
+
+    const previous = process.env.GIT_DIR;
+    process.env.GIT_DIR = path.join(elsewhere, '.git');
+
+    try {
+      git('checkout', '-q', '-b', 'feature');
+      fs.writeFileSync(path.join(repo, 'leak.txt'), `key = ${plantedKey()}\n`);
+      git('add', '.');
+      git('commit', '-q', '--no-verify', '-m', 'add a key');
+
+      const { status, stdout } = runCheck('--range', 'base-branch...HEAD');
+
+      expect(status).toBe(1);
+      expect(stdout).toMatch(/OpenAI API Key|leak\.txt/);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.GIT_DIR;
+      } else {
+        process.env.GIT_DIR = previous;
+      }
+
+      fs.rmSync(elsewhere, { recursive: true, force: true });
+    }
   });
 
   it('passes a clean range', () => {
