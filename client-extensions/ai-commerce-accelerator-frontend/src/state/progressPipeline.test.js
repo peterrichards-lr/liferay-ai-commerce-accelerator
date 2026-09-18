@@ -427,6 +427,10 @@ describe('the live bar and the rehydrated bar count the same run (#891)', () => 
       options
     );
     await runStep(service, S.GENERATE_PRICE_LISTS, [47, 10], options);
+    // One batch per warehouse, and nine items behind seven products: stock is
+    // placed per SKU per warehouse, so the figure is the step's own and not
+    // the product count. Nothing in the request implies it (#1003).
+    await runStep(service, S.UPDATE_INVENTORY, [5, 4], options);
   };
 
   const CONFIG = {
@@ -462,7 +466,7 @@ describe('the live bar and the rehydrated bar count the same run (#891)', () => 
     reconnecting.seedFromForm(CONFIG);
     await reconnecting.rehydrate();
 
-    ['products', 'skus', 'priceLists'].forEach((entity) => {
+    ['products', 'skus', 'priceLists', 'inventory'].forEach((entity) => {
       expect([entity, bar(entity, reconnecting.read())]).toEqual([
         entity,
         bar(entity, watching.read()),
@@ -473,6 +477,14 @@ describe('the live bar and the rehydrated bar count the same run (#891)', () => 
     expect(bar('priceLists', watching.read())).toEqual({
       completed: 57,
       total: 57,
+    });
+    // The bar the status route had no bucket for: watched it read the nine
+    // items two batches placed, and rehydrated it read `0 / 0` - which is what
+    // every run behind Liferay's `/o/` ingress reads, since the upgrade is
+    // dropped there and the dashboard polls instead (#1003).
+    expect(bar('inventory', watching.read())).toEqual({
+      completed: 9,
+      total: 9,
     });
   });
 
@@ -521,6 +533,50 @@ describe('the live bar and the rehydrated bar count the same run (#891)', () => 
     Object.entries(fromDashboard).forEach(([entity, total]) => {
       expect([entity, fromStatusRoute[entity].total]).toEqual([entity, total]);
     });
+  });
+
+  it('keeps both paths at nothing on a step neither of them counts', async () => {
+    // `link-product-options` writes a row saying seven of seven products had
+    // their options linked, and no bar shows it either way. Watched: the step
+    // reports its count on a COMPLETED frame, the hook dispatches MARK_DONE,
+    // and MARK_DONE refuses a count against a zero total - nothing raises the
+    // Options bar on a generate run, because the step submits no batch and the
+    // COMPLETED branch ignores the frame's `totalCount` (its PROGRESS branch
+    // does not). Rehydrated: STEP_ENTITY_MAP does not count the step.
+    //
+    // #1003 proposed adding it to STEP_ENTITY_MAP, which alone would make the
+    // polled bar read 7 / 7 against a watched 0 / 0 - the same defect in
+    // reverse. This holds the pair together: the live bar has to learn to show
+    // a synchronous step's total before the step may be counted here.
+    const service = startMicroservice({ config: CONFIG });
+
+    await service.generator.completeSyncStep(
+      SESSION_ID,
+      S.LINK_PRODUCT_OPTIONS,
+      'SYNCHRONOUS',
+      7,
+      7
+    );
+
+    const watching = openDashboard();
+    watching.seedFromForm(CONFIG);
+    watching.receive(service.frames);
+
+    expect(service.batches()).toEqual([
+      expect.objectContaining({
+        step_key: S.LINK_PRODUCT_OPTIONS,
+        processed_count: 7,
+        total_count: 7,
+      }),
+    ]);
+
+    const summary = summariseSessionProgress({
+      batches: service.batches(),
+      options: CONFIG,
+    });
+
+    expect(bar('options', watching.read())).toEqual({ completed: 0, total: 0 });
+    expect(summary.options).toEqual({ completed: 0, total: 0 });
   });
 });
 
