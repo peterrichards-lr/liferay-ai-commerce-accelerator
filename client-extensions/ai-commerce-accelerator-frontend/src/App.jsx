@@ -208,14 +208,16 @@ function AppUI() {
     channels,
     languages,
     currencies,
+    sites,
     warehouseCount: existingWarehouseCount,
     categories: fetchCategories,
     selectChannel,
     selectCatalog,
     testConnection,
     loadRootLists,
-    isCreatingChannel,
-    createDefaultChannel,
+    loadSiteLanguages,
+    isCreatingCommerce,
+    createCommerceSetup,
     handleDeleteAllCommerceData,
     handleDeleteSelectedCommerceData,
   } = useCommerceData({
@@ -739,7 +741,7 @@ function AppUI() {
               <div className="row">
                 <div className="col-12">
                   <ConfigurationPanel
-                    disabled={isGenerating || isCreatingChannel}
+                    disabled={isGenerating || isCreatingCommerce}
                     onTestConnection={testConnection}
                     onConnectionStatusChange={setConnectionEstablished}
                     connected={connectionEstablished}
@@ -747,11 +749,13 @@ function AppUI() {
                     channels={channels}
                     languages={languages}
                     currencies={currencies}
+                    sites={sites}
                     onSelectChannel={selectChannel}
                     onSelectCatalog={selectCatalog}
                     onRefreshLists={loadRootLists}
-                    isCreatingChannel={isCreatingChannel}
-                    onCreateDefaultChannel={createDefaultChannel}
+                    isCreatingCommerce={isCreatingCommerce}
+                    onCreateCommerceSetup={createCommerceSetup}
+                    onLoadSiteLanguages={loadSiteLanguages}
                     connectionErrors={connectionErrors}
                     onErrorsChange={setConnectionErrors}
                     onDeleteAllCommerceData={async () => {

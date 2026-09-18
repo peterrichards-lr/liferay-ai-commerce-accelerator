@@ -1,18 +1,30 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useApp, useApi } from '../context/AppContext';
-import { DEFAULT_CHANNEL_NAME } from '../config/defaults';
+import { catalogCurrency, findCatalog } from '../config/commerceSetup';
 import notifyUser from '../utils/notifications';
 import { getConnectionErrorsMap, hasAnyErrors } from '../utils/validation';
 import {
   GET_CATALOGS,
   GET_CHANNELS,
+  GET_SITES,
   GET_WAREHOUSES,
+  CREATE_CATALOG,
   CREATE_CHANNEL,
   GET_CATEGORIES,
   TEST_CONNECTION,
   DELETE_COMMERCE_DATA,
   DELETE_SELECTED_COMMERCE_DATA,
 } from '../utils/microservicePaths';
+
+// The cached getters answer with the route's envelope, with a bare array from
+// their own cache, and with `[]` when the call failed. One reader per list
+// rather than the shape test repeated at each call site.
+const asList = (res, key) =>
+  Array.isArray(res?.[key]) ? res[key] : Array.isArray(res) ? res : [];
+
+const asCurrencies = (res) => asList(res, 'currencies');
+const asLanguages = (res) => asList(res, 'languages');
+
 export default function useCommerceData({
   addLog,
   setConnectionEstablished,
@@ -28,9 +40,10 @@ export default function useCommerceData({
   const [channels, setChannels] = useState([]);
   const [languages, setLanguages] = useState([]);
   const [currencies, setCurrencies] = useState([]);
+  const [sites, setSites] = useState([]);
   // null means not known, which is different from zero. See loadRootLists.
   const [warehouseCount, setWarehouseCount] = useState(null);
-  const [isCreatingChannel, setIsCreatingChannel] = useState(false);
+  const [isCreatingCommerce, setIsCreatingCommerce] = useState(false);
 
   const buildPayload = useCallback(
     (overrides = {}) => {
@@ -84,10 +97,18 @@ export default function useCommerceData({
     // cost the catalogs and channels, which the form cannot work without, so
     // it settles to null - "not known" - rather than to zero, which would
     // wrongly read as "none exist" and disable a valid option (#730).
-    const [cat, ch, wh] = await Promise.all([
+    // Currencies and sites are company-scoped - `get-currencies` destructures
+    // neither channelId nor siteGroupId - so they load here rather than behind
+    // a channel selection. That is what lets the setup dialog offer a currency
+    // on an instance that has no channel yet, which is the instance it exists
+    // for (#746). Neither is worth losing the catalogs and channels over, so
+    // both settle to an empty list rather than failing the load.
+    const [cat, ch, wh, curr, site] = await Promise.all([
       api.post(GET_CATALOGS, payload),
       api.post(GET_CHANNELS, payload),
       api.post(GET_WAREHOUSES, payload).catch(() => null),
+      getCurrencies(payload),
+      api.post(GET_SITES, payload).catch(() => null),
     ]);
 
     const cats = Array.isArray(cat?.catalogs) ? cat.catalogs : [];
@@ -95,94 +116,29 @@ export default function useCommerceData({
     const warehouseTotal = Array.isArray(wh?.warehouses)
       ? wh.warehouses.length
       : null;
+    const currs = asCurrencies(curr);
+    const siteList = Array.isArray(site?.sites) ? site.sites : [];
 
     setCatalogs(cats);
     setChannels(chs);
     setWarehouseCount(warehouseTotal);
+    setSites(siteList);
 
-    return { catalogs: cats, channels: chs, warehouseCount: warehouseTotal };
-  }, [api, buildPayload]);
-
-  const createDefaultChannel = useCallback(async () => {
-    const requestedCurrency = String(config.currencyCode ?? '').trim();
-
-    // A channel's currency does not stay the channel's: selectChannel adopts
-    // it as the run's currency, and price lists are written in that. So a
-    // currency nobody chose here is a currency nobody chose for the prices
-    // either (#745). It is the operator's to state, and with none stated the
-    // create is refused rather than completed against a guess.
-    if (!requestedCurrency) {
-      const message =
-        'No currency is set, so a channel cannot be created without choosing ' +
-        'one on your behalf. Import a configuration that names a currency, or ' +
-        'create the channel in Commerce → Channels where the currency is asked for.';
-      notifyUser(message, 'danger');
-      addLog?.(message, 'error');
-      return;
+    // An empty answer must not wipe a list the channel-scoped load already
+    // filled, or selecting a channel and then refreshing would empty the
+    // currency dropdown.
+    if (currs.length > 0) {
+      setCurrencies(currs);
     }
 
-    setIsCreatingChannel(true);
-    try {
-      const payload = buildPayload({
-        currencyCode: requestedCurrency,
-        name: DEFAULT_CHANNEL_NAME,
-      });
-      const res = await api.post(CREATE_CHANNEL, payload);
-      if (res?.success && res?.channel) {
-        notifyUser('Default Commerce Channel created successfully!', 'success');
-        if (addLog) {
-          // What the channel came back as, not what was asked for: the request
-          // is the intention and the response is the fact, and the two are
-          // only the same until they are not.
-          const createdCurrency = res.channel.currencyCode ?? null;
-
-          addLog(
-            `Created channel '${res.channel.name}' (ID: ${res.channel.id}) in ${
-              createdCurrency ?? 'an unreported currency'
-            }.`,
-            'info'
-          );
-
-          if (createdCurrency && createdCurrency !== requestedCurrency) {
-            addLog(
-              `The channel was asked for in ${requestedCurrency} but was created in ` +
-                `${createdCurrency}. Selecting it makes ${createdCurrency} this run's ` +
-                `currency, so check it against the catalog you generate into.`,
-              'warning'
-            );
-          }
-
-          addLog(
-            `The name '${DEFAULT_CHANNEL_NAME}' is AICA's, not one you chose - rename ` +
-              'the channel in Commerce → Channels if this demo needs its own.',
-            'warning'
-          );
-
-          // Nothing in Headless can set the commerce site type - that is #622,
-          // and the reason the commerce-site-type module exists to *read* it.
-          // So a channel created here is always unset, which Liferay defaults
-          // to B2C, and business or mixed account runs against it are refused
-          // (#640). Better said now than discovered when a run is refused.
-          addLog(
-            'This channel has no commerce site type set, so Liferay treats it as B2C. ' +
-              'To generate business accounts against it, set the site type in ' +
-              'Commerce → Channels first.',
-            'warning'
-          );
-        }
-        await loadRootLists();
-      } else {
-        throw new Error(res?.error || 'Failed to create channel');
-      }
-    } catch (error) {
-      notifyUser(`Channel creation failed: ${error.message}`, 'danger');
-      if (addLog) {
-        addLog(`Failed to create default channel: ${error.message}`, 'error');
-      }
-    } finally {
-      setIsCreatingChannel(false);
-    }
-  }, [api, buildPayload, config.currencyCode, loadRootLists, addLog]);
+    return {
+      catalogs: cats,
+      channels: chs,
+      currencies: currs,
+      sites: siteList,
+      warehouseCount: warehouseTotal,
+    };
+  }, [api, buildPayload, getCurrencies]);
 
   const testConnection = async (options = {}) => {
     const { silent = false } = options;
@@ -268,16 +224,8 @@ export default function useCommerceData({
         getCurrencies(payload),
       ]);
 
-      const langs = Array.isArray(langsRes?.languages)
-        ? langsRes.languages
-        : Array.isArray(langsRes)
-          ? langsRes
-          : [];
-      const currs = Array.isArray(currsRes?.currencies)
-        ? currsRes.currencies
-        : Array.isArray(currsRes)
-          ? currsRes
-          : [];
+      const langs = asLanguages(langsRes);
+      const currs = asCurrencies(currsRes);
 
       setLanguages(langs);
       setCurrencies(currs);
@@ -348,13 +296,18 @@ export default function useCommerceData({
           ? preferences.currencyCode
           : null;
 
+        // The channel no longer writes the run's currency (#746). It used to
+        // take `chObj.currencyCode`, and since price lists are written into the
+        // *catalog* denominated by this field, selecting a EUR channel against
+        // the USD `Master` catalog produced euro price lists inside a dollar
+        // catalog. The catalog owns it now; a stated preference still wins,
+        // because an import knows what it asked for.
         return {
           ...prev,
           channelId: chObj.id,
           siteGroupId: chObj.siteGroupId,
           selectedLanguages: nextLangs,
-          currencyCode:
-            preferredCurrency || chObj.currencyCode || prev.currencyCode || '',
+          currencyCode: preferredCurrency || prev.currencyCode || '',
         };
       });
     },
@@ -368,11 +321,23 @@ export default function useCommerceData({
         return;
       }
 
-      const catObj = catalogs.find((c) => String(c.id) === String(catalogId));
+      const catObj = findCatalog(catalogs, catalogId);
       if (!catObj) return;
 
+      // The catalog is what price lists are written into, and a catalog's
+      // currency is what they are denominated in, so selecting one settles the
+      // run's currency (#746). A catalog reporting none leaves the previous
+      // value standing rather than clearing it: an empty currency is what
+      // refuses a generation, and it is not something a selection should
+      // silently cause.
+      const currency = catalogCurrency(catObj);
+
       setConfig((prev) => {
-        const nextConfig = { ...prev, catalogId: catObj.id };
+        const nextConfig = {
+          ...prev,
+          catalogId: catObj.id,
+          currencyCode: currency || prev.currencyCode,
+        };
 
         // If we have a default language for the catalog, and it's available in the channel's languages
         if (catObj.defaultLanguageId) {
@@ -394,6 +359,208 @@ export default function useCommerceData({
       });
     },
     [catalogs, languages, setConfig]
+  );
+
+  /**
+   * The locales a site offers, for the setup dialog.
+   *
+   * The dialog cannot use the card's `languages`: those belong to the *selected
+   * channel's* site, and the instance the dialog exists for has no channel yet
+   * (#746). It asks for the site it is about to use and reads that one's
+   * locales instead.
+   */
+  const loadSiteLanguages = useCallback(
+    async (siteGroupId) => {
+      if (!siteGroupId) return [];
+
+      return asLanguages(await getLanguages(buildPayload({ siteGroupId })));
+    },
+    [buildPayload, getLanguages]
+  );
+
+  /**
+   * Creates a catalog, a channel, or both, from one dialog (#746).
+   *
+   * One action rather than two, because the catalog owns the currency and a
+   * channel's has to agree with the catalog backing it. Two independent creates
+   * are precisely the affordance that produces a mismatched pair, which is the
+   * defect this area exists to close.
+   *
+   * The currency comes from exactly one place: the catalog being created, or
+   * the catalog already selected. With neither it **refuses**, rather than
+   * reaching for the USD that made `Master` the only catalog AICA could ever
+   * generate into (#745, #1014).
+   *
+   * Both halves report what came back rather than what was asked for. The
+   * request is the intention and the response is the fact, and the two are only
+   * the same until they are not.
+   */
+  const createCommerceSetup = useCallback(
+    async ({ catalog = null, channel = null } = {}) => {
+      if (!catalog && !channel) {
+        return { success: false, reason: 'nothing-requested' };
+      }
+
+      const selectedCatalogCurrency = catalogCurrency(
+        findCatalog(catalogs, config.catalogId)
+      );
+      const requestedCurrency = catalog
+        ? String(catalog.currencyCode ?? '').trim()
+        : selectedCatalogCurrency;
+
+      if (!requestedCurrency) {
+        const message =
+          'No currency could be determined, so nothing was created. A ' +
+          'currency comes from the catalog it is created with, or from the ' +
+          'catalog already selected - and neither names one. Nothing is ' +
+          'chosen on your behalf, because a catalog denominates every price ' +
+          'written into it.';
+        notifyUser(message, 'danger');
+        addLog?.(message, 'error');
+        return { success: false, reason: 'no-currency' };
+      }
+
+      setIsCreatingCommerce(true);
+      try {
+        let createdCatalog = null;
+        let currencyCode = requestedCurrency;
+
+        if (catalog) {
+          const res = await api.post(
+            CREATE_CATALOG,
+            buildPayload({
+              currencyCode: requestedCurrency,
+              defaultLanguageId: catalog.defaultLanguageId,
+              name: catalog.name,
+            })
+          );
+
+          if (!res?.success || !res?.catalog) {
+            throw new Error(res?.error || 'Failed to create catalog');
+          }
+
+          createdCatalog = res.catalog;
+          const catalogGotCurrency = catalogCurrency(createdCatalog);
+
+          addLog?.(
+            `Created catalog '${createdCatalog.name}' (ID: ${createdCatalog.id}) in ` +
+              `${catalogGotCurrency || 'an unreported currency'}.`,
+            'info'
+          );
+
+          if (catalogGotCurrency && catalogGotCurrency !== requestedCurrency) {
+            addLog?.(
+              `The catalog was asked for in ${requestedCurrency} but was created in ` +
+                `${catalogGotCurrency}. Every price generated into it is denominated ` +
+                'in that, so check it before generating.',
+              'warning'
+            );
+          }
+
+          // The catalog Liferay actually made, not the one that was asked for:
+          // a channel created against the request would be the mismatched pair
+          // this dialog exists to prevent.
+          currencyCode = catalogGotCurrency || requestedCurrency;
+        }
+
+        let createdChannel = null;
+
+        if (channel) {
+          const res = await api.post(
+            CREATE_CHANNEL,
+            buildPayload({
+              currencyCode,
+              name: channel.name,
+              siteGroupId: channel.siteGroupId,
+              siteType: channel.siteType,
+            })
+          );
+
+          if (!res?.success || !res?.channel) {
+            throw new Error(res?.error || 'Failed to create channel');
+          }
+
+          createdChannel = res.channel;
+          const channelGotCurrency = String(
+            createdChannel.currencyCode ?? ''
+          ).trim();
+
+          addLog?.(
+            `Created channel '${createdChannel.name}' (ID: ${createdChannel.id}) in ` +
+              `${channelGotCurrency || 'an unreported currency'}.`,
+            'info'
+          );
+
+          if (channelGotCurrency && channelGotCurrency !== currencyCode) {
+            addLog?.(
+              `The channel was asked for in ${currencyCode}, the catalog's currency, but ` +
+                `was created in ${channelGotCurrency}. The storefront will display a ` +
+                'currency the prices are not written in.',
+              'warning'
+            );
+          }
+
+          // A new channel *displays* B2C while storing nothing, so the route
+          // reads the type back and reports what the instance holds. Anything
+          // short of a confirmed read is said out loud rather than presented as
+          // a type that was set (#622, #1045).
+          if (res.siteType && !res.siteType.applied) {
+            addLog?.(res.siteType.message, 'warning');
+          } else if (res.siteType?.applied) {
+            addLog?.(
+              `The channel's commerce site type reads back as ` +
+                `${res.siteType.siteTypeLabel || res.siteType.requested}.`,
+              'info'
+            );
+          }
+        }
+
+        const fresh = await loadRootLists();
+
+        if (createdCatalog) {
+          setConfig((prev) => ({
+            ...prev,
+            catalogId: createdCatalog.id,
+            currencyCode,
+          }));
+        }
+
+        if (createdChannel) {
+          await selectChannel(String(createdChannel.id));
+        }
+
+        notifyUser(
+          [createdCatalog && 'Catalog', createdChannel && 'Channel']
+            .filter(Boolean)
+            .join(' and ') + ' created.',
+          'success'
+        );
+
+        return {
+          success: true,
+          catalog: createdCatalog,
+          channel: createdChannel,
+          catalogs: fresh?.catalogs,
+          channels: fresh?.channels,
+        };
+      } catch (error) {
+        notifyUser(`Commerce setup failed: ${error.message}`, 'danger');
+        addLog?.(`Failed to create commerce setup: ${error.message}`, 'error');
+        return { success: false, reason: 'failed', error: error.message };
+      } finally {
+        setIsCreatingCommerce(false);
+      }
+    },
+    [
+      addLog,
+      api,
+      buildPayload,
+      catalogs,
+      config.catalogId,
+      loadRootLists,
+      selectChannel,
+      setConfig,
+    ]
   );
 
   const getCategories = useCallback(
@@ -516,9 +683,11 @@ export default function useCommerceData({
     channels,
     languages,
     currencies,
+    sites,
     warehouseCount,
-    isCreatingChannel,
-    createDefaultChannel,
+    isCreatingCommerce,
+    createCommerceSetup,
+    loadSiteLanguages,
     categories: getCategories,
     buildPayload,
     loadRootLists,
