@@ -4,6 +4,33 @@ import { toFormData } from '../utils/formData';
 import { GENERATE_MEDIA } from '../utils/microservicePaths';
 
 /**
+ * The generator settings this flow sends, and the only ones it sends.
+ *
+ * `generate/media` gates on `imageMode` and `pdfMode` - both absent means both
+ * read as `'none'` and the route refuses the run - and the media steps read the
+ * rest. They used to arrive because `App.jsx` spread the whole generation
+ * config into every payload, which also sent this route an order count, a
+ * session name and a brand it has no use for. Named here so the flow states
+ * what it needs rather than inheriting it. See #1044.
+ */
+const MEDIA_SETTINGS = [
+  'demoMode',
+  'imageMode',
+  'imageRatio',
+  'imageStyle',
+  'pdfContentType',
+  'pdfMode',
+  'pdfRatio',
+];
+
+const mediaSettingsOf = (generationConfig) =>
+  Object.fromEntries(
+    MEDIA_SETTINGS.filter((field) => generationConfig[field] !== undefined).map(
+      (field) => [field, generationConfig[field]]
+    )
+  );
+
+/**
  * Attaches images and PDFs to products that already exist in Liferay.
  *
  * Used for a dataset imported from another instance, which never carries its
@@ -15,6 +42,7 @@ export default function useMediaGeneration({
   addLog,
   buildPayload,
   dispatch,
+  generationConfig = {},
   isGenerating,
 }) {
   const [isSubmittingMedia, setIsSubmittingMedia] = useState(false);
@@ -34,21 +62,23 @@ export default function useMediaGeneration({
       setIsSubmittingMedia(true);
 
       try {
-        const config = buildPayload();
-
-        const payload = {
-          ...config,
+        const payload = buildPayload({
+          ...mediaSettingsOf(generationConfig),
           sourceSessionId,
           mediaScope: scope,
           // The backend refuses a media run without this. Media is the
           // expensive part of a run, so it never starts implicitly.
           confirmMediaGeneration: true,
-        };
+        });
 
         const imageFile =
-          config.imageMode === 'custom' ? config.customImageFile : null;
+          generationConfig.imageMode === 'custom'
+            ? generationConfig.customImageFile
+            : null;
         const pdfFile =
-          config.pdfMode === 'custom' ? config.customPDFFile : null;
+          generationConfig.pdfMode === 'custom'
+            ? generationConfig.customPDFFile
+            : null;
 
         addLog(`Requesting media for session ${sourceSessionId}...`, 'info');
 
@@ -104,7 +134,15 @@ export default function useMediaGeneration({
         setIsSubmittingMedia(false);
       }
     },
-    [api, addLog, buildPayload, dispatch, isGenerating, isSubmittingMedia]
+    [
+      api,
+      addLog,
+      buildPayload,
+      dispatch,
+      generationConfig,
+      isGenerating,
+      isSubmittingMedia,
+    ]
   );
 
   return { generateMedia, isSubmittingMedia };

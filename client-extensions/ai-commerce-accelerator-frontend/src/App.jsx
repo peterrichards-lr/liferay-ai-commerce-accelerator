@@ -203,6 +203,7 @@ function AppUI() {
   });
 
   const {
+    buildPayload,
     catalogs,
     channels,
     languages,
@@ -371,11 +372,15 @@ function AppUI() {
     isGenerating,
   });
 
+  // The media flow is the one write that carries no generation config of its
+  // own: it is started from a modal, not from the generator form, so the
+  // settings the media steps read have to be handed to it. See #1044.
   const { generateMedia, isSubmittingMedia } = useMediaGeneration({
     api,
     addLog,
     buildPayload,
     dispatch,
+    generationConfig,
     isGenerating,
   });
 
@@ -459,14 +464,6 @@ function AppUI() {
   }, []);
 
   const appTopRef = useRef(null);
-
-  function buildPayload() {
-    return {
-      ...config,
-      ...generationConfig,
-      correlationId: config.correlationId,
-    };
-  }
 
   return (
     <div className="ai-commerce-dashboard" ref={appTopRef}>
