@@ -4,6 +4,28 @@ const os = require('node:os');
 const path = require('node:path');
 
 /**
+ * The ambient environment minus git's own variables.
+ *
+ * git exports `GIT_DIR`, `GIT_INDEX_FILE` and `GIT_WORK_TREE` to its hooks, and
+ * a git worktree exports them too — and `GIT_DIR` OVERRIDES cwd-based
+ * discovery. So `{ cwd: dir }` is not enough to keep a command inside the
+ * sandbox: without this, `yarn test` stages files in whatever repository the
+ * caller is sitting in (#1050, and #1033 before it).
+ *
+ * Computed per call rather than once at module load, so a test can set GIT_DIR
+ * and observe it being dropped. Frozen at load it would be untestable, which in
+ * a guard against exactly this would be the wrong trade.
+ */
+function sandboxEnv(extra = {}) {
+  return {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))
+    ),
+    ...extra,
+  };
+}
+
+/**
  * The repository's gating checks - `check-lockfile-drift.cjs`,
  * `check-duplicate-json-keys.cjs`, `validate-cx.js`, `detect-secrets.mjs` -
  * are scripts, not modules. Each one runs on load, exports nothing, and
@@ -90,7 +112,11 @@ function createSandbox(scriptName, files = {}, { dependencies = [] } = {}) {
     },
 
     git(...args) {
-      return execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
+      return execFileSync('git', args, {
+        cwd: dir,
+        encoding: 'utf8',
+        env: sandboxEnv(),
+      });
     },
 
     run() {
@@ -100,7 +126,7 @@ function createSandbox(scriptName, files = {}, { dependencies = [] } = {}) {
         {
           cwd: dir,
           encoding: 'utf8',
-          env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' },
+          env: sandboxEnv({ FORCE_COLOR: '0', NO_COLOR: '1' }),
         }
       );
 
