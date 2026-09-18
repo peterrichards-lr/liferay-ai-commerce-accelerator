@@ -92,20 +92,29 @@ export function getGenerationErrorsMap(gc, liferayConnected = true, limits) {
   if (gc.orderCount > maxOrders)
     (errors.orderCount ??= []).push(`Max is ${maxOrders}.`);
 
-  if (gc.imageMode !== 'none' && (gc.imageRatio < 0 || gc.imageRatio > 100)) {
-    (errors.imageRatio ??= []).push('Must be between 0 and 100.');
-  }
-  if (gc.pdfMode !== 'none' && (gc.pdfRatio < 0 || gc.pdfRatio > 100)) {
-    (errors.pdfRatio ??= []).push('Must be between 0 and 100.');
+  // The media fields belong to the Products section, which the form does not
+  // render when no products are asked for (#677). An error raised on a field
+  // that is not on screen cannot be corrected, and it would leave the submit
+  // button disabled with nothing to show for it - so a run that generates no
+  // products is not judged on how it would have made product media.
+  if (gc.productCount > 0) {
+    if (gc.imageMode !== 'none' && (gc.imageRatio < 0 || gc.imageRatio > 100)) {
+      (errors.imageRatio ??= []).push('Must be between 0 and 100.');
+    }
+    if (gc.pdfMode !== 'none' && (gc.pdfRatio < 0 || gc.pdfRatio > 100)) {
+      (errors.pdfRatio ??= []).push('Must be between 0 and 100.');
+    }
+
+    if (gc.imageMode === 'custom' && !gc.customImageFile) {
+      (errors.customImageFile ??= []).push('Upload a custom image.');
+    }
+    if (gc.pdfMode === 'custom' && !gc.customPDFFile) {
+      (errors.customPDFFile ??= []).push('Upload a custom PDF.');
+    }
   }
 
-  if (gc.imageMode === 'custom' && !gc.customImageFile) {
-    (errors.customImageFile ??= []).push('Upload a custom image.');
-  }
-  if (gc.pdfMode === 'custom' && !gc.customPDFFile) {
-    (errors.customPDFFile ??= []).push('Upload a custom PDF.');
-  }
-
+  // Matches `sectionVisibility().categories`: the selector is on screen for
+  // either count, because the names are thematic context for both.
   if (
     liferayConnected &&
     (gc.productCount > 0 || gc.accountCount > 0) &&

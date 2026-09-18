@@ -22,6 +22,7 @@ Our official documentation is kept clean and user-focused:
 - **[Features & Capabilities](./docs/FEATURES.md)**: Details on AI generation, real-time monitoring, and visual assets.
 - **[Liferay MCP Server](./docs/MCP.md)**: Documentation on connecting the accelerator's Model Context Protocol (MCP) server to AI agents.
 - **[JSON Web Services Guide](./docs/JSONWS_GUIDE.md)**: Guide on configuring Liferay's API authentication.
+- **[Prompt Templates](./docs/PROMPT_TEMPLATES.md)**: The template syntax available to whoever writes a prompt - variables, conditionals, loops and filters.
 - **[Automation Playbook](./docs/PLAYBOOK.md)**: The rules, workflows, and issue templates driving the AI-assisted development of this repository.
 
 _(Note: If you see folders like `conductor/`, `jira/`, or `internal/` in the repository, they contain internal tracking state and upstream bug reports meant for the project maintainers and AI agents. You do not need to read them)._
@@ -95,4 +96,4 @@ _Configure AI provider keys, API endpoints, and DXP connectivity parameters dyna
 
 ---
 
-_Last Updated: 2026-09-04_ | _Last Reviewed: 2026-09-04_
+_Last Updated: 2026-09-18_ | _Last Reviewed: 2026-09-18_

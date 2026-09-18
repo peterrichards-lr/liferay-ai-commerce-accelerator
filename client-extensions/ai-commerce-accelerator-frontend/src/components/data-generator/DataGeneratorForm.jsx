@@ -15,6 +15,10 @@ import {
   defaultAccountTypeFor,
   evaluateAccountType,
 } from '../../config/channelSiteType';
+import {
+  sectionVisibility,
+  withHiddenSectionsDropped,
+} from '../../config/generationSections';
 
 function hasErr(map, key, msgStartsWith) {
   const list = map?.[key] || [];
@@ -44,6 +48,11 @@ function DataGeneratorForm({
   selectedChannel,
 }) {
   const [expandSignal, setExpandSignal] = useState(0);
+
+  const sections = useMemo(
+    () => sectionVisibility(generationConfig),
+    [generationConfig]
+  );
 
   // What the selected channel makes of the chosen account type. The
   // microservice refuses a confirmed mismatch outright; saying so here means
@@ -96,16 +105,20 @@ function DataGeneratorForm({
     e.preventDefault();
 
     // Ensure we have a session name
-    const finalConfig = {
+    const sessionName = generationConfig.sessionName || defaultSessionName;
+
+    // The run carries only the sections the operator was shown. State keeps
+    // the rest, so a count taken to 0 and back restores what was there.
+    const finalConfig = withHiddenSectionsDropped({
       ...generationConfig,
-      sessionName: generationConfig.sessionName || defaultSessionName,
-    };
+      sessionName,
+    });
 
     // Keep the resolved name in the config too. The default is applied here and
     // nowhere else, so without this the state still reads empty and a log
     // export cannot say which run it describes.
-    if (finalConfig.sessionName !== generationConfig.sessionName) {
-      handleConfigChange('sessionName', finalConfig.sessionName);
+    if (sessionName !== generationConfig.sessionName) {
+      handleConfigChange('sessionName', sessionName);
     }
 
     const node = scrollTargetRef?.current;
@@ -484,103 +497,6 @@ function DataGeneratorForm({
                   {hasErr(validationErrors, 'accountCount') && (
                     <FieldError errors={validationErrors.accountCount} />
                   )}
-                  <label htmlFor="dataGeneration_accountType" className="mt-2">
-                    Account Type
-                  </label>
-                  <select
-                    id="dataGeneration_accountType"
-                    className="form-control"
-                    value={generationConfig.accountType || 'business'}
-                    onChange={(e) =>
-                      handleConfigChange('accountType', e.target.value)
-                    }
-                    disabled={lockFields}
-                  >
-                    <option value="business">
-                      Business (B2B — dealers, distributors, companies)
-                    </option>
-                    <option value="person">
-                      Individual (B2C — direct consumer accounts)
-                    </option>
-                    <option value="mixed">
-                      Mixed (both business and individual)
-                    </option>
-                  </select>
-                  {accountTypeVerdict.outcome === 'ok' ? (
-                    <p
-                      className="text-secondary mt-1 mb-0"
-                      style={{ fontSize: '0.8em' }}
-                    >
-                      Choose based on the commerce channel this data is for —
-                      B2B storefronts typically need business accounts, B2C
-                      storefronts need individual accounts.
-                    </p>
-                  ) : (
-                    <p
-                      className={
-                        accountTypeVerdict.outcome === 'block'
-                          ? 'text-danger mt-1 mb-0'
-                          : 'text-warning mt-1 mb-0'
-                      }
-                      style={{ fontSize: '0.8em' }}
-                    >
-                      {accountTypeVerdict.message}
-                    </p>
-                  )}
-                  {generationConfig.accountType === 'mixed' && (
-                    <div className="mt-3">
-                      <label htmlFor="dataGeneration_businessAccountRatio">
-                        Business / Individual Split
-                      </label>
-                      <div className="d-flex align-items-center">
-                        <input
-                          id="dataGeneration_businessAccountRatio"
-                          type="range"
-                          className="form-control-range flex-grow-1"
-                          min="0"
-                          max="100"
-                          step="5"
-                          value={Math.round(
-                            generationConfig.businessAccountRatio ?? 70
-                          )}
-                          onChange={(e) =>
-                            handleConfigChange(
-                              'businessAccountRatio',
-                              Number(e.target.value)
-                            )
-                          }
-                          disabled={lockFields}
-                        />
-                        <span
-                          className="ml-3 text-nowrap font-weight-semi-bold"
-                          style={{ minWidth: '9.5em' }}
-                        >
-                          {`${Math.round(
-                            generationConfig.businessAccountRatio ?? 70
-                          )}% business`}
-                        </span>
-                      </div>
-                      <p
-                        className="text-secondary mt-1 mb-0"
-                        style={{ fontSize: '0.8em' }}
-                      >
-                        {(() => {
-                          const total =
-                            Number(generationConfig.accountCount) || 0;
-                          const business = Math.round(
-                            (total *
-                              (generationConfig.businessAccountRatio ?? 70)) /
-                              100
-                          );
-                          return total > 0
-                            ? `Of ${total} accounts: ${business} business, ${
-                                total - business
-                              } individual.`
-                            : 'Set an account count to see how the split resolves.';
-                        })()}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -617,205 +533,329 @@ function DataGeneratorForm({
               </div>
             </div>
 
-            {generationConfig.orderCount > 0 && (
-              <div className="form-group mb-4">
-                <label htmlFor="dataGeneration_orderDateRangeDays">
-                  Order History Spread
-                </label>
-                <ClayInput.Group>
-                  <ClayInput.GroupItem shrink>
-                    <ClayInput.GroupText>
-                      Spread orders across the last
-                    </ClayInput.GroupText>
-                  </ClayInput.GroupItem>
-                  <ClayInput.GroupItem>
-                    <ClayInput
-                      id="dataGeneration_orderDateRangeDays"
-                      type="number"
-                      min="0"
-                      max="1095"
-                      value={generationConfig.orderDateRangeDays}
-                      onChange={(e) =>
-                        handleConfigChange(
-                          'orderDateRangeDays',
-                          parseInt(e.target.value)
-                        )
-                      }
-                      disabled={lockFields}
-                    />
-                  </ClayInput.GroupItem>
-                  <ClayInput.GroupItem shrink>
-                    <ClayInput.GroupText>days</ClayInput.GroupText>
-                  </ClayInput.GroupItem>
-                </ClayInput.Group>
-                <p
-                  className="text-secondary mt-1 mb-0"
-                  style={{ fontSize: '0.8em' }}
+            {sections.categories && (
+              <fieldset className="form-group mb-4 mt-5">
+                <legend
+                  className="font-weight-semi-bold"
+                  style={{ fontSize: '1rem' }}
                 >
-                  Set to 0 to date every order as right now. A larger range
-                  produces realistic order history over time — needed for
-                  reorder-frequency, lifecycle, or revenue-trend scenarios — and
-                  some accounts will place more than one order across that
-                  window to simulate genuine repeat customers.
-                </p>
-              </div>
+                  Target Categories
+                </legend>
+                <CategoriesSelector
+                  availableCategories={availableCategories}
+                  selectedCategories={generationConfig.categories}
+                  onToggleCategory={handleCategoryChange}
+                  disabled={lockFields}
+                  connected={liferayConnected}
+                  error={hasErr(validationErrors, 'categories')}
+                />
+                {hasErr(validationErrors, 'categories') && (
+                  <FieldError errors={validationErrors.categories} />
+                )}
+              </fieldset>
             )}
 
-            {generationConfig.orderCount > 0 &&
-              !generationConfig.accountCount && (
-                <div className="form-group mb-4">
-                  <label htmlFor="dataGeneration_orderAccountType">
-                    Order Account Type
-                  </label>
-                  <select
-                    id="dataGeneration_orderAccountType"
-                    className="form-control"
-                    value={generationConfig.orderAccountType || 'any'}
-                    onChange={(e) =>
-                      handleConfigChange('orderAccountType', e.target.value)
-                    }
-                    disabled={lockFields}
-                  >
-                    <option value="any">Any customer account</option>
-                    <option value="business">
-                      Business only (B2B — dealers, distributors, companies)
-                    </option>
-                    <option value="person">
-                      Individual only (B2C — direct consumer accounts)
-                    </option>
-                  </select>
+            {sections.products && (
+              <fieldset className="form-group mb-4 mt-5">
+                <legend
+                  className="font-weight-semi-bold"
+                  style={{ fontSize: '1rem' }}
+                >
+                  Products
+                </legend>
+                <div className="row gx-5">
+                  <div className="col-lg-6 pr-lg-5 border-right-lg">
+                    <h3
+                      className="sheet-title mb-4"
+                      style={{ fontSize: '1rem' }}
+                    >
+                      Architecture Features
+                    </h3>
+                    <ProductToggleSet
+                      values={{
+                        generateSpecifications:
+                          generationConfig.generateSpecifications,
+                        generateSkuVariants:
+                          generationConfig.generateSkuVariants,
+                        generatePriceLists: generationConfig.generatePriceLists,
+                        generateBulkPricing:
+                          generationConfig.generateBulkPricing,
+                        generateTierPricing:
+                          generationConfig.generateTierPricing,
+                        generatePromotions: generationConfig.generatePromotions,
+                      }}
+                      productCount={generationConfig.productCount}
+                      onChange={handleConfigChange}
+                      disabled={lockFields}
+                      errors={validationErrors}
+                    />
+
+                    <div className="mt-4">
+                      <VisualAssetControls
+                        values={{
+                          imageMode: generationConfig.imageMode,
+                          imageRatio: generationConfig.imageRatio,
+                          imageStyle: generationConfig.imageStyle,
+                          pdfMode: generationConfig.pdfMode,
+                          pdfRatio: generationConfig.pdfRatio,
+                          pdfContentType: generationConfig.pdfContentType,
+                        }}
+                        onChange={handleConfigChange}
+                        disabled={lockFields}
+                        aiMediaKeyAvailable={aiMediaKeyAvailable}
+                        demoMode={generationConfig.demoMode}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-lg-6 pl-lg-5">
+                    <h3
+                      className="sheet-title mb-4"
+                      style={{ fontSize: '1rem' }}
+                    >
+                      Inventory Strategy
+                    </h3>
+                    <WarehousesToggle
+                      existingWarehouseCount={existingWarehouseCount}
+                      productCount={generationConfig.productCount}
+                      values={{
+                        createWarehouses: generationConfig.createWarehouses,
+                        reuseExistingWarehouses:
+                          generationConfig.reuseExistingWarehouses,
+                        warehouseCount: generationConfig.warehouseCount,
+                      }}
+                      onChange={handleConfigChange}
+                      disabled={lockFields}
+                    />
+
+                    <div className="mt-3">
+                      <InventoryControls
+                        productCount={generationConfig.productCount}
+                        inventoryMin={generationConfig.inventoryMin}
+                        inventoryMax={generationConfig.inventoryMax}
+                        inventoryAssignmentRatio={
+                          generationConfig.inventoryAssignmentRatio
+                        }
+                        enableBackorders={generationConfig.enableBackorders}
+                        backorderAssignmentRatio={
+                          generationConfig.backorderAssignmentRatio
+                        }
+                        onChange={handleConfigChange}
+                        disabled={lockFields}
+                        validationErrors={validationErrors}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+            )}
+
+            {sections.accounts && (
+              <fieldset className="form-group mb-4 mt-5">
+                <legend
+                  className="font-weight-semi-bold"
+                  style={{ fontSize: '1rem' }}
+                >
+                  Accounts
+                </legend>
+                <label htmlFor="dataGeneration_accountType">Account Type</label>
+                <select
+                  id="dataGeneration_accountType"
+                  className="form-control"
+                  value={generationConfig.accountType || 'business'}
+                  onChange={(e) =>
+                    handleConfigChange('accountType', e.target.value)
+                  }
+                  disabled={lockFields}
+                >
+                  <option value="business">
+                    Business (B2B — dealers, distributors, companies)
+                  </option>
+                  <option value="person">
+                    Individual (B2C — direct consumer accounts)
+                  </option>
+                  <option value="mixed">
+                    Mixed (both business and individual)
+                  </option>
+                </select>
+                {accountTypeVerdict.outcome === 'ok' ? (
                   <p
                     className="text-secondary mt-1 mb-0"
                     style={{ fontSize: '0.8em' }}
                   >
-                    Orders are assigned to existing accounts of this type. Guest
-                    and supplier accounts are never used. Choose the type that
-                    matches the selected commerce channel — a B2B channel needs
-                    business accounts, a B2C channel needs individual ones.
+                    Choose based on the commerce channel this data is for — B2B
+                    storefronts typically need business accounts, B2C
+                    storefronts need individual accounts.
                   </p>
-                </div>
-              )}
-
-            {generationConfig.orderCount > 0 && (
-              <OrderDistributionControl
-                totalOrders={generationConfig.orderCount}
-                distribution={
-                  generationConfig.orderDistribution || {
-                    open: 0,
-                    processing: 0,
-                    shipped: 0,
-                    completed: 0,
-                  }
-                }
-                onChange={(dist) =>
-                  handleConfigChange('orderDistribution', dist)
-                }
-                disabled={lockFields}
-              />
-            )}
-
-            <fieldset className="form-group mb-4 mt-5">
-              <legend
-                className="font-weight-semi-bold"
-                style={{ fontSize: '1rem' }}
-              >
-                Target Categories
-              </legend>
-              <CategoriesSelector
-                availableCategories={availableCategories}
-                selectedCategories={generationConfig.categories}
-                onToggleCategory={handleCategoryChange}
-                disabled={lockFields}
-                connected={liferayConnected}
-                error={hasErr(validationErrors, 'categories')}
-              />
-              {hasErr(validationErrors, 'categories') && (
-                <FieldError errors={validationErrors.categories} />
-              )}
-            </fieldset>
-
-            <div className="row mt-5 gx-5">
-              <div className="col-lg-6 pr-lg-5 border-right-lg">
-                <h3 className="sheet-title mb-4" style={{ fontSize: '1rem' }}>
-                  Architecture Features
-                </h3>
-                <ProductToggleSet
-                  values={{
-                    generateSpecifications:
-                      generationConfig.generateSpecifications,
-                    generateSkuVariants: generationConfig.generateSkuVariants,
-                    generatePriceLists: generationConfig.generatePriceLists,
-                    generateBulkPricing: generationConfig.generateBulkPricing,
-                    generateTierPricing: generationConfig.generateTierPricing,
-                    generatePromotions: generationConfig.generatePromotions,
-                  }}
-                  productCount={generationConfig.productCount}
-                  onChange={handleConfigChange}
-                  disabled={lockFields || generationConfig.productCount === 0}
-                  errors={validationErrors}
-                />
-
-                <div className="mt-4">
-                  <VisualAssetControls
-                    values={{
-                      imageMode: generationConfig.imageMode,
-                      imageRatio: generationConfig.imageRatio,
-                      imageStyle: generationConfig.imageStyle,
-                      pdfMode: generationConfig.pdfMode,
-                      pdfRatio: generationConfig.pdfRatio,
-                      pdfContentType: generationConfig.pdfContentType,
-                    }}
-                    onChange={handleConfigChange}
-                    disabled={lockFields || generationConfig.productCount === 0}
-                    aiMediaKeyAvailable={aiMediaKeyAvailable}
-                    demoMode={generationConfig.demoMode}
-                  />
-                </div>
-              </div>
-
-              <div className="col-lg-6 pl-lg-5">
-                <h3
-                  className={`sheet-title mb-4 ${generationConfig.productCount === 0 ? 'text-muted' : ''}`}
-                  style={{ fontSize: '1rem' }}
-                >
-                  Inventory Strategy
-                </h3>
-                <WarehousesToggle
-                  existingWarehouseCount={existingWarehouseCount}
-                  productCount={generationConfig.productCount}
-                  values={{
-                    createWarehouses: generationConfig.createWarehouses,
-                    reuseExistingWarehouses:
-                      generationConfig.reuseExistingWarehouses,
-                    warehouseCount: generationConfig.warehouseCount,
-                  }}
-                  onChange={handleConfigChange}
-                  disabled={lockFields || generationConfig.productCount === 0}
-                />
-
-                {generationConfig.productCount > 0 && (
+                ) : (
+                  <p
+                    className={
+                      accountTypeVerdict.outcome === 'block'
+                        ? 'text-danger mt-1 mb-0'
+                        : 'text-warning mt-1 mb-0'
+                    }
+                    style={{ fontSize: '0.8em' }}
+                  >
+                    {accountTypeVerdict.message}
+                  </p>
+                )}
+                {generationConfig.accountType === 'mixed' && (
                   <div className="mt-3">
-                    <InventoryControls
-                      productCount={generationConfig.productCount}
-                      inventoryMin={generationConfig.inventoryMin}
-                      inventoryMax={generationConfig.inventoryMax}
-                      inventoryAssignmentRatio={
-                        generationConfig.inventoryAssignmentRatio
-                      }
-                      enableBackorders={generationConfig.enableBackorders}
-                      backorderAssignmentRatio={
-                        generationConfig.backorderAssignmentRatio
-                      }
-                      onChange={handleConfigChange}
-                      disabled={
-                        lockFields || generationConfig.productCount === 0
-                      }
-                      validationErrors={validationErrors}
-                    />
+                    <label htmlFor="dataGeneration_businessAccountRatio">
+                      Business / Individual Split
+                    </label>
+                    <div className="d-flex align-items-center">
+                      <input
+                        id="dataGeneration_businessAccountRatio"
+                        type="range"
+                        className="form-control-range flex-grow-1"
+                        min="0"
+                        max="100"
+                        step="5"
+                        value={Math.round(
+                          generationConfig.businessAccountRatio ?? 70
+                        )}
+                        onChange={(e) =>
+                          handleConfigChange(
+                            'businessAccountRatio',
+                            Number(e.target.value)
+                          )
+                        }
+                        disabled={lockFields}
+                      />
+                      <span
+                        className="ml-3 text-nowrap font-weight-semi-bold"
+                        style={{ minWidth: '9.5em' }}
+                      >
+                        {`${Math.round(
+                          generationConfig.businessAccountRatio ?? 70
+                        )}% business`}
+                      </span>
+                    </div>
+                    <p
+                      className="text-secondary mt-1 mb-0"
+                      style={{ fontSize: '0.8em' }}
+                    >
+                      {(() => {
+                        const total =
+                          Number(generationConfig.accountCount) || 0;
+                        const business = Math.round(
+                          (total *
+                            (generationConfig.businessAccountRatio ?? 70)) /
+                            100
+                        );
+                        return `Of ${total} accounts: ${business} business, ${
+                          total - business
+                        } individual.`;
+                      })()}
+                    </p>
                   </div>
                 )}
-              </div>
-            </div>
+              </fieldset>
+            )}
+
+            {sections.orders && (
+              <fieldset className="form-group mb-4 mt-5">
+                <legend
+                  className="font-weight-semi-bold"
+                  style={{ fontSize: '1rem' }}
+                >
+                  Orders
+                </legend>
+                <div className="form-group mb-4">
+                  <label htmlFor="dataGeneration_orderDateRangeDays">
+                    Order History Spread
+                  </label>
+                  <ClayInput.Group>
+                    <ClayInput.GroupItem shrink>
+                      <ClayInput.GroupText>
+                        Spread orders across the last
+                      </ClayInput.GroupText>
+                    </ClayInput.GroupItem>
+                    <ClayInput.GroupItem>
+                      <ClayInput
+                        id="dataGeneration_orderDateRangeDays"
+                        type="number"
+                        min="0"
+                        max="1095"
+                        value={generationConfig.orderDateRangeDays}
+                        onChange={(e) =>
+                          handleConfigChange(
+                            'orderDateRangeDays',
+                            parseInt(e.target.value)
+                          )
+                        }
+                        disabled={lockFields}
+                      />
+                    </ClayInput.GroupItem>
+                    <ClayInput.GroupItem shrink>
+                      <ClayInput.GroupText>days</ClayInput.GroupText>
+                    </ClayInput.GroupItem>
+                  </ClayInput.Group>
+                  <p
+                    className="text-secondary mt-1 mb-0"
+                    style={{ fontSize: '0.8em' }}
+                  >
+                    Set to 0 to date every order as right now. A larger range
+                    produces realistic order history over time — needed for
+                    reorder-frequency, lifecycle, or revenue-trend scenarios —
+                    and some accounts will place more than one order across that
+                    window to simulate genuine repeat customers.
+                  </p>
+                </div>
+
+                {sections.orderAccountType && (
+                  <div className="form-group mb-4">
+                    <label htmlFor="dataGeneration_orderAccountType">
+                      Order Account Type
+                    </label>
+                    <select
+                      id="dataGeneration_orderAccountType"
+                      className="form-control"
+                      value={generationConfig.orderAccountType || 'any'}
+                      onChange={(e) =>
+                        handleConfigChange('orderAccountType', e.target.value)
+                      }
+                      disabled={lockFields}
+                    >
+                      <option value="any">Any customer account</option>
+                      <option value="business">
+                        Business only (B2B — dealers, distributors, companies)
+                      </option>
+                      <option value="person">
+                        Individual only (B2C — direct consumer accounts)
+                      </option>
+                    </select>
+                    <p
+                      className="text-secondary mt-1 mb-0"
+                      style={{ fontSize: '0.8em' }}
+                    >
+                      Orders are assigned to existing accounts of this type.
+                      Guest and supplier accounts are never used. Choose the
+                      type that matches the selected commerce channel — a B2B
+                      channel needs business accounts, a B2C channel needs
+                      individual ones.
+                    </p>
+                  </div>
+                )}
+
+                <OrderDistributionControl
+                  totalOrders={generationConfig.orderCount}
+                  distribution={
+                    generationConfig.orderDistribution || {
+                      open: 0,
+                      processing: 0,
+                      shipped: 0,
+                      completed: 0,
+                    }
+                  }
+                  onChange={(dist) =>
+                    handleConfigChange('orderDistribution', dist)
+                  }
+                  disabled={lockFields}
+                />
+              </fieldset>
+            )}
 
             {!generationConfig.demoMode && (
               <div className="mt-4 p-3 bg-light rounded d-flex justify-content-between align-items-center">

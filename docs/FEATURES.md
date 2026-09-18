@@ -58,7 +58,7 @@ Everything is manageable via the **AI Commerce Accelerator Configuration** UI.
 - **Provider Agnosticism**: Switch between OpenAI, Google Gemini, and Anthropic Claude for text generation. Claude has no image capability, so a dedicated media provider is required alongside it when generating images.
 - **Provider-Aware Models**: The default model list shows only the models the selected provider can actually run, so an OpenAI model can never be left selected against Anthropic Claude. A model added by hand that the build does not recognise stays selectable, and a mismatched pairing is rejected before a run starts rather than partway through it.
 - **Dedicated Media Keys**: Configure separate credentials for image generation (e.g., Nano Banana).
-- **Custom Prompts & Schemas**: Tailor the AI's output by editing the templates directly in the browser with a built-in CodeMirror editor.
+- **Custom Prompts & Schemas**: Tailor the AI's output by editing the templates directly in the browser with a built-in CodeMirror editor. Prompts are Jinja2-compatible templates, so a condition or a loop can be written in the prompt itself rather than requiring a code change - see [Prompt Templates](./PROMPT_TEMPLATES.md).
 - **Exclude Lists**: Protect system data by specifying items that should never be modified or deleted.
 
 ## System Administration & Troubleshooting
@@ -93,4 +93,4 @@ A dedicated **Admin Dashboard** provides high-level oversight and diagnostic too
 
 ---
 
-_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
+_Last Updated: 2026-09-18_ | _Last Reviewed: 2026-09-18_
