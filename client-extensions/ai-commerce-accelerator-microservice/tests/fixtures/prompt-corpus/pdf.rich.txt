@@ -13,7 +13,7 @@ Product Context:
 - Name: Trail Runner 5 Jacket
 - Category: Outerwear
 - Description: A three-layer shell for sustained wet weather.
-- Specifications: "[\n  {\n    \"label\": \"Material\",\n    \"value\": \"Recycled polyester\"\n  },\n  {\n    \"label\": \"Weight\",\n    \"value\": \"420 g\"\n  }\n]"
+- Specifications: [{"label":"Material","value":"Recycled polyester"},{"label":"Weight","value":"420 g"}]
 
 Return as JSON with a title and an array of sections. Each section must have a "title" and "content".
 

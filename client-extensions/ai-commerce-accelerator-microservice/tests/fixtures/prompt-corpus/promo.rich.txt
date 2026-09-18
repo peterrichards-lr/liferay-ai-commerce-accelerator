@@ -4,8 +4,8 @@ BRAND CONTEXT: A premium outdoor gear brand focusing on sustainability
 
 Ensure segment descriptions, promotion names and targeting logic reflect this brand.
 
-Products: "[\n  {\n    \"name\": \"Trail Runner 5 Jacket\",\n    \"sku\": \"TRJ-005\"\n  },\n  {\n    \"name\": \"Summit 40L Pack\",\n    \"sku\": \"SMP-040\"\n  }\n]"
-Accounts: "[\n  {\n    \"id\": 41301,\n    \"name\": \"Northwind Outfitters\"\n  },\n  {\n    \"id\": 41302,\n    \"name\": \"Alpine Supply Co\"\n  }\n]"
+Products: [{"name":"Trail Runner 5 Jacket","sku":"TRJ-005"},{"name":"Summit 40L Pack","sku":"SMP-040"}]
+Accounts: [{"id":41301,"name":"Northwind Outfitters"},{"id":41302,"name":"Alpine Supply Co"}]
 
 Return a single JSON object with the following structure:
 {

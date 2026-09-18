@@ -514,11 +514,16 @@ class AIService {
           compliance: 'compliance and regulatory documentation',
           technical_specs: 'technical specifications and data sheet',
         }[options.pdfContentType || 'product_info'],
-        specificationsJSON: JSON.stringify(
-          product.specifications || {},
-          null,
-          2
-        ),
+        // Named `…JSON` but holding the value itself. The prompt applies
+        // `{{=json:}}`, which encodes it; encoding here as well made that a
+        // second pass, so the model received a quoted, escaped document
+        // rather than readable JSON (#1021).
+        //
+        // The name is kept deliberately. Prompts are seeded into an instance
+        // from `prompts/*.md` via `generateBatchFiles`, so renaming would
+        // leave every already-seeded instance referring to a variable that no
+        // longer exists - the defect would outlive the fix.
+        specificationsJSON: product.specifications || {},
         groundingMetadata: options.groundingMetadata || null,
         brandGuidance: brandGuidance(
           options.brandName,
@@ -1520,8 +1525,9 @@ class AIService {
         brandName: options.brandName || '',
         count,
         pluralSuffix: pluralize(count),
-        productListJSON: JSON.stringify(productList, null, 2),
-        accountListJSON: JSON.stringify(accountList, null, 2),
+        // Encoded once, by the prompt's `{{=json:}}` (#1021).
+        productListJSON: productList,
+        accountListJSON: accountList,
         languageList: joinList(langs),
         languageCodesCSV: languageCodes.join(', '),
         groundingMetadata: options.groundingMetadata || null,
@@ -1892,7 +1898,8 @@ class AIService {
       const vars = {
         brandName: options.brandName || '',
         pricingType,
-        productListJSON: JSON.stringify(productList, null, 2),
+        // Encoded once, by the prompt's `{{=json:}}` (#1021).
+        productListJSON: productList,
         ...pricingHints(pricingType),
         groundingMetadata: options.groundingMetadata || null,
         brandGuidance: brandGuidance(
@@ -1964,8 +1971,9 @@ class AIService {
 
       const vars = {
         brandName: options.brandName || '',
-        productListJSON: JSON.stringify(productList, null, 2),
-        accountListJSON: JSON.stringify(accountList, null, 2),
+        // Encoded once, by the prompt's `{{=json:}}` (#1021).
+        productListJSON: productList,
+        accountListJSON: accountList,
         // The promo prompt received no brand context at all - the options were
         // passed in and discarded - so segment and promotion names had nothing
         // to anchor to.

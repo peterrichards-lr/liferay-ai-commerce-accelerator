@@ -6,8 +6,8 @@ BRAND CONTEXT: A premium outdoor gear brand focusing on sustainability
 
 These orders represent business transactions with this brand.
 
-Available Products: "[\n  {\n    \"name\": \"Trail Runner 5 Jacket\",\n    \"sku\": \"TRJ-005\"\n  },\n  {\n    \"name\": \"Summit 40L Pack\",\n    \"sku\": \"SMP-040\"\n  }\n]"
-Available Accounts: "[\n  {\n    \"id\": 41301,\n    \"name\": \"Northwind Outfitters\"\n  },\n  {\n    \"id\": 41302,\n    \"name\": \"Alpine Supply Co\"\n  }\n]"
+Available Products: [{"name":"Trail Runner 5 Jacket","sku":"TRJ-005"},{"name":"Summit 40L Pack","sku":"SMP-040"}]
+Available Accounts: [{"id":41301,"name":"Northwind Outfitters"},{"id":41302,"name":"Alpine Supply Co"}]
 
 Each order should have:
 
