@@ -56,12 +56,24 @@ function safeErrorResponse({
  * two can be compared by a test rather than by a comment: the copies had
  * already drifted, and `reset-catalog-config` kept counting against products
  * here after the SDK stopped (#841).
+ *
+ * There is a third copy - the dashboard's `normalizeEntityType`, which decides
+ * the bar an arriving entity type lands on - and `workflowProgressMap.test.cjs`
+ * now holds all three against each other, step by step. A step counted on the
+ * wire and not here is a bar that empties itself on reconnect (#1003).
  */
 const STEP_ENTITY_MAP = {
   // Only map primary creation/deletion steps to avoid inflating totals
   'create-products': 'products',
   'delete-products': 'products',
   'create-skus': 'skus',
+  // Inventory has a bar of its own and no other step feeds it, so leaving it
+  // out did not narrow the bar - it emptied it. A run that placed 139 items
+  // over five batches read `Inventory 139 / 139` while the socket was up and
+  // `Inventory 0 / 0` the moment it was not, which is every run behind
+  // Liferay's `/o/` ingress: it drops the WebSocket upgrade, so the dashboard
+  // falls back to polling this route (#1003).
+  'update-inventory': 'inventory',
   'create-accounts': 'accounts',
   'delete-accounts': 'accounts',
   'create-orders': 'orders',
@@ -105,6 +117,14 @@ function requestedTotals(options) {
   return {
     products: count(options.productCount),
     skus: 0,
+    // Nothing is asked for, because nothing can be: an item is placed per SKU
+    // per warehouse, and neither the SKU fan-out of a product nor the share of
+    // products that will carry stock is known from the request. The step's own
+    // batch rows - one per warehouse, each carrying the items it attempted -
+    // are the only honest denominator, and the dashboard seeds this bar at
+    // nothing for the same reason (`computeTotalsFromConfig` has no inventory
+    // key). A bar is only a fraction while both sides agree what was asked.
+    inventory: 0,
     accounts: count(options.accountCount),
     orders: count(options.orderCount),
     priceLists: 0,
@@ -615,4 +635,5 @@ module.exports = (app, { logger, persistenceService, progressService }) => {
 };
 
 module.exports.STEP_ENTITY_MAP = STEP_ENTITY_MAP;
+module.exports.requestedTotals = requestedTotals;
 module.exports.summariseSessionProgress = summariseSessionProgress;

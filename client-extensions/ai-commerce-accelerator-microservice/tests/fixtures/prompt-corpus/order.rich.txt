@@ -1,0 +1,23 @@
+Generate realistic order data for 25 orders using the provided products and accounts.
+
+LIFERAY CONTEXT: You MUST only use the following active Liferay languages for any multilingual fields: en_US, fr_FR.
+
+BRAND CONTEXT: A premium outdoor gear brand focusing on sustainability
+
+These orders represent business transactions with this brand.
+
+Available Products: "[\n  {\n    \"name\": \"Trail Runner 5 Jacket\",\n    \"sku\": \"TRJ-005\"\n  },\n  {\n    \"name\": \"Summit 40L Pack\",\n    \"sku\": \"SMP-040\"\n  }\n]"
+Available Accounts: "[\n  {\n    \"id\": 41301,\n    \"name\": \"Northwind Outfitters\"\n  },\n  {\n    \"id\": 41302,\n    \"name\": \"Alpine Supply Co\"\n  }\n]"
+
+Each order should have:
+
+- accountId (from available accounts)
+- items (2-5 items from available products with realistic quantities)
+- orderStatus (numeric status: 0 for pending, 1 for processing, 10 for completed)
+- externalReferenceCode (unique order identifier)
+  - orderDate (ISO 8601 date-time string). Distribute order dates realistically across the last 90 days - that is, between 2025-10-17 and 2026-01-15 inclusive, and never outside that window - rather than clustering them all on the same date. Older orders should skew toward earlier in that window and more recent activity toward the end, so the set reads as genuine order history over time.
+
+REORDER PATTERNS: Some accounts should place more than one order across this date range (a "reorder"), each dated later than the previous one for that same account, often repeating one or more of the same items. Not every account needs a reorder, but the overall set should include a believable mix of first-time and repeat purchasers rather than every account ordering exactly once.
+
+Ensure realistic purchasing patterns (related products, reasonable quantities).
+Return as a JSON array that conforms to the provided JSON schema.
