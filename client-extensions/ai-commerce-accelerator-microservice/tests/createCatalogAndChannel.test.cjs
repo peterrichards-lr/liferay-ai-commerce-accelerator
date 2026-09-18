@@ -1,4 +1,7 @@
 const getRoutes = require('../routes/get.cjs');
+const {
+  CommerceSiteTypeService,
+} = require('../services/commerceSiteTypeService.cjs');
 const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
 
 /**
@@ -289,18 +292,116 @@ describe('Create catalog and channel (#746)', () => {
         ...body,
       });
 
-    it('sets the type and then reads it back', async () => {
-      await create();
+    /**
+     * The dialog offers the labels the module reports a channel under; the wire
+     * format is `0|1|2`. The map is the service's own and is imported, so the
+     * browser never holds a copy of it - this is the boundary that translates.
+     */
+    it.each([
+      ['B2C', 0],
+      ['B2B', 1],
+      ['B2X', 2],
+      ['b2x', 2],
+    ])('sends %s to the setter as the code %i', async (label, code) => {
+      await create({ siteType: label });
 
       expect(commerceSiteTypeService.setChannelSiteType).toHaveBeenCalledWith(
         expect.objectContaining({ liferayUrl: 'http://localhost:8080' }),
         35094,
-        'B2B'
+        code
       );
+    });
+
+    it('leaves a value it does not recognise for the service to refuse', async () => {
+      await create({ siteType: 'B2Q' });
+
+      expect(commerceSiteTypeService.setChannelSiteType).toHaveBeenCalledWith(
+        expect.anything(),
+        35094,
+        'B2Q'
+      );
+    });
+
+    it('reads the type back rather than trusting the write', async () => {
+      await create();
+
       expect(commerceSiteTypeService.getChannelSiteType).toHaveBeenCalledWith(
         expect.anything(),
         35094
       );
+    });
+
+    /**
+     * The setter reads back for itself, so a second read is not issued - but
+     * the verdict is still the route's. `applied` needs the setter's success
+     * *and* the type it reports being the one that was asked for.
+     */
+    it('uses the setter’s own read-back when it supplies one', async () => {
+      commerceSiteTypeService.setChannelSiteType.mockResolvedValue({
+        success: true,
+        requested: 1,
+        siteType: 1,
+        siteTypeLabel: 'B2B',
+        siteTypeStatus: 'CONFIGURED',
+        configuredScope: 'GROUP',
+      });
+
+      const { siteType } = bodyOf(await create());
+
+      expect(commerceSiteTypeService.getChannelSiteType).not.toHaveBeenCalled();
+      expect(siteType).toMatchObject({ applied: true, reason: 'confirmed' });
+    });
+
+    it('refuses to claim applied when the setter reports another type as success', async () => {
+      commerceSiteTypeService.setChannelSiteType.mockResolvedValue({
+        success: true,
+        siteType: 0,
+        siteTypeLabel: 'B2C',
+        siteTypeStatus: 'CONFIGURED',
+      });
+
+      expect(bodyOf(await create()).siteType).toMatchObject({
+        applied: false,
+        reason: 'unconfirmed',
+      });
+    });
+
+    /**
+     * The case only the setter can see. The channel answers `CONFIGURED` with
+     * the type that was asked for, and the setter still says no - because the
+     * value was found at company scope rather than on this channel's own Group,
+     * so it is somebody else's setting and the write landed nowhere. Everything
+     * this route can check agrees; the verdict has to be honoured.
+     */
+    it('honours a setter that says no while the channel appears to agree', async () => {
+      commerceSiteTypeService.setChannelSiteType.mockResolvedValue({
+        success: false,
+        configuredScope: 'COMPANY',
+        siteType: 1,
+        siteTypeLabel: 'B2B',
+        siteTypeStatus: 'CONFIGURED',
+        error: 'Asked for 1, but the channel reports it at COMPANY scope.',
+      });
+
+      const { siteType } = bodyOf(await create());
+
+      expect(siteType.applied).toBe(false);
+      expect(siteType.reason).toBe('unconfirmed');
+    });
+
+    it('reports the setter’s own failed read-back as unconfirmed, not refused', async () => {
+      commerceSiteTypeService.setChannelSiteType.mockResolvedValue({
+        success: false,
+        siteType: 0,
+        siteTypeLabel: 'B2C',
+        siteTypeStatus: 'NOT_CONFIGURED',
+        error: 'Asked for 1, the channel reports 0.',
+      });
+
+      const { siteType } = bodyOf(await create());
+
+      expect(siteType).toMatchObject({ applied: false, reason: 'unconfirmed' });
+      expect(siteType.message).toMatch(/did not persist/);
     });
 
     it('reports applied only when the read-back confirms it', async () => {
@@ -392,6 +493,27 @@ describe('Create catalog and channel (#746)', () => {
       expect(body.siteType.message).toMatch(/403 Forbidden/);
     });
 
+    // #1045's setter reports a bad value rather than throwing, matching how
+    // every other call on that module degrades. A reported failure is the same
+    // outcome as a thrown one and must not be mistaken for a write.
+    it('keeps the channel when the write reports a failure instead of throwing', async () => {
+      commerceSiteTypeService.setChannelSiteType.mockResolvedValue({
+        success: false,
+        error: "'B2Q' is not a commerce site type.",
+      });
+
+      const body = bodyOf(await create());
+
+      expect(body.success).toBe(true);
+      expect(body.channel.id).toBe(35094);
+      expect(body.siteType).toMatchObject({
+        applied: false,
+        reason: 'refused',
+      });
+      expect(body.siteType.message).toMatch(/is not a commerce site type/);
+      expect(commerceSiteTypeService.getChannelSiteType).not.toHaveBeenCalled();
+    });
+
     // #1045 owns the setter. Until it lands the module has no write, and that
     // is a stated outcome rather than a crash that takes the channel with it.
     it('says so when this build has no setter at all', async () => {
@@ -432,6 +554,65 @@ describe('Create catalog and channel (#746)', () => {
 
       expect(bodyOf(await create({ siteType: '1' })).siteType).toMatchObject({
         applied: true,
+      });
+    });
+  });
+
+  /**
+   * The route and the real service together, because the translation only
+   * matters if the label the dialog offers reaches the module as the number it
+   * accepts. Mocking the service proves the route's half and would pass equally
+   * well if the two halves disagreed - which they did, before this: the service
+   * refuses `'B2B'` outright and answers only to `1`.
+   */
+  describe('a label from the dialog reaches the module as a code', () => {
+    it('puts { siteType: 1 } on the wire for B2B', async () => {
+      const put = vi.fn().mockResolvedValue({});
+      const rest = {
+        _put: put,
+        _get: vi.fn().mockResolvedValue({
+          configuredScope: 'GROUP',
+          siteType: 1,
+          siteTypeLabel: 'B2B',
+          siteTypeStatus: 'CONFIGURED',
+        }),
+      };
+
+      registeredRoutes = {};
+      getRoutes(
+        {
+          post: vi.fn((path, ...handlers) => {
+            registeredRoutes[path] = handlers[handlers.length - 1];
+          }),
+        },
+        {
+          commerceSiteTypeService: new CommerceSiteTypeService({
+            liferayService: { rest },
+            logger,
+          }),
+          liferayService,
+          logger,
+        }
+      );
+
+      const res = await invoke(INTERNAL_API_PATHS.CREATE_CHANNEL, {
+        ...CONNECTION,
+        currencyCode: 'EUR',
+        name: 'Solara Storefront',
+        siteGroupId: 40188,
+        siteType: 'B2B',
+      });
+
+      expect(put).toHaveBeenCalledWith(
+        expect.anything(),
+        '/o/commerce-site-type/channels/35094/site-type',
+        { siteType: 1 },
+        expect.any(String),
+        expect.any(String)
+      );
+      expect(bodyOf(res).siteType).toMatchObject({
+        applied: true,
+        reason: 'confirmed',
       });
     });
   });

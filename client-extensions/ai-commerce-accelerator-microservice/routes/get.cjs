@@ -6,6 +6,23 @@ const { connectionSchema } = require('../utils/schemas.cjs');
 const { sanitizedObject } = require('../utils/normalize.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
+const { SITE_TYPES } = require('../services/commerceSiteTypeService.cjs');
+
+/**
+ * The module's wire codes by the label an operator picks from.
+ *
+ * The map itself is `commerceSiteTypeService`'s and is imported rather than
+ * copied - it says it lives there and nowhere else, and it does. What belongs
+ * here is only the direction of travel: the dialog offers B2C, B2B and B2X
+ * because those are the names the module reports a channel under, and this is
+ * the boundary that turns the name into the number. Having the browser send `1`
+ * instead would put a second copy of the mapping in the frontend, which is the
+ * thing being avoided.
+ *
+ * Looked up through a Map rather than by key, so a caller-supplied label can
+ * never reach a plain object's prototype.
+ */
+const SITE_TYPE_CODE_BY_LABEL = new Map(Object.entries(SITE_TYPES));
 
 function handleError(res, logger, req, operation, error, opts = {}) {
   const baseMessage =
@@ -56,20 +73,23 @@ function handleError(res, logger, req, operation, error, opts = {}) {
  * through Liferay's `FallbackKeysSettingsUtil` and falls back to "0" whether or
  * not anyone set it. So a `PUT` that answers 200 is not evidence the value
  * persisted, and reporting the request back to the operator would tell them
- * their channel is B2B when the instance holds nothing at all. Only the
- * read-back is evidence, and it is taken here rather than trusted from the
- * setter's own return, because the question this asks is what the instance
- * holds, not what the write believed.
+ * their channel is B2B when the instance holds nothing at all. Only a read-back
+ * is evidence.
  *
- * `applied` is therefore true for exactly one outcome: the module reports the
- * type CONFIGURED and agreeing with what was asked for. Everything else is
- * reported as what it is and leaves the channel standing - the channel is the
- * expensive half and the type is settable afterwards in Commerce → Channels.
+ * `setChannelSiteType` (#1045) reads back for itself and answers with what the
+ * channel holds, so that read is used rather than a second one being issued.
+ * What is *not* delegated is the verdict: `applied` is true only when the
+ * setter reports success **and** the type the channel came back with is the one
+ * that was asked for. A setter answering success while reporting something else
+ * is the one case a caller can still catch, and this is the caller.
  *
- * The setter itself belongs to #1045. Until it lands, an absent method is the
- * `unsupported` outcome rather than a crash, for the same reason every other
- * call on this module degrades: the commerce-site-type module is an optional
- * deployment.
+ * Every other outcome is reported as what it is and leaves the channel
+ * standing - the channel is the expensive half, and the type is settable
+ * afterwards in Commerce → Channels.
+ *
+ * An absent setter is the `unsupported` outcome rather than a crash, for the
+ * same reason every other call on this module degrades: the commerce-site-type
+ * module is an optional deployment.
  */
 async function applySiteType(
   commerceSiteTypeService,
@@ -94,28 +114,49 @@ async function applySiteType(
     };
   }
 
+  // Reported rather than thrown, and thrown rather than reported, depending on
+  // what went wrong - the module degrades where it can. Both are the same
+  // outcome here: the write did not happen, and the channel is unaffected.
+  const refused = (detail) => ({
+    requested,
+    applied: false,
+    reason: 'refused',
+    message:
+      `The commerce site type ${requested} was refused by the instance ` +
+      `(${detail || 'no reason given'}). The channel was created. Set the ` +
+      'type in Commerce → Channels.',
+  });
+
+  // An unrecognised label is passed through untranslated rather than refused
+  // here: the service is the authority on what it accepts, and it answers with
+  // the three it does.
+  const code = SITE_TYPE_CODE_BY_LABEL.has(requested.toUpperCase())
+    ? SITE_TYPE_CODE_BY_LABEL.get(requested.toUpperCase())
+    : requested;
+
+  let written;
+
   try {
-    await commerceSiteTypeService.setChannelSiteType(
+    written = await commerceSiteTypeService.setChannelSiteType(
       config,
       channelId,
-      requested
+      code
     );
   } catch (error) {
-    return {
-      requested,
-      applied: false,
-      reason: 'refused',
-      message:
-        `The commerce site type ${requested} was refused by the instance ` +
-        `(${error?.message || 'no reason given'}). The channel was created. ` +
-        'Set the type in Commerce → Channels.',
-    };
+    return refused(error?.message);
   }
 
-  const readBack = await commerceSiteTypeService.getChannelSiteType(
-    config,
-    channelId
-  );
+  if (written?.success === false && written.siteTypeStatus === undefined) {
+    return refused(written.error);
+  }
+
+  // The setter's own read-back when it has one, and a read taken here when it
+  // does not - an older build, or a stub. Either way the report is of the
+  // channel, never of the request.
+  const readBack =
+    written?.siteTypeStatus === undefined
+      ? await commerceSiteTypeService.getChannelSiteType(config, channelId)
+      : written;
 
   const matches = [readBack?.siteType, readBack?.siteTypeLabel].some(
     (value) =>
@@ -123,7 +164,11 @@ async function applySiteType(
       String(value).trim().toLowerCase() === requested.toLowerCase()
   );
 
-  if (readBack?.siteTypeStatus === 'CONFIGURED' && matches) {
+  if (
+    written?.success !== false &&
+    readBack?.siteTypeStatus === 'CONFIGURED' &&
+    matches
+  ) {
     return {
       requested,
       applied: true,
