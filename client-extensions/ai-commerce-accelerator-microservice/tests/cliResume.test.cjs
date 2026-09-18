@@ -39,6 +39,12 @@ async function runImport(args) {
         env: {
           ...process.env,
           AICA_MICROSERVICE_URL: `http://127.0.0.1:${port}`,
+          // Stated rather than defaulted. The CLI used to fall back to the
+          // end-to-end suite's hostname when no target was configured; it now
+          // refuses, so a test that drives the real binary has to say which
+          // Liferay it means (#1053). Incidental to what is asserted here - the
+          // request that reaches the stub - but required to get that far.
+          LIFERAY_URL: 'http://liferay.test:8080',
         },
       });
 

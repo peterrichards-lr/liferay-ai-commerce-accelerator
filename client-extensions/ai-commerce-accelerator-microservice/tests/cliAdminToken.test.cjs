@@ -71,9 +71,21 @@ describe('aica CLI: admin token for gated commands (#930)', () => {
     'AICA_ADMIN_CLIENT_ID',
     'AICA_ADMIN_CLIENT_SECRET',
     'AICA_CLI_CLIENT_ID',
+    // Read at load like the credentials, and now required rather than defaulted:
+    // the CLI used to fall back to the end-to-end suite's hostname, so these
+    // tests reached the token endpoint on a host nobody had named (#1053). The
+    // target is incidental to what they assert - the exchange, and the path -
+    // so they state one rather than relying on a default that no longer exists.
+    'LIFERAY_PORTAL_URL',
+    'LIFERAY_URL',
+    'LIFERAY_API_URL',
   ];
 
-  const loadCli = (env = {}) => {
+  const TARGET = 'http://liferay.test:8080';
+
+  const loadCli = ({ liferayUrl = TARGET, ...env } = {}) => {
+    env = { ...env, LIFERAY_URL: liferayUrl };
+
     const previous = {};
 
     for (const key of CRED_VARS) {
@@ -272,6 +284,33 @@ describe('aica CLI: admin token for gated commands (#930)', () => {
       } finally {
         process.stdin.isTTY = tty;
         vi.unstubAllGlobals();
+      }
+    });
+
+    it('refuses to sign in against a Liferay nobody named', async () => {
+      // The sign-in path has to refuse BEFORE a browser opens, not after. An
+      // unstated target used to become the end-to-end suite's hostname, so
+      // `aica delete` opened a window at a host the operator never chose,
+      // carrying the client id and the loopback redirect URI (#1053).
+      //
+      // No admin credentials, so this falls through to interactive sign-in -
+      // which is the branch under test. It must fail naming the variables, not
+      // fail somewhere inside the OAuth flow.
+      const tty = process.stdin.isTTY;
+
+      process.stdin.isTTY = true;
+
+      try {
+        const cli = loadCli({
+          liferayUrl: '',
+          AICA_CLI_CLIENT_ID: 'id-cli',
+        });
+
+        await expect(cli.adminToken({}, 'aica delete')).rejects.toThrow(
+          /LIFERAY_PORTAL_URL/
+        );
+      } finally {
+        process.stdin.isTTY = tty;
       }
     });
 
