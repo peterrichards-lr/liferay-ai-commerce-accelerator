@@ -50,6 +50,7 @@ const INTERNAL_API_PATHS = {
   COMPLETED_WORKFLOW_SESSIONS: '/workflows/sessions/completed',
   WORKFLOW_KPIS: '/workflows/kpis',
   WORKFLOW_CANCEL: '/workflows/sessions/:sessionId/cancel',
+  WORKFLOW_RESUME: '/workflows/sessions/:sessionId/resume',
   WORKFLOW_BATCHES: '/workflows/batches/:sessionId',
   WORKFLOW_STATUS: '/workflows/sessions/:sessionId/status',
   WORKFLOW_SUMMARY: '/workflows/sessions/:sessionId/summary',

@@ -599,6 +599,13 @@ function parseControlOptions(flagArgs) {
     } else if (arg.startsWith('--token=')) {
       options.token = arg.slice('--token='.length);
     }
+
+    if (arg === '--resume') {
+      options.resume = flagArgs[i + 1];
+      i += 1;
+    } else if (arg.startsWith('--resume=')) {
+      options.resume = arg.slice('--resume='.length);
+    }
   }
 
   return options;
@@ -723,7 +730,7 @@ function main() {
           await handleExtract(args[1], args[2], options);
           break;
         case 'import':
-          await handleImport(args[1]);
+          await handleImport(args[1], options);
           break;
         case 'config':
           await handleConfig(args[1], args[2], args.slice(2));
@@ -1262,7 +1269,44 @@ async function handleExtract(sessionId, outputPath, opts = {}) {
   }
 }
 
-async function handleImport(inputPath) {
+/**
+ * Picks up a failed import where it stopped, rather than starting a new one.
+ *
+ * The dataset is not sent again and must not be: the session already holds it,
+ * along with the catalog, channel, product and SKU ids its earlier steps
+ * resolved. Sending the file would build a second session that knew none of
+ * that and would redo everything the first one got right - which is what #895
+ * is about.
+ */
+async function handleResumeImport(sessionId) {
+  console.log(`Resuming import session ${sessionId}...`);
+
+  const res = await nativePost(
+    `${MICROSERVICE_URL}/api/v1/workflows/sessions/${sessionId}/resume`,
+    buildConnectionPayload()
+  );
+
+  if (!res.success) {
+    throw new Error(res.error || 'The session could not be resumed.');
+  }
+
+  const skipped = (res.skippedSteps || []).length;
+  const resumedAt = (res.resumedAt || []).join(', ');
+
+  console.log(
+    `\n🚀 Resumed! Skipping ${skipped} completed step(s)${
+      resumedAt ? `, re-running ${resumedAt}` : ''
+    }.`
+  );
+
+  await pollProgress(sessionId);
+}
+
+async function handleImport(inputPath, opts = {}) {
+  if (opts.resume) {
+    return handleResumeImport(opts.resume);
+  }
+
   if (!inputPath) {
     throw new Error(
       'Please specify a dataset (.json) or package (.aicap) to import (aica import <inputPath>)'
@@ -1741,6 +1785,7 @@ Commands:
   extract <sessionId> [outputPath]       Read a run's media back from the live instance
   extract --instance [outputPath]        Read the whole catalogue from the live instance
   import <inputPath>                     Import a dataset (.json) or package (.aicap)
+  import --resume <sessionId>            Re-enter a failed import at the step it stopped on
   config get                             Retrieve active parameters from microservice
   config set <filePath>                  Import parameters from a JSON configuration file
   config set --key <name> --value <val>  Update a single configuration key dynamically
@@ -1749,6 +1794,7 @@ Commands:
 Options:
   --bundle / --with-media                Export a package (.aicap) rather than a JSON dataset
   --instance                             Extract the whole catalogue rather than one run
+  --resume <sessionId>                   Resume that failed session instead of starting a new run
   --docker                               Force Option 2: local Docker/LDM reindex trigger
   --api                                  Force Option 1: REST API reindex trigger via microservice
 ${generateOptionsHelpLines()}
