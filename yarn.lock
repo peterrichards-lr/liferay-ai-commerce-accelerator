@@ -1059,9 +1059,9 @@
   resolved "https://registry.yarnpkg.com/@keyv/serialize/-/serialize-1.1.1.tgz#0c01dd3a3483882af7cf3878d4e71d505c81fc4a"
   integrity sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==
 
-"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.11.4":
-  version "0.11.4"
-  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#ef2b5ca92eba9056af4252d928131cac432e8d49"
+"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.12.0":
+  version "0.12.0"
+  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#70154b728317c00f6a01bfb40ff7b93c13a31c1d"
   dependencies:
     "@modelcontextprotocol/sdk" "^1.30.0"
     "@rotty3000/config-node" "^0.4.1"
@@ -1076,7 +1076,7 @@
     memory-cache "^0.2.0"
     node-stream-zip "^1.16.0"
     ws "^8.21.3"
-    zod "^4.5.4"
+    zod "^4.6.5"
 
 "@minimistjs/subarg@^1.0.0":
   version "1.0.0"
@@ -6811,7 +6811,7 @@ zod-to-json-schema@^3.25.1:
   resolved "https://registry.npmjs.org/zod-validation-error/-/zod-validation-error-4.0.2.tgz"
   integrity sha512-Q6/nZLe6jxuU80qb/4uJ4t5v2VEZ44lzQjPDhYJNztRQ4wyWc6VF3D3Kb/fAuPetZQnhS3hnajCf9CsWesghLQ==
 
-"zod@^3.25 || ^4.0", "zod@^3.25.0 || ^4.0.0", zod@^4.5.4, zod@^4.6.5:
+"zod@^3.25 || ^4.0", "zod@^3.25.0 || ^4.0.0", zod@^4.6.5:
   version "4.6.5"
   resolved "https://registry.yarnpkg.com/zod/-/zod-4.6.5.tgz#e3af3edbdc260239c52f73caad05dbbffe6e82cd"
   integrity sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==
