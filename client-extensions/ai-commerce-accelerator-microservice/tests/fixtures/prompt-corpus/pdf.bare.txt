@@ -9,7 +9,7 @@ Product Context:
 - Name: Trail Runner 5 Jacket
 - Category: Outerwear
 - Description: A three-layer shell for sustained wet weather.
-- Specifications: "{}"
+- Specifications: {}
 
 Return as JSON with a title and an array of sections. Each section must have a "title" and "content".
 

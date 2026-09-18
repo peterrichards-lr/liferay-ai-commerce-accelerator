@@ -1,6 +1,6 @@
 Generate standard pricing data for the provided products.
 
-Products: "[\n  {\n    \"name\": \"Trail Runner 5 Jacket\",\n    \"sku\": \"TRJ-005\"\n  },\n  {\n    \"name\": \"Summit 40L Pack\",\n    \"sku\": \"SMP-040\"\n  }\n]"
+Products: [{"name":"Trail Runner 5 Jacket","sku":"TRJ-005"},{"name":"Summit 40L Pack","sku":"SMP-040"}]
 
 Return a single JSON object with the following structure:
 {

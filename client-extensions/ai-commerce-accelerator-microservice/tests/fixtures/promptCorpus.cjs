@@ -49,36 +49,25 @@ const GEOGRAPHY = {
 // in these contexts is already deterministic.
 const NOW = new Date('2026-01-15T09:30:00.000Z');
 
-// Already a JSON string by the time it reaches the template, and the template
-// then applies `{{=json:}}` to it - so the model receives a quoted, escaped
-// JSON document. That double encoding is existing behaviour and the corpus
-// pins it deliberately; see #655.
-const PRODUCT_LIST_JSON = JSON.stringify(
-  [
-    { name: 'Trail Runner 5 Jacket', sku: 'TRJ-005' },
-    { name: 'Summit 40L Pack', sku: 'SMP-040' },
-  ],
-  null,
-  2
-);
+// Passed as the value, not as a string. `aiService` used to stringify these
+// before handing them over, and the template then applied `{{=json:}}` to the
+// result, so the model received a quoted, escaped document. #655's corpus
+// pinned that deliberately; #1021 fixed it at the six call sites, and these
+// mirror them.
+const PRODUCT_LIST = [
+  { name: 'Trail Runner 5 Jacket', sku: 'TRJ-005' },
+  { name: 'Summit 40L Pack', sku: 'SMP-040' },
+];
 
-const ACCOUNT_LIST_JSON = JSON.stringify(
-  [
-    { id: 41301, name: 'Northwind Outfitters' },
-    { id: 41302, name: 'Alpine Supply Co' },
-  ],
-  null,
-  2
-);
+const ACCOUNT_LIST = [
+  { id: 41301, name: 'Northwind Outfitters' },
+  { id: 41302, name: 'Alpine Supply Co' },
+];
 
-const SPECIFICATIONS_JSON = JSON.stringify(
-  [
-    { label: 'Material', value: 'Recycled polyester' },
-    { label: 'Weight', value: '420 g' },
-  ],
-  null,
-  2
-);
+const SPECIFICATIONS = [
+  { label: 'Material', value: 'Recycled polyester' },
+  { label: 'Weight', value: '420 g' },
+];
 
 const PRICE_ENTRIES_INSTRUCTION = `- priceEntries: array of price list entry objects, one per object in "skuVariants".
             - price (number): The unit price.
@@ -187,7 +176,7 @@ const cases = [
     label: 'rich',
     prompt: 'order',
     vars: {
-      accountListJSON: ACCOUNT_LIST_JSON,
+      accountListJSON: ACCOUNT_LIST,
       brandGuidance: brandGuidance(
         BRAND,
         'These orders represent business transactions with this brand.'
@@ -201,14 +190,14 @@ const cases = [
       orderDateGuidance: orderDateGuidance(90, NOW),
       orderDateRangeDays: 90,
       pluralSuffix: 's',
-      productListJSON: PRODUCT_LIST_JSON,
+      productListJSON: PRODUCT_LIST,
     },
   },
   {
     label: 'bare',
     prompt: 'order',
     vars: {
-      accountListJSON: ACCOUNT_LIST_JSON,
+      accountListJSON: ACCOUNT_LIST,
       brandGuidance: brandGuidance(
         '',
         'These orders represent business transactions with this brand.'
@@ -222,7 +211,7 @@ const cases = [
       orderDateGuidance: orderDateGuidance(0, NOW),
       orderDateRangeDays: 0,
       pluralSuffix: '',
-      productListJSON: PRODUCT_LIST_JSON,
+      productListJSON: PRODUCT_LIST,
     },
   },
   {
@@ -240,7 +229,7 @@ const cases = [
       groundingMetadata: GROUNDING,
       productDescription: 'A three-layer shell for sustained wet weather.',
       productName: 'Trail Runner 5 Jacket',
-      specificationsJSON: SPECIFICATIONS_JSON,
+      specificationsJSON: SPECIFICATIONS,
     },
   },
   {
@@ -258,7 +247,7 @@ const cases = [
       groundingMetadata: null,
       productDescription: 'A three-layer shell for sustained wet weather.',
       productName: 'Trail Runner 5 Jacket',
-      specificationsJSON: JSON.stringify({}, null, 2),
+      specificationsJSON: {},
     },
   },
   {
@@ -273,7 +262,7 @@ const cases = [
       currencyGuidance: currencyGuidance(GROUNDING),
       groundingMetadata: GROUNDING,
       pricingType: 'bulk',
-      productListJSON: PRODUCT_LIST_JSON,
+      productListJSON: PRODUCT_LIST,
       ...pricingHints('bulk'),
     },
   },
@@ -289,7 +278,7 @@ const cases = [
       currencyGuidance: currencyGuidance(null),
       groundingMetadata: null,
       pricingType: 'standard',
-      productListJSON: PRODUCT_LIST_JSON,
+      productListJSON: PRODUCT_LIST,
       ...pricingHints('standard'),
     },
   },
@@ -305,7 +294,7 @@ const cases = [
       currencyGuidance: currencyGuidance(GROUNDING),
       groundingMetadata: GROUNDING,
       pricingType: 'tier',
-      productListJSON: PRODUCT_LIST_JSON,
+      productListJSON: PRODUCT_LIST,
       ...pricingHints('tier'),
     },
   },
@@ -321,7 +310,7 @@ const cases = [
       currencyGuidance: currencyGuidance(GROUNDING),
       groundingMetadata: GROUNDING,
       pricingType: 'promotional',
-      productListJSON: PRODUCT_LIST_JSON,
+      productListJSON: PRODUCT_LIST,
       ...pricingHints('promotional'),
     },
   },
@@ -400,26 +389,26 @@ const cases = [
     label: 'rich',
     prompt: 'promo',
     vars: {
-      accountListJSON: ACCOUNT_LIST_JSON,
+      accountListJSON: ACCOUNT_LIST,
       brandGuidance: brandGuidance(
         BRAND,
         'Ensure segment descriptions, promotion names and targeting logic reflect this brand.'
       ),
       brandName: BRAND,
-      productListJSON: PRODUCT_LIST_JSON,
+      productListJSON: PRODUCT_LIST,
     },
   },
   {
     label: 'bare',
     prompt: 'promo',
     vars: {
-      accountListJSON: ACCOUNT_LIST_JSON,
+      accountListJSON: ACCOUNT_LIST,
       brandGuidance: brandGuidance(
         '',
         'Ensure segment descriptions, promotion names and targeting logic reflect this brand.'
       ),
       brandName: '',
-      productListJSON: PRODUCT_LIST_JSON,
+      productListJSON: PRODUCT_LIST,
     },
   },
   {
