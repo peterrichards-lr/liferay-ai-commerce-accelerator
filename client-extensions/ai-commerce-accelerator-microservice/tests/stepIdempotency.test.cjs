@@ -78,14 +78,34 @@ describe('Step rerun safety', () => {
       );
     });
 
-    it('still reports the media steps as unsafe', () => {
-      // Deliberately not fixed here: both POST an attachment with no external
-      // reference code, and neither can be a resume's entry point because a
-      // media failure is recorded BYPASSED rather than FAILED. Leaving them
-      // classified honestly is what makes the planner's refusal real rather
-      // than decorative.
-      expect(isSafeToRerun(WORKFLOW_STEPS.ATTACH_IMAGES)).toBe(false);
-      expect(isSafeToRerun(WORKFLOW_STEPS.ATTACH_PDFS)).toBe(false);
+    it('reports the media steps as converging, now that they reconcile', () => {
+      // #895 left these UNSAFE because both POSTed an attachment with no
+      // external reference code and no existence check. #1040 gave each one a
+      // deterministic ERC and made the step read the product first, so a second
+      // attempt attaches nothing it already attached.
+      //
+      // CONVERGES rather than ERC_UPSERT deliberately: the ERC identifies the
+      // attachment, but it is the read that decides. A POST carrying an
+      // existing ERC is not established to upsert, and could not be established
+      // without a live instance.
+      expect(rerunSafetyOf(WORKFLOW_STEPS.ATTACH_IMAGES)).toBe(
+        RERUN_SAFETY.CONVERGES
+      );
+      expect(rerunSafetyOf(WORKFLOW_STEPS.ATTACH_PDFS)).toBe(
+        RERUN_SAFETY.CONVERGES
+      );
+      expect(isSafeToRerun(WORKFLOW_STEPS.ATTACH_IMAGES)).toBe(true);
+      expect(isSafeToRerun(WORKFLOW_STEPS.ATTACH_PDFS)).toBe(true);
+    });
+
+    it('leaves no step classified unsafe', () => {
+      // The media pair were the only two. If a future step arrives unsafe this
+      // fails, which is the point: an unsafe step is a decision, not a default.
+      const unsafe = Object.values(WORKFLOW_STEPS).filter(
+        (step) => rerunSafetyOf(step) === RERUN_SAFETY.UNSAFE
+      );
+
+      expect(unsafe).toEqual([]);
     });
   });
 });

@@ -8,6 +8,22 @@ vi.mock('../utils/microservicePaths', () => ({
   GENERATE_MEDIA: '/api/v1/generate/media',
 }));
 
+/** What the generator form holds while the media modal is open. */
+const GENERATION_CONFIG = {
+  accountCount: 10,
+  brandName: 'Solara Moto',
+  demoMode: false,
+  imageMode: 'ai',
+  imageRatio: 40,
+  imageStyle: 'studio',
+  orderCount: 50,
+  pdfContentType: 'datasheet',
+  pdfMode: 'placeholder',
+  pdfRatio: 60,
+  productCount: 25,
+  sessionName: 'a generation run',
+};
+
 describe('useMediaGeneration hook', () => {
   let mockApi, mockAddLog, mockDispatch, mockBuildPayload;
 
@@ -18,17 +34,23 @@ describe('useMediaGeneration hook', () => {
         addLog: mockAddLog,
         buildPayload: mockBuildPayload,
         dispatch: mockDispatch,
+        generationConfig: GENERATION_CONFIG,
         isGenerating: false,
         ...overrides,
       })
     );
 
+  const postedPayload = () => mockApi.post.mock.calls[0][1];
+
   beforeEach(() => {
     mockAddLog = vi.fn();
     mockDispatch = vi.fn();
-    mockBuildPayload = vi
-      .fn()
-      .mockReturnValue({ liferayUrl: 'http://localhost:8080' });
+    // The whitelisted builder's contract: it names the connection and commerce
+    // fields and merges whatever the caller hands it. See useCommerceData.
+    mockBuildPayload = vi.fn((payloadOverrides = {}) => ({
+      liferayUrl: 'http://localhost:8080',
+      ...payloadOverrides,
+    }));
     mockApi = {
       post: vi.fn().mockResolvedValue({
         sessionId: 'media-1',
@@ -53,6 +75,74 @@ describe('useMediaGeneration hook', () => {
         confirmMediaGeneration: true,
       })
     );
+  });
+
+  /**
+   * The route reads `imageMode` and `pdfMode` off the request and refuses the
+   * run when both read as 'none' - which is what an absent field becomes. They
+   * used to arrive only because App.jsx spread the whole generation config into
+   * every payload, so collapsing onto the whitelisted builder without naming
+   * them would have made every media run a 400. See #1044.
+   */
+  it('sends the media settings the route gates on', async () => {
+    const { result } = renderMediaHook();
+
+    await act(async () => {
+      await result.current.generateMedia({ sourceSessionId: 'src-1' });
+    });
+
+    expect(postedPayload()).toMatchObject({
+      demoMode: false,
+      imageMode: 'ai',
+      imageRatio: 40,
+      imageStyle: 'studio',
+      pdfContentType: 'datasheet',
+      pdfMode: 'placeholder',
+      pdfRatio: 60,
+    });
+  });
+
+  it('leaves the rest of the generator form behind', async () => {
+    const { result } = renderMediaHook();
+
+    await act(async () => {
+      await result.current.generateMedia({ sourceSessionId: 'src-1' });
+    });
+
+    const payload = postedPayload();
+
+    expect(payload).not.toHaveProperty('productCount');
+    expect(payload).not.toHaveProperty('accountCount');
+    expect(payload).not.toHaveProperty('orderCount');
+    expect(payload).not.toHaveProperty('brandName');
+    // A media run names itself after the session it attaches to, and the route
+    // only does that when the request names no session of its own.
+    expect(payload).not.toHaveProperty('sessionName');
+  });
+
+  it('attaches a chosen image as multipart rather than as a field', async () => {
+    const customImageFile = new File(['jpeg'], 'hero.jpg', {
+      type: 'image/jpeg',
+    });
+
+    const { result } = renderMediaHook({
+      generationConfig: {
+        ...GENERATION_CONFIG,
+        customImageFile,
+        imageMode: 'custom',
+      },
+    });
+
+    await act(async () => {
+      await result.current.generateMedia({ sourceSessionId: 'src-1' });
+    });
+
+    const body = postedPayload();
+
+    expect(body).toBeInstanceOf(FormData);
+    expect(body.get('customImageFile')).toBeInstanceOf(File);
+    expect(body.get('customImageFile').name).toBe('hero.jpg');
+    expect(body.get('imageMode')).toBe('custom');
   });
 
   it('tracks the new media session so progress is reported against it', async () => {

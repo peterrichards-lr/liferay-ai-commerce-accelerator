@@ -90,11 +90,13 @@ export function sectionVisibility(generationConfig = {}) {
  * back brings the settings that were already there back with it, rather than
  * silently returning them to defaults.
  *
- * Setting `undefined` rather than deleting the key is load-bearing:
- * `useGeneration` builds the request as `{ ...generationConfig, ...finalConfig }`,
- * so a key merely absent from the submitted config is re-supplied from state
- * and only an explicit `undefined` overrides it. `JSON.stringify` then drops
- * it, so the microservice receives no key at all.
+ * Setting `undefined` rather than deleting the key states the drop rather than
+ * relying on absence: this returns a copy of the whole config, so a reader
+ * comparing it against state sees which fields were withheld. `JSON.stringify`
+ * and `toFormData` both skip an undefined value, so the microservice receives
+ * no key at all either way. Until #1044 it was load-bearing as well - the
+ * request was built over a spread of the live `generationConfig`, so a key
+ * merely deleted here came back from state.
  */
 export function withHiddenSectionsDropped(generationConfig = {}) {
   // A seed pack replaces the volume-driven form with a fixed dataset whose
