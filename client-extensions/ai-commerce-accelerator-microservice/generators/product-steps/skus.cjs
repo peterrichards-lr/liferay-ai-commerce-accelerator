@@ -20,7 +20,10 @@ const {
   resolveSkuOptionLink,
 } = require('../../utils/productOptionLinks.cjs');
 const { definitionIdOf } = require('../../utils/productIdentity.cjs');
-const { productOptionsOf } = require('../../utils/productShape.cjs');
+const {
+  applyProductOptions,
+  productOptionsOf,
+} = require('../../utils/productShape.cjs');
 
 /**
  * Liferay's Sku.price / promoPrice / cost accept any number >= 0. The AI
@@ -360,8 +363,7 @@ async function runLinkProductOptionsStep(sessionId) {
         );
       }
 
-      product.options = updatedOpts;
-      product.productOptions = updatedOpts;
+      applyProductOptions(product, updatedOpts);
     }
 
     // We must explicitly save the mutated context to the database
