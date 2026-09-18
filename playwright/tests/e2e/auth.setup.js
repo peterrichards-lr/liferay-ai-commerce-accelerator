@@ -82,7 +82,21 @@ setup('authenticate', async ({ page }) => {
   // Perform login
   await emailInput.fill(user);
   await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Sign In' }).click();
+
+  // Scoped to the form holding the email input, because the page carries two
+  // controls named "Sign In": the header's toggle, which is
+  // `<button type="button" class="sign-in ... btn-unstyled">` and only reveals
+  // the form, and the form's own submit. An unscoped getByRole matched both,
+  // and Playwright's strict mode refuses to guess - so `authenticate` failed
+  // and all eight specs behind it never ran (#805).
+  //
+  // Anchored on the field rather than on `type="submit"` or a class, because
+  // the form that holds the credentials is the form that should receive them;
+  // that stays true through a restyle, and the header toggle is then excluded
+  // by where it sits rather than by what it looks like.
+  const loginForm = page.locator('form').filter({ has: emailInput });
+
+  await loginForm.getByRole('button', { name: 'Sign In' }).click();
 
   // --- DETECT AND BYPASS FIRST-BOOT SETUP WIZARDS ---
 
