@@ -4,8 +4,44 @@ import ClayButton from '@clayui/button';
 import ClayForm, { ClayInput, ClaySelect } from '@clayui/form';
 import ClayIcon from '@clayui/icon';
 import ClayLayout from '@clayui/layout';
-import { mediaProviderIssue } from '../../config/providerCapabilities';
+import {
+  INHERIT,
+  mediaProviderIssue,
+  providerLabel,
+} from '../../config/providerCapabilities';
 import { apiKeyIssue } from '../../config/apiKeys';
+import {
+  IMAGE_CAPABLE_PROVIDERS,
+  TEXT_PROVIDERS,
+} from '../../config/providerRegistry';
+
+/**
+ * The Core AI Provider choices, in the registry's preference order.
+ */
+const textProviders = TEXT_PROVIDERS.map(({ id, label, selectLabel }) => ({
+  label: selectLabel || label,
+  value: id,
+}));
+
+/**
+ * The provider an unset Core AI Provider falls back to: the first one offered.
+ */
+const DEFAULT_TEXT_PROVIDER = textProviders[0].value;
+
+/**
+ * The Media Provider choices: inherit, then whichever providers actually return
+ * an image. Listing one that does not costs the operator a whole run - Nano
+ * Banana returned a placeholder string and Gemini throws 'not supported yet',
+ * and both were offered here (#642). Derived now, so the list cannot outlive
+ * the capability that justifies it.
+ */
+const mediaProviders = [
+  { label: 'Same as Core AI', value: INHERIT },
+  ...IMAGE_CAPABLE_PROVIDERS.map((id) => ({
+    label: providerLabel(id),
+    value: id,
+  })),
+];
 
 export default function AiSettingsPanel({
   keyValue,
@@ -19,21 +55,6 @@ export default function AiSettingsPanel({
 }) {
   const [show, setShow] = useState(false);
   const issues = [];
-
-  const textProviders = [
-    { label: 'OpenAI (GPT)', value: 'openai' },
-    { label: 'Google Gemini', value: 'gemini' },
-    { label: 'Anthropic Claude', value: 'anthropic' },
-  ];
-
-  // Only providers that actually generate an image. Nano Banana returned a
-  // placeholder string and Gemini throws 'not supported yet', so offering
-  // either lost the operator a run (#642). DALL-E is retired; the OpenAI path
-  // uses gpt-image-2.
-  const mediaProviders = [
-    { label: 'Same as Core AI', value: 'inherit' },
-    { label: 'OpenAI', value: 'openai' },
-  ];
 
   const providers = type === 'media' ? mediaProviders : textProviders;
 
@@ -64,7 +85,7 @@ export default function AiSettingsPanel({
 
   const onClear = useCallback(() => setKeyValue(''), [setKeyValue]);
 
-  const isInherited = type === 'media' && providerValue === 'inherit';
+  const isInherited = type === 'media' && providerValue === INHERIT;
 
   // Only the media panel can judge this, and only because it is told what the
   // core provider is - the combination is what fails, not either setting alone.
@@ -80,11 +101,11 @@ export default function AiSettingsPanel({
   // judge.
   const keyIssue = useMemo(() => {
     const effectiveProvider =
-      type === 'media' && providerValue === 'inherit'
+      type === 'media' && providerValue === INHERIT
         ? coreProviderValue
         : providerValue;
 
-    if (type === 'media' && providerValue === 'inherit') return null;
+    if (type === 'media' && providerValue === INHERIT) return null;
 
     return apiKeyIssue(effectiveProvider, keyValue);
   }, [type, providerValue, coreProviderValue, keyValue]);
@@ -122,7 +143,10 @@ export default function AiSettingsPanel({
           </label>
           <ClaySelect
             id={`ai-provider-${type}`}
-            value={providerValue || (type === 'media' ? 'inherit' : 'openai')}
+            value={
+              providerValue ||
+              (type === 'media' ? INHERIT : DEFAULT_TEXT_PROVIDER)
+            }
             onChange={(e) => setProviderValue(e.target.value)}
           >
             {providers.map((p) => (

@@ -15,50 +15,19 @@
  * configurations to guard against a mistake we cannot prove.
  */
 const { providerLabel } = require('./providerCapabilities.cjs');
+const {
+  FAMILY_LABELS,
+  KEY_PATTERNS,
+  PROVIDER_ENV_VARS,
+  PROVIDER_KEY_FAMILY,
+  TEXT_PROVIDERS,
+  providerForFamily,
+} = require('./providerRegistry.cjs');
 
 /**
  * Sentinel used by the demo/offline path; never a real credential.
  */
 const MOCK_KEY = 'mock-sandbox';
-
-/**
- * The credential family each provider authenticates with. Gemini and Nano
- * Banana are both Google endpoints and share a key.
- */
-const PROVIDER_KEY_FAMILY = {
-  anthropic: 'anthropic',
-  gemini: 'google',
-  nanobanana: 'google',
-  openai: 'openai',
-};
-
-/**
- * The provider-specific environment variable to prefer over the generic
- * AI_API_KEY, so a correctly configured deployment never relies on the
- * ambiguous one.
- */
-const PROVIDER_ENV_VARS = {
-  anthropic: 'ANTHROPIC_API_KEY',
-  gemini: 'GEMINI_API_KEY',
-  nanobanana: 'GEMINI_API_KEY',
-  openai: 'OPENAI_API_KEY',
-};
-
-/**
- * Anthropic is tested before OpenAI: an Anthropic key is `sk-ant-...`, which
- * also satisfies OpenAI's `sk-` prefix.
- */
-const KEY_PATTERNS = [
-  { family: 'anthropic', pattern: /^sk-ant-/ },
-  { family: 'google', pattern: /^AIza/ },
-  { family: 'openai', pattern: /^sk-/ },
-];
-
-const FAMILY_LABELS = {
-  anthropic: 'Anthropic',
-  google: 'Google',
-  openai: 'OpenAI',
-};
 
 /**
  * The credential family a key belongs to, or null when it is not recognised.
@@ -110,11 +79,7 @@ function providerForKey(apiKey) {
   const family = keyFamily(apiKey);
   if (!family) return null;
 
-  const match = Object.entries(PROVIDER_KEY_FAMILY).find(
-    ([provider, value]) => value === family && provider !== 'nanobanana'
-  );
-
-  return match ? match[0] : null;
+  return providerForFamily(family);
 }
 
 /**
@@ -126,10 +91,12 @@ function providerForKey(apiKey) {
  *
  * A provider-specific variable wins over the generic AI_API_KEY, because the
  * caller *persists* the key it picks: preferring the ambiguous one meant an
- * unattributable credential outlived the variable it came from. Anthropic is
- * last among the specific keys because it cannot generate images, so a project
- * setting several is better defaulted to a provider covering data and media.
- * When only the generic key exists, its prefix is used to attribute it.
+ * unattributable credential outlived the variable it came from. The specific
+ * keys are tried in the registry's preference order - the same order the Core
+ * AI Provider dropdown offers, and for the same reason: Anthropic is last
+ * because it cannot generate images, so a project setting several keys is
+ * better defaulted to a provider covering data and media. When only the generic
+ * key exists, its prefix is used to attribute it.
  */
 function resolveCoreKey(lookup) {
   const read = (name) => {
@@ -138,11 +105,7 @@ function resolveCoreKey(lookup) {
     return trimmed.length > 0 ? trimmed : null;
   };
 
-  for (const [provider, envVar] of [
-    ['openai', 'OPENAI_API_KEY'],
-    ['gemini', 'GEMINI_API_KEY'],
-    ['anthropic', 'ANTHROPIC_API_KEY'],
-  ]) {
+  for (const { id: provider, envVar } of TEXT_PROVIDERS) {
     const apiKey = read(envVar);
     if (apiKey) return { apiKey, provider, envVar };
   }
