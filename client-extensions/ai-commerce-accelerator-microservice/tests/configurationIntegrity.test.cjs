@@ -6,6 +6,10 @@ const {
   listSchemaNames,
 } = require('../utils/configurationAssets.cjs');
 const { DEFAULT_MAX_TOKENS } = require('../utils/aiRequestOptions.cjs');
+const {
+  IMAGE_CAPABLE_PROVIDERS,
+  providerLabel,
+} = require('../utils/providerCapabilities.cjs');
 
 const BATCH_DIR = path.join(
   __dirname,
@@ -37,6 +41,31 @@ function seededAiConfig() {
   ).toBeDefined();
 
   return JSON.parse(entry.configValue);
+}
+
+const MEDIA_PROVIDER_LIST_TYPE = 'AI_COMMERCE_ACCELERATOR_MEDIA_PROVIDER';
+
+/**
+ * The entries of the seeded Media Provider list type, which is the dropdown an
+ * operator picks a media provider from.
+ */
+function seededMediaProviderEntries() {
+  const batch = JSON.parse(
+    fs.readFileSync(
+      path.join(BATCH_DIR, '00-list-type-definition.batch-engine-data.json'),
+      'utf8'
+    )
+  );
+  const listType = batch.items.find(
+    (item) => item.externalReferenceCode === MEDIA_PROVIDER_LIST_TYPE
+  );
+
+  expect(
+    listType,
+    `The core seed no longer carries a ${MEDIA_PROVIDER_LIST_TYPE} list type`
+  ).toBeDefined();
+
+  return listType.listTypeEntries;
 }
 
 function seededConfigKeys(infix) {
@@ -170,6 +199,35 @@ describe('Microservice Configuration Integrity', () => {
       'The panel no longer declares a default maxTokens; this guard needs updating'
     ).not.toBeNull();
     expect(Number(declared[1])).toBe(DEFAULT_MAX_TOKENS);
+  });
+
+  // The dropdown is seeded data and the capability is code, so nothing relates
+  // the two: the list offered nanobanana long after #642 took it off
+  // IMAGE_CAPABLE_PROVIDERS, and picking it produced a run that generated no
+  // images without failing (#1022).
+  it('should offer only image-capable providers as media providers', () => {
+    const keys = seededMediaProviderEntries().map((entry) => entry.key);
+
+    expect(
+      keys.length,
+      'The seeded media provider list is empty'
+    ).toBeGreaterThan(0);
+
+    for (const key of keys) {
+      expect(
+        IMAGE_CAPABLE_PROVIDERS,
+        `The seeded media provider list offers ${key}, which cannot generate images`
+      ).toContain(key);
+    }
+  });
+
+  // The label drifted the other way: the list read "OpenAI (DALL-E)" after
+  // DALL-E was retired, naming a model the provider no longer serves.
+  it('should label each seeded media provider as the microservice names it', () => {
+    for (const entry of seededMediaProviderEntries()) {
+      expect(entry.name).toBe(providerLabel(entry.key));
+      expect(entry.name_i18n['en-US']).toBe(providerLabel(entry.key));
+    }
   });
 
   it('should seed one ai-schema config entry per generation schema file', () => {

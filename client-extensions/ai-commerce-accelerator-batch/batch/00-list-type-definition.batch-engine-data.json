@@ -78,17 +78,9 @@
         {
           "externalReferenceCode": "AI_MEDIA_PROVIDER_OPENAI",
           "key": "openai",
-          "name": "OpenAI (DALL·E)",
+          "name": "OpenAI",
           "name_i18n": {
-            "en-US": "OpenAI (DALL·E)"
-          }
-        },
-        {
-          "externalReferenceCode": "AI_MEDIA_PROVIDER_NANOBANANA",
-          "key": "nanobanana",
-          "name": "Nano Banana",
-          "name_i18n": {
-            "en-US": "Nano Banana"
+            "en-US": "OpenAI"
           }
         }
       ],
