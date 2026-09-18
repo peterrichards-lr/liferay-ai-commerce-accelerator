@@ -2,6 +2,7 @@ const { logger } = require('./logger.cjs');
 const { toPercentage } = require('./shareSelection.cjs');
 const crypto = require('crypto');
 const { resolveEffectiveLiferayConnection } = require('./liferayEnv.cjs');
+const { normalizeConfigurationSource } = require('./configurationSource.cjs');
 const { REINDEX_BASE_PATH } = require('./liferayUtils.cjs');
 
 const SENSITIVE_KEY_RE =
@@ -118,6 +119,7 @@ function buildConfigAndOptions(req) {
   const {
     accountCount,
     accountType,
+    aicaOwnedEntitiesOnly,
     orderAccountType,
     aiModel,
     authMethod,
@@ -130,6 +132,7 @@ function buildConfigAndOptions(req) {
     chunkSizes,
     clientId,
     clientSecret,
+    configSource,
     backorderAssignmentRatio,
     createWarehouses,
     enableBackorders,
@@ -219,6 +222,13 @@ function buildConfigAndOptions(req) {
     channelIds: toNumberList(channelIds),
     clientId: clientId === null ? null : clientId,
     clientSecret: clientSecret === null ? null : clientSecret,
+    // Where AICA reads its own configuration, when that is not the instance it
+    // writes to. Normalised to the three fields a connection has and nothing
+    // else - the server-side half of the whitelist the frontend payload
+    // applies, so a second credential set cannot arrive by a wholesale spread.
+    // Undefined when nothing usable was stated, which leaves the target
+    // connection answering for configuration exactly as it does today (#824).
+    configSource: normalizeConfigurationSource(configSource),
     currencyCode:
       currencyCode === null || currencyCode === undefined
         ? 'USD'
@@ -353,6 +363,13 @@ function buildConfigAndOptions(req) {
   // individual accounts. Left undefined when absent so any customer account
   // qualifies, as it did before. See #611.
   options.orderAccountType = orderAccountType || undefined;
+
+  // Whether a run may reuse entities AICA did not create. Selection has never
+  // asked, so orders were placed against every matching account in the
+  // instance. Opt-in and narrowing only - the widening direction is the one
+  // ownershipScope guards with a typed confirmation, and this field cannot
+  // reach it. See #824 §3.
+  options.aicaOwnedEntitiesOnly = toBoolean(aicaOwnedEntitiesOnly);
 
   // Only meaningful for the mixed type. Left undefined when absent so the
   // prompt's own mixed branch keeps deciding the split, as it did before.
@@ -563,6 +580,23 @@ function sanitizedObject(obj) {
   if (sanitizedObj.clientSecret) sanitizedObj.clientSecret = '[REDACTED]'; // pragma: allowlist secret
   if (sanitizedObj.Authorization) sanitizedObj.Authorization = '[REDACTED]';
   if (sanitizedObj.openaiApiKey) sanitizedObj.openaiApiKey = '[REDACTED]'; // pragma: allowlist secret
+
+  // The configuration source carries a second client secret, and this function
+  // only ever looked at the top level - so a connection nested one level down
+  // would have put a client secret back into the log in clear, which is #820
+  // reintroduced by the feature that needed the second credential set.
+  //
+  // Redacted outright rather than through `sanitizeValue`, whose `maskMiddle`
+  // leaves a string of nine characters or fewer untouched: a short secret is
+  // still a secret, and this is the line that logs every request body.
+  if (
+    sanitizedObj.configSource &&
+    typeof sanitizedObj.configSource === 'object'
+  ) {
+    sanitizedObj.configSource = { ...sanitizedObj.configSource };
+    if (sanitizedObj.configSource.clientSecret)
+      sanitizedObj.configSource.clientSecret = '[REDACTED]'; // pragma: allowlist secret
+  }
 
   if (sanitizedObj.customImageFile)
     sanitizedObj.customImageFile = {

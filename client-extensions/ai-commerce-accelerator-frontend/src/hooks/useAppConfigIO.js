@@ -35,6 +35,18 @@ export default function useAppConfigIO({
     const exportData = {
       liferayUrl: config.liferayUrl,
       microserviceUrl: config.microserviceUrl,
+      // The configuration source travels with the run parameters, or a saved
+      // configuration cannot be replayed against the same pair of instances
+      // (#824 §4). The client id but never the secret: a client id is an
+      // identifier, the secret is the credential, and a saved configuration
+      // must not be a secret-bearing document (#824 §5, #820).
+      configSourceEnabled: config.configSourceEnabled,
+      configSourceUrl: config.configSourceEnabled
+        ? config.configSourceUrl
+        : undefined,
+      configSourceClientId: config.configSourceEnabled
+        ? config.configSourceClientId
+        : undefined,
       batchSize: config.batchSize,
       aiModel: config.aiModel,
       currencyCode: config.currencyCode,
@@ -117,6 +129,13 @@ export default function useAppConfigIO({
             'channelId',
             'reactLoggingLevel',
             'wsLoggingLevel',
+            // Deliberately without `configSourceClientSecret`: the export does
+            // not write one, so accepting one here would only let a
+            // hand-edited file reintroduce the secret-bearing document the
+            // export exists to avoid (#824 §5).
+            'configSourceEnabled',
+            'configSourceUrl',
+            'configSourceClientId',
           ];
 
           const newConfig = { ...config };
@@ -169,6 +188,20 @@ export default function useAppConfigIO({
             nameField: 'channelName',
             items: channels,
           });
+
+          // Said rather than left to be discovered mid-run. The file names a
+          // configuration source but cannot carry its secret, so the run it
+          // describes cannot be replayed until the secret is re-entered - and
+          // an operator who is not told will find out when a read fails.
+          if (
+            newConfig.configSourceEnabled &&
+            !newConfig.configSourceClientSecret
+          ) {
+            notifyUser(
+              'The configuration source was imported without its client secret, which is never exported. Re-enter it before running.',
+              'warning'
+            );
+          }
 
           setConfig(newConfig);
 

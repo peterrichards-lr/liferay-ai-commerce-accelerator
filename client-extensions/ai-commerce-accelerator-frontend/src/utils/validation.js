@@ -52,6 +52,45 @@ export function getConnectionErrorsMap(cfg, targetType) {
   return errors;
 }
 
+/**
+ * The configuration source, once the operator has said it differs.
+ *
+ * All three fields are required together, because an incomplete second
+ * connection is the failure #824 exists to remove: a URL with no credentials
+ * would either be refused by the server or, worse, reach it carrying the
+ * target's credentials, which are not valid on another instance.
+ */
+export function getConfigurationSourceErrorsMap(cfg) {
+  const errors = {};
+
+  if (!cfg.configSourceEnabled) return errors;
+
+  if (
+    !cfg.configSourceUrl ||
+    !/^https?:\/\/.+/.test(String(cfg.configSourceUrl))
+  ) {
+    (errors.configSourceUrl ??= []).push(
+      'Enter a valid Liferay URL (e.g., http://localhost:8080).'
+    );
+  }
+
+  if (
+    !cfg.configSourceClientId ||
+    String(cfg.configSourceClientId).trim().length === 0
+  ) {
+    (errors.configSourceClientId ??= []).push('Client ID is required.');
+  }
+
+  if (
+    !cfg.configSourceClientSecret ||
+    String(cfg.configSourceClientSecret).trim().length === 0
+  ) {
+    (errors.configSourceClientSecret ??= []).push('Client Secret is required.');
+  }
+
+  return errors;
+}
+
 export function getCommerceErrorsMap(cfg) {
   const errors = {};
   if (!cfg.catalogId) (errors.catalogId ??= []).push('Catalog is required.');

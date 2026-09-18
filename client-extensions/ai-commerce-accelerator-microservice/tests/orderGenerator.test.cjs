@@ -317,6 +317,47 @@ describe('OrderGenerator', () => {
       expect(accounts.map((a) => a.id)).toEqual([1]);
     });
 
+    it('draws from accounts AICA did not create unless asked not to', async () => {
+      withAccounts([
+        { id: 1, externalReferenceCode: 'AICA-ACC-1', type: 'business' },
+        { id: 2, externalReferenceCode: 'ACME-LEGACY-1', type: 'business' },
+      ]);
+
+      const { accounts } = await generator.getProductsAndAccounts(config, {
+        options: {},
+      });
+
+      expect(accounts.map((a) => a.id)).toEqual([1, 2]);
+    });
+
+    it('keeps only what AICA created when the run asks for that (#824)', async () => {
+      withAccounts([
+        { id: 1, externalReferenceCode: 'AICA-ACC-1', type: 'business' },
+        { id: 2, externalReferenceCode: 'ACME-LEGACY-1', type: 'business' },
+      ]);
+
+      const { accounts } = await generator.getProductsAndAccounts(config, {
+        options: { aicaOwnedEntitiesOnly: true },
+      });
+
+      expect(accounts.map((a) => a.id)).toEqual([1]);
+    });
+
+    it('says the ownership filter emptied the pool rather than the type (#824)', async () => {
+      withAccounts([
+        { id: 2, externalReferenceCode: 'ACME-LEGACY-1', type: 'business' },
+      ]);
+
+      await expect(
+        generator.getProductsAndAccounts(config, {
+          options: {
+            aicaOwnedEntitiesOnly: true,
+            orderAccountType: 'business',
+          },
+        })
+      ).rejects.toThrow(/restricted to AICA-owned data/i);
+    });
+
     it('narrows to the requested account type', async () => {
       withAccounts([
         { id: 1, externalReferenceCode: 'A1', type: 'business' },

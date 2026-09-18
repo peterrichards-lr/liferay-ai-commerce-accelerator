@@ -6,6 +6,9 @@ const {
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { requireAdmin } = require('../middleware/authorizationMiddleware.cjs');
+const {
+  describeConfigurationSource,
+} = require('../utils/configurationSource.cjs');
 
 function sendSafeError(res, logger, req, error, operation, meta = {}) {
   const existingRef = resolveErrorReference(error);
@@ -80,6 +83,10 @@ module.exports = (
 
       const body = {
         ai: aiCfg || {},
+        // Which instance these settings were actually read from. "Where did
+        // this configuration come from" was unanswerable without reading a log,
+        // and the run that prompted #824 spent 184 seconds proving it.
+        configurationSource: describeConfigurationSource(config),
         prompts: promptsCfg || {},
         keyAvailable: !!aiKeyRaw,
         mediaKeyAvailable: !!mediaKeyRaw,

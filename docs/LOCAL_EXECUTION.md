@@ -382,6 +382,41 @@ LIFERAY_OAUTH_CLIENT_SECRET=your-client-secret
 AI_API_KEY=sk-...
 ```
 
+### Naming the Configuration Source Separately
+
+Step 2 above - deploying the batch client extension to the remote instance so
+`c_aicaconfiguration` exists there - is a requirement only because AICA used to
+read its own configuration from the instance it writes to. That is the right
+place for catalog and channel ids, categories and exclude lists, which describe
+the instance. It is the wrong place for the AI settings, prompts, chunk sizes
+and request timeouts, which describe how the microservice does one job.
+
+If the remote instance has no AICA configuration object - which is the usual
+case when the client extensions are deployed only to a local bundle - name the
+instance that does:
+
+```env
+# Where AICA reads its own settings from. Blank means "the same instance".
+AICA_CONFIG_SOURCE_URL=http://localhost:8080
+AICA_CONFIG_SOURCE_CLIENT_ID=your-local-client-id
+AICA_CONFIG_SOURCE_CLIENT_SECRET=your-local-client-secret
+```
+
+The same connection can be entered per run in the **Configuration source** row
+of the setup rail, which outranks these variables - on a shared deployment the
+environment is one value for every user of the server.
+
+Two rules follow, and both are deliberate:
+
+- **A configuration source on a different host needs its own Client ID and
+  Client Secret.** The target's credentials are not valid there, so they are
+  refused rather than reused.
+- **A configuration source that cannot be read stops the run and says which
+  instance it could not read.** No default is substituted. A setting that
+  silently falls back to a built-in value cannot be corrected, which is the
+  defect this exists to remove - see
+  [#824](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/824).
+
 ### Execute Against Remote Instance
 
 #### Option A: Interactive Local UI (Targeting Remote Cloud)
@@ -451,4 +486,4 @@ _(Or in DXP: **Control Panel -> Search -> Index Actions -> Reindex All**)._
 
 ---
 
-_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
+_Last Updated: 2026-09-18_ | _Last Reviewed: 2026-09-18_

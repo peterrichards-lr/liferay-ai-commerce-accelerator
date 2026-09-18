@@ -270,6 +270,13 @@ const GENERATE_OPTIONS = [
     help: 'Restrict a standalone order run to existing accounts of this type',
   },
   {
+    key: 'aicaOwnedEntitiesOnly',
+    type: 'boolean',
+    flag: 'aica-owned-only',
+    default: false,
+    help: 'Reuse only entities AICA created, by external reference code prefix, rather than everything already on the instance',
+  },
+  {
     key: 'businessAccountRatio',
     type: 'integer',
     flag: 'business-account-ratio',
@@ -493,6 +500,8 @@ const WITHHELD_GENERATE_KEYS = {
     'Lets a browser client behind a reverse proxy tell the server its own externally-visible origin, for constructing callback links. A CLI talking to the microservice directly already supplies that origin as MICROSERVICE_URL/AICA_MICROSERVICE_URL - the request target itself - so sending it again in the body would be redundant plumbing, not a generation input.',
   chunkSizes:
     "A structured per-phase tuning object that normalize.cjs passes through unvalidated, not a scalar/boolean/list a single flag can express cleanly. AI-runtime tuning, not something a demo run's content depends on.",
+  configSource:
+    'A second connection - URL, client id and client secret - naming the instance AICA reads its own configuration from when that differs from the one it writes to (#824). Withheld for the same two reasons as clientId and clientSecret: it carries a credential that must not reach shell history or a process listing, and it is connection resolution rather than a generation input. A CLI run supplies it through the AICA_CONFIG_SOURCE_URL/_CLIENT_ID/_CLIENT_SECRET .env cascade, alongside the target connection it already resolves that way.',
 };
 
 /** `--flag <value>` / `--no-flag` names an entry answers to, boolean-aware. */

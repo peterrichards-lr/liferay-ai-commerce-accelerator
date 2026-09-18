@@ -12,6 +12,12 @@
  *   supplier  - supplies the business rather than buying from it, so outside
  *               what AICA generates at all
  */
+const {
+  AICA_OWNED,
+  EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE,
+  resolveOwnershipScope,
+} = require('./ownershipScope.cjs');
+
 const CUSTOMER_ACCOUNT_TYPES = ['business', 'person'];
 
 /**
@@ -59,12 +65,29 @@ function accountType(account) {
  * the field may simply not have been returned and dropping it would empty the
  * pool for datasets that worked before. It is excluded once a specific type is
  * asked for, since an unknown type cannot be claimed to match.
+ *
+ * `scope` is the second, independent question: not what kind of account, but
+ * whose. Selection has never asked it, so a run placed orders against every
+ * matching account already on the instance, AICA's or not (#824 §3). It takes a
+ * scope object by reference - `resolveOwnershipScope` refuses strings and
+ * booleans outright - so no request body can widen a run by carrying an
+ * unexpected field, and it defaults to the everything scope because that is
+ * what selection has always done and narrowing has to be asked for.
  */
-function eligibleOrderAccounts(accounts = [], selection) {
+function eligibleOrderAccounts(
+  accounts = [],
+  selection,
+  scope = EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE
+) {
+  const ownership = resolveOwnershipScope(scope);
   const permitted = accountTypesForSelection(selection);
   const specific = permitted.length === 1;
 
   return accounts.filter((account) => {
+    if (!ownership.owns(account?.externalReferenceCode || account?.erc)) {
+      return false;
+    }
+
     const type = accountType(account);
     if (!type) return !specific;
     return permitted.includes(type);
@@ -74,8 +97,19 @@ function eligibleOrderAccounts(accounts = [], selection) {
 /**
  * Returns a message explaining an empty pool, naming what was looked for and
  * what was actually there.
+ *
+ * The ownership scope is named whenever it is the narrow one, because it is the
+ * half an operator cannot infer: "no business accounts are available" is a lie
+ * told about an instance holding a hundred of them, none of which AICA created.
+ * Same rule as everywhere else on #824 - a filter that removed something says
+ * that it did.
  */
-function noEligibleAccountsMessage(selection, accounts = []) {
+function noEligibleAccountsMessage(
+  selection,
+  accounts = [],
+  scope = EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE
+) {
+  const ownership = resolveOwnershipScope(scope);
   const label = SELECTION_LABELS[normalizeSelection(selection)] || 'customer';
   const present = [...new Set(accounts.map(accountType).filter(Boolean))];
 
@@ -83,7 +117,12 @@ function noEligibleAccountsMessage(selection, accounts = []) {
     ? `Found ${accounts.length} account(s), of type: ${present.sort().join(', ')}.`
     : `Found ${accounts.length} account(s), none reporting a type.`;
 
-  return `No ${label} accounts are available to receive orders. ${found} Generate ${label} accounts first, or change the account type for this run.`;
+  const scoped =
+    ownership === AICA_OWNED
+      ? ' This run is restricted to AICA-owned data, so accounts AICA did not create were not considered.'
+      : '';
+
+  return `No ${label} accounts are available to receive orders. ${found}${scoped} Generate ${label} accounts first, or change the account type for this run.`;
 }
 
 module.exports = {

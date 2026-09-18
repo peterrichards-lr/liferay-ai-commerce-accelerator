@@ -11,7 +11,11 @@ const {
 const { createERC } = require('../utils/misc.cjs');
 const { modelProviderIssue } = require('../utils/modelCatalog.cjs');
 const { apiKeyIssue } = require('../utils/apiKeys.cjs');
-const { resolveMaxTokens } = require('../utils/aiRequestOptions.cjs');
+const {
+  DEFAULT_AI_REQUEST_TIMEOUT_MS,
+  DEFAULT_CHUNK_SIZES,
+  resolveMaxTokens,
+} = require('../utils/aiRequestOptions.cjs');
 const {
   dropNullTypeViolations,
   expandOpenMapsForPrompt,
@@ -234,8 +238,23 @@ class AIService {
     }
 
     if (!aiCfg.defaultModel) {
+      // Two different failures wore the same message until #824. One is a
+      // configured instance missing a model. The other is an instance that was
+      // never asked - AICA read its configuration from the write target, found
+      // no record there, and used to invent gpt-4o rather than say so. The
+      // second names the instance it read, because that is the only fact that
+      // tells the operator what to change.
+      const fallback = aiCfg.aicaFallback;
       const err = new Error(
-        `AI model not configured for provider ${provider}.`
+        fallback
+          ? `AI configuration could not be read: ${
+              fallback.configurationSource?.sameAsTarget
+                ? `the target instance (${fallback.configurationSource?.liferayUrl})`
+                : `the configuration source (${fallback.configurationSource?.liferayUrl})`
+            } holds no AI configuration, so the provider, model, chunk sizes and ` +
+              'timeouts have no configured values. Name a configuration source ' +
+              'that holds one, or add the AICA configuration object to that instance.'
+          : `AI model not configured for provider ${provider}.`
       );
       err.statusCode = 400;
       throw err;
@@ -309,18 +328,30 @@ class AIService {
     //
     // Request first: a per-run value is the only layer that is safe on a shared
     // deployment, where ENV is one value for every user of the server.
-    const requestTimeoutMs =
+    const resolvedTimeoutMs =
       positive(requestConfig?.requestTimeoutMs) ??
       (typeof aiCfg.requestTimeoutMs === 'number'
         ? aiCfg.requestTimeoutMs
         : null) ??
       ENV.AI_REQUEST_TIMEOUT_MS ??
-      60000;
+      null;
+
+    // The number is not the defect - a run dying three times at 60s against a
+    // panel set to 300000 was, because nothing said the panel had not been
+    // read. Landing on AICA's own default is announced wherever the service can
+    // announce it. See #824.
+    if (resolvedTimeoutMs === null) {
+      config.reportDefaultApplied?.(requestConfig, 'requestTimeoutMs', {
+        appliedDefault: DEFAULT_AI_REQUEST_TIMEOUT_MS,
+      });
+    }
+
+    const requestTimeoutMs = resolvedTimeoutMs ?? DEFAULT_AI_REQUEST_TIMEOUT_MS;
 
     const configuredChunkSizes =
       typeof config.getAIChunkSizes === 'function'
         ? await config.getAIChunkSizes(requestConfig)
-        : { product: 10, account: 10, order: 10, warehouse: 10 };
+        : { ...DEFAULT_CHUNK_SIZES };
 
     // ENV outranks the stored value here, unlike the timeout above, because
     // getAIChunkSizes substitutes its own { product: 10, ... } when the target

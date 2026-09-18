@@ -18,6 +18,11 @@ const {
   noEligibleAccountsMessage,
 } = require('../utils/accountTypes.cjs');
 
+const {
+  AICA_OWNED,
+  EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE,
+} = require('../utils/ownershipScope.cjs');
+
 const S = WORKFLOW_STEPS;
 
 /**
@@ -833,19 +838,34 @@ class OrderGenerator extends BaseGenerator {
         fields: 'id,externalReferenceCode,name,type',
       });
       const existing = accountsRes.items || [];
+      // Whose accounts, as well as what kind. Opt-in, so a run that does not
+      // ask draws from everything on the instance exactly as it always has
+      // (#824 §3).
+      const selectionScope = context.options?.aicaOwnedEntitiesOnly
+        ? AICA_OWNED
+        : EVERYTHING_INCLUDING_DATA_AICA_DID_NOT_CREATE;
+
       accounts = eligibleOrderAccounts(
         existing,
-        context.options?.orderAccountType
+        context.options?.orderAccountType,
+        selectionScope
       );
 
       this.logger.debug(
         `Found ${existing.length} existing accounts, ${accounts.length} eligible for orders.`,
-        { requestedAccountType: context.options?.orderAccountType || ANY }
+        {
+          requestedAccountType: context.options?.orderAccountType || ANY,
+          ownershipScope: selectionScope.id,
+        }
       );
 
       if (accounts.length === 0) {
         const err = new Error(
-          noEligibleAccountsMessage(context.options?.orderAccountType, existing)
+          noEligibleAccountsMessage(
+            context.options?.orderAccountType,
+            existing,
+            selectionScope
+          )
         );
         err.statusCode = 400;
         throw err;

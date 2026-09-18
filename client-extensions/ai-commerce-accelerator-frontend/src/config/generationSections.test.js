@@ -145,6 +145,20 @@ describe('withHiddenSectionsDropped', () => {
     expect(submitted({ accountCount: 0 }).orderAccountType).toBe('business');
   });
 
+  it('drops the AICA-owned opt-in with the section it belongs to (#824)', () => {
+    // It narrows which *existing* accounts may receive orders, so it governs
+    // nothing on a run that creates its own - and a request must not carry a
+    // setting the operator was never asked about (#677).
+    expect(
+      submitted({ aicaOwnedEntitiesOnly: true }).aicaOwnedEntitiesOnly
+    ).toBeUndefined();
+
+    expect(
+      submitted({ accountCount: 0, aicaOwnedEntitiesOnly: true })
+        .aicaOwnedEntitiesOnly
+    ).toBe(true);
+  });
+
   it('never drops a volume, whatever it is set to', () => {
     const result = submitted({
       accountCount: 0,

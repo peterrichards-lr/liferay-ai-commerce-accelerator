@@ -37,4 +37,18 @@ export const DEFAULTS = {
   clientId: '',
   clientSecret: '',
   liferayUrl: 'http://localhost:8080',
+
+  // Where AICA reads its own configuration, when that is not the instance it
+  // writes data to. Off by default and one collapsed line when it is: the
+  // ninety-nine runs in a hundred with one Liferay pay a line of reading, not
+  // a card of screen (#903 §2.1).
+  //
+  // A full connection rather than an OAuth ERC. Resolving an ERC goes through
+  // Liferay's routes tree, which exists only where the extension is deployed -
+  // and the split topology this exists for is precisely where it is not
+  // (#903's first correction).
+  configSourceEnabled: false,
+  configSourceUrl: '',
+  configSourceClientId: '',
+  configSourceClientSecret: '',
 };

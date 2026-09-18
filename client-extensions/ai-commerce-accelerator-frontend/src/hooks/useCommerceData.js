@@ -83,6 +83,28 @@ export default function useCommerceData({
         base.clientSecret = config.clientSecret;
       }
 
+      // The second connection travels the same whitelist as the first, which
+      // is why #1044 had to land before this could: behind App.jsx's old
+      // wholesale spread a second credential set would have doubled what #820
+      // exposed. Credentials attach only when both halves are present, the
+      // same rule the target connection follows above - half a credential is
+      // not a credential, and sending one produces an authentication failure
+      // that reads as a wrong password. See #824.
+      const configSourceUrl = (config.configSourceUrl || '').trim();
+
+      if (config.configSourceEnabled && configSourceUrl) {
+        base.configSource = { liferayUrl: configSourceUrl };
+
+        if (
+          includeCredentials &&
+          config.configSourceClientId &&
+          config.configSourceClientSecret
+        ) {
+          base.configSource.clientId = config.configSourceClientId;
+          base.configSource.clientSecret = config.configSourceClientSecret;
+        }
+      }
+
       return base;
     },
     [config]

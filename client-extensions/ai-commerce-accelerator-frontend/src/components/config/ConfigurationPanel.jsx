@@ -1,6 +1,7 @@
 // src/components/config/ApplicationConfigPanel.jsx
 import React from 'react';
 import ConnectionAuthCard from './ConnectionAuthCard';
+import ConfigurationSourceCard from './ConfigurationSourceCard';
 import CommerceCard from './CommerceCard';
 import AdvancedPanel from './AdvancedPanel';
 
@@ -48,6 +49,11 @@ export default function ApplicationConfigPanel({
         errors={connectionErrors}
         onErrorsChange={onErrorsChange}
       />
+
+      {/* Second in the setup rail, in the order it has to be satisfied:
+          which Liferay, then where its settings come from, then commerce.
+          See #903 §2.1. */}
+      <ConfigurationSourceCard disabled={disabled} />
 
       <CommerceCard
         disabled={disabled || !connected || isCreatingCommerce}

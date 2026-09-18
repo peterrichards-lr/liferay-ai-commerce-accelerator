@@ -52,6 +52,7 @@ const initialGenerationConfig = {
   accountCount: 10,
   accountType: 'business',
   orderAccountType: 'any',
+  aicaOwnedEntitiesOnly: false,
   orderCount: 50,
   orderDateRangeDays: 90,
   orderDistribution: { open: 10, processing: 10, shipped: 20, completed: 60 },
