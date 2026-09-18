@@ -370,6 +370,70 @@ describe('provider registry', () => {
       expect(providerForKey('AIzaSyXXXX')).toBe('gemini');
     });
 
+    it('gives every provider that generates text a tier vocabulary', () => {
+      // A provider with no tier table cannot be ranked at all, which means the
+      // shipped list silently falls back to "the three newest" for it - the
+      // bug #636 exists to fix, reintroduced without a symptom.
+      for (const entry of registry.PROVIDERS) {
+        if (!entry.capabilities.text) continue;
+
+        expect(Object.keys(entry.tiers)).toEqual(registry.TIER_IDS);
+        expect(
+          registry.TIER_IDS.flatMap((tier) => entry.tiers[tier]).length
+        ).toBeGreaterThan(0);
+      }
+    });
+
+    it('never files one tier word under two tiers', () => {
+      // Tier terms are matched longest-first and the first hit wins, so a word
+      // in two tiers would resolve by declaration order rather than by meaning.
+      for (const entry of registry.PROVIDERS) {
+        const words = registry.TIER_IDS.flatMap(
+          (tier) => entry.tiers?.[tier] || []
+        );
+
+        expect(words).toEqual([...new Set(words)]);
+        for (const word of words) {
+          expect(word).toBe(word.toLowerCase());
+        }
+      }
+    });
+
+    it('treats a missing tier word as unrankable unless a provider says otherwise', () => {
+      // untieredTier exists for exactly one reason: OpenAI leaves its middle
+      // rung unnamed, so plain gpt-5.5 is the balanced model. Anywhere else an
+      // unnamed model is a model this build cannot rank, and must say so.
+      for (const entry of registry.PROVIDERS) {
+        expect(
+          entry.untieredTier === null ||
+            registry.TIER_IDS.includes(entry.untieredTier)
+        ).toBe(true);
+      }
+    });
+
+    it('declares image model names separately from image capability', () => {
+      // The two answer different questions and must not be folded together:
+      // gemini and nanobanana name image models their adapters cannot run, and
+      // deriving capability from those names is the #642 regression.
+      const namesImageModels = registry.PROVIDERS.filter(
+        (entry) => entry.imageModelPattern
+      ).map((entry) => entry.id);
+
+      expect(
+        registry.IMAGE_MODEL_PATTERNS.map((entry) => entry.provider)
+      ).toEqual(namesImageModels);
+      expect(namesImageModels.length).toBeGreaterThan(
+        IMAGE_CAPABLE_PROVIDERS.length
+      );
+    });
+
+    it('carries the shared tier tables into the JSON Python reads', () => {
+      const json = registry.registryAsJson();
+
+      expect(json.tierIds).toEqual(registry.TIER_IDS);
+      expect(json.neutralQualifiers).toEqual(registry.NEUTRAL_QUALIFIERS);
+    });
+
     it('serialises to JSON without losing a field', () => {
       const json = registry.registryAsJson();
 

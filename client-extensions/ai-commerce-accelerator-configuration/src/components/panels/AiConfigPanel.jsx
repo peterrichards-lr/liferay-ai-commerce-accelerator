@@ -12,8 +12,10 @@ import MillisecondsInput from '../common/MillisecondsInput';
 import AiSettingsPanel from './AiSettingsPanel';
 import {
   DEFAULT_MODEL_OPTIONS,
+  modelModalityIssue,
   modelProvider,
   modelProviderIssue,
+  modelTier,
   modelsForProvider,
 } from '../../config/modelCatalog';
 import { providerLabel } from '../../config/providerCapabilities';
@@ -230,13 +232,25 @@ export default function AiConfigPanel() {
     }
   };
 
-  // Only the models the selected provider can actually run. An unrecognised
-  // model already in the configuration is appended rather than dropped, so a
-  // custom entry is never silently replaced by opening this screen.
+  // Only the models the selected provider can actually run, and only the ones
+  // that generate text - an image model here fails every generateJSON call. An
+  // unrecognised model already in the configuration is appended rather than
+  // dropped, so a custom entry is never silently replaced by opening this
+  // screen.
+  //
+  // The tier is shown because the list is chosen to span cheap, mid and premium
+  // (#636) and that is invisible from a vendor's model name. A model this build
+  // could not rank carries no annotation rather than a guessed one.
   const modelChoices = useMemo(() => {
     const all = aiModelOptions?.[AI_MODEL_OPTIONS_CONFIG_KEY];
     const list = Array.isArray(all) ? all : DEFAULT_MODEL_OPTIONS;
-    const available = modelsForProvider(list, aiConfig.provider);
+    const available = modelsForProvider(list, aiConfig.provider).map(
+      (option) => {
+        const tier = modelTier(option);
+        const label = option.label || option.value;
+        return tier ? { ...option, label: `${label} (${tier})` } : option;
+      }
+    );
     const current = aiConfig.defaultModel;
 
     if (current && !available.some((option) => option?.value === current)) {
@@ -273,6 +287,16 @@ export default function AiConfigPanel() {
       aiModelOptions?.[AI_MODEL_OPTIONS_CONFIG_KEY] || DEFAULT_MODEL_OPTIONS
     );
     if (mismatch) found.push(mismatch);
+
+    // A model that generates images cannot serve as the Core AI Model. The
+    // catalogue says so per model; the provider check above cannot, because an
+    // image model belongs to the same provider as its text models.
+    const wrongModality = modelModalityIssue(
+      aiConfig.defaultModel,
+      aiModelOptions?.[AI_MODEL_OPTIONS_CONFIG_KEY] || DEFAULT_MODEL_OPTIONS
+    );
+    if (wrongModality) found.push(wrongModality);
+
     if (aiConfig.temperature < 0 || aiConfig.temperature > 2)
       found.push('Temperature must be between 0 and 2.');
     if (

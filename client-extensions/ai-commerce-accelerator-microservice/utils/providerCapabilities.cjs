@@ -11,6 +11,14 @@
  * when its vendor has a model that could: nanobanana returned the literal
  * string BASE64_PLACEHOLDER_FOR_NANOBANANA, and gemini throws 'Image generation
  * not supported yet for Gemini provider' (#642).
+ *
+ * This is NOT derived from the model catalogue, and must not become so. #637
+ * proposed folding per-model output modality into it so the list could not go
+ * stale; doing that would make gemini and nanobanana image-capable again on the
+ * strength of image models their adapters cannot run, which is precisely the
+ * regression #642 fixed. The two facts are different: modality is what a
+ * vendor's model produces, capability is what this codebase's generateImage
+ * returns. modelCatalog carries the first; this carries the second.
  */
 const {
   IMAGE_CAPABLE_PROVIDERS,
