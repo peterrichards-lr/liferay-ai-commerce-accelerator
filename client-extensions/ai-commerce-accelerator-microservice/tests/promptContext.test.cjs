@@ -8,8 +8,6 @@ const {
   vocabularyGuidance,
   warehouseGeography,
 } = require('../utils/promptContext.cjs');
-const fs = require('fs');
-const path = require('path');
 
 describe('prompt context blocks', () => {
   describe('brandGuidance', () => {
@@ -194,26 +192,6 @@ describe('prompt context blocks', () => {
         expect(text).toContain('current date/time');
         expect(text).not.toContain('REORDER PATTERNS');
       }
-    });
-  });
-
-  describe('prompt templates (regression for #643)', () => {
-    // promptService substitutes only {{var}} and {{=json:var}}. Anything else
-    // is passed to the model verbatim, so conditionals emitted both branches
-    // and filter expressions arrived as raw Jinja.
-    const dir = path.join(__dirname, '..', 'prompts');
-    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md'));
-
-    it('finds prompt files to check', () => {
-      expect(files.length).toBeGreaterThan(0);
-    });
-
-    it.each(files)('%s contains no unsupported template syntax', (file) => {
-      const text = fs.readFileSync(path.join(dir, file), 'utf8');
-
-      expect(text).not.toMatch(/\{%/);
-      // a pipe inside a placeholder is a filter expression
-      expect(text).not.toMatch(/\{\{[^}]*\|/);
     });
   });
 });

@@ -196,7 +196,13 @@ describe('importConfiguration reference resolution', () => {
     expect(applied.catalogId).toBeNull();
     expect(applied.channelId).toBeNull();
 
-    await waitFor(() => expect(selectChannel).toHaveBeenCalledWith(null));
+    // The currency travels with the clear: it came from the file, not from the
+    // channel that turned out not to exist (#745).
+    await waitFor(() =>
+      expect(selectChannel).toHaveBeenCalledWith(null, {
+        currencyCode: 'USD',
+      })
+    );
 
     const messages = messagesSentTo(notifyUser);
     expect(messages[0]).toContain('Catalog');
@@ -278,6 +284,26 @@ describe('importConfiguration ordering', () => {
       expect(selectChannel).toHaveBeenCalledWith(202, {
         currencyCode: 'GBP',
         selectedLanguages: ['en_GB', 'fr_FR'],
+      })
+    );
+  });
+
+  // The channel is gone; the currency the file asked for is not. Clearing the
+  // selection used to clear it too, which is how a configuration asking for
+  // EUR reached Auto-Create with no currency at all and came back as USD
+  // (#745).
+  it('keeps the imported currency when the imported channel is not on this instance', async () => {
+    const { result, setConfig, selectChannel } = renderIO();
+
+    await importJson(result, setConfig, {
+      channelId: 999,
+      channelName: 'Solara Moto Storefront',
+      currencyCode: 'EUR',
+    });
+
+    await waitFor(() =>
+      expect(selectChannel).toHaveBeenCalledWith(null, {
+        currencyCode: 'EUR',
       })
     );
   });

@@ -1,0 +1,44 @@
+Generate promotional pricing data for the provided products.
+
+Products: "[\n  {\n    \"name\": \"Trail Runner 5 Jacket\",\n    \"sku\": \"TRJ-005\"\n  },\n  {\n    \"name\": \"Summit 40L Pack\",\n    \"sku\": \"SMP-040\"\n  }\n]"
+
+BRAND CONTEXT: A premium outdoor gear brand focusing on sustainability
+
+This price list is for products belonging to this brand.
+
+Return a single JSON object with the following structure:
+{
+"priceListName": "A descriptive name for the price list",
+"priceEntries": [
+{
+"sku": "The product SKU",
+"price": 149.99,
+"cost": 87.50,
+"tierPrices": [
+{
+"minQuantity": 10,
+"price": 134.99
+}
+]
+}
+]
+}
+
+For promotional pricing, generate:
+
+LIFERAY CONTEXT: When generating prices, use one of the following active currencies: USD, EUR.
+
+- A descriptive `priceListName`.
+- A `priceEntries` array for each product SKU.
+- Each entry should have a `price` (the base price for the SKU) and a `cost`
+  (what the SKU costs to supply). Both are numbers, not strings: write `149.99`,
+  not `"149.99"`.
+- Each `tierPrices` entry should have a whole-number `minQuantity` and the
+  `price` that applies at that quantity, both unquoted numbers.
+- 
+- 
+- Include a short-term promo (percentage or fixed amount) with realistic dates.
+
+Use realistic e-commerce pricing strategies.
+
+The response must be a single JSON object that conforms to the provided JSON schema.

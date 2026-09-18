@@ -1,0 +1,31 @@
+Generate comprehensive PDF content for a Outerwear product named "Trail Runner 5 Jacket".
+
+BRAND CONTEXT: A premium outdoor gear brand focusing on sustainability
+
+The generated document should reflect this brand's voice and style.
+
+The focus of this document is: a step-by-step user guide.
+
+Create realistic and detailed sections appropriate for this type of document.
+
+Product Context:
+
+- Name: Trail Runner 5 Jacket
+- Category: Outerwear
+- Description: A three-layer shell for sustained wet weather.
+- Specifications: "[\n  {\n    \"label\": \"Material\",\n    \"value\": \"Recycled polyester\"\n  },\n  {\n    \"label\": \"Weight\",\n    \"value\": \"420 g\"\n  }\n]"
+
+Return as JSON with a title and an array of sections. Each section must have a "title" and "content".
+
+Example structure:
+{
+"title": "Document Title",
+"sections": [
+{ "title": "Section Title", "content": "Detailed realistic content..." },
+...
+]
+}
+
+Ensure the content is high-quality, professional, and category-appropriate for Outerwear products.
+
+The response must be a single JSON object that conforms to the provided JSON schema.

@@ -184,7 +184,12 @@ export default function useAppConfigIO({
                 currencyCode: newConfig.currencyCode,
               });
             } else if (channelOutcome === UNRESOLVED) {
-              await selectChannel(null);
+              // The channel is gone, the currency the file asked for is not.
+              // Handing it over keeps it out of the silent-substitution path
+              // the create route used to complete (#745).
+              await selectChannel(null, {
+                currencyCode: newConfig.currencyCode,
+              });
             }
           } catch (channelError) {
             notifyUser(
