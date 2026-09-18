@@ -12,37 +12,55 @@ vi.mock('../context/AppContext', () => ({
 vi.mock('../utils/notifications', () => ({ default: vi.fn() }));
 
 /**
- * Auto-Create Channel and the currency it applies (#745).
+ * The setup dialog's create, and the currency it is allowed to decide (#745,
+ * #746).
  *
  * The measured failure was a channel created in USD for a run configured as
- * EUR, with nothing on screen saying so. The currency was not wrong because
- * the default was badly chosen; it was wrong because something chose. So the
- * assertions here are about what the operator stated reaching Liferay
- * unaltered, about a refusal when they stated nothing, and about every
- * difference between what was asked for and what came back being said out
- * loud.
+ * EUR, with nothing on screen saying so, and its consequence was euro price
+ * lists written into a dollar catalog. So the assertions here are about the
+ * currency having exactly one source - the catalog - about a refusal when no
+ * catalog names one, and about every difference between what was asked for and
+ * what came back being said out loud.
+ *
+ * Several are written so they would fail if the currency reached Liferay from
+ * anywhere but the catalog, rather than merely being present.
  */
-describe('useCommerceData: Auto-Create Channel (#745)', () => {
+describe('useCommerceData: the setup dialog creates (#746)', () => {
   let addLog;
   let setConfig;
   let api;
 
-  const CREATED = {
-    id: 35094,
-    name: 'AI Commerce Storefront',
+  const CREATED_CATALOG = {
+    id: 41002,
+    name: 'Solara Moto',
     currencyCode: 'EUR',
+    defaultLanguageId: 'en_US',
   };
 
-  const mountWith = (config, { createResponse = null } = {}) => {
+  const CREATED_CHANNEL = {
+    id: 35094,
+    name: 'Solara Storefront',
+    currencyCode: 'EUR',
+    siteGroupId: 40188,
+  };
+
+  const mountWith = (
+    config,
+    { catalogResponse = null, channelResponse = null, catalogs = [] } = {}
+  ) => {
     setConfig = vi.fn();
     addLog = vi.fn();
 
     api = {
       post: vi.fn(async (path) => {
-        if (path.endsWith('/create-channel')) {
-          return createResponse ?? { success: true, channel: CREATED };
+        if (path.endsWith('/create-catalog')) {
+          return catalogResponse ?? { success: true, catalog: CREATED_CATALOG };
         }
-        return { catalogs: [], channels: [], warehouses: [] };
+        if (path.endsWith('/create-channel')) {
+          return channelResponse ?? { success: true, channel: CREATED_CHANNEL };
+        }
+        if (path.endsWith('/get-catalogs')) return { catalogs };
+        return { channels: [], sites: [], warehouses: [] };
       }),
       get: vi.fn().mockResolvedValue({}),
     };
@@ -67,26 +85,124 @@ describe('useCommerceData: Auto-Create Channel (#745)', () => {
     );
   };
 
-  const createCall = () =>
-    api.post.mock.calls.find(([path]) => path.endsWith('/create-channel'));
+  const callTo = (suffix) =>
+    api.post.mock.calls.find(([path]) => path.endsWith(suffix));
 
   const loggedMessages = () => addLog.mock.calls.map(([message]) => message);
+
+  const CATALOG = {
+    currencyCode: 'EUR',
+    defaultLanguageId: 'en_US',
+    name: 'Solara Moto',
+  };
+
+  const CHANNEL = {
+    name: 'Solara Storefront',
+    siteGroupId: '40188',
+    siteType: 'B2B',
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('sends the configured currency, so a EUR configuration makes a EUR channel', async () => {
-    const { result } = mountWith({ currencyCode: 'EUR' });
+  it('sends the catalog exactly the currency, name and language it was given', async () => {
+    const { result } = mountWith({});
 
     await act(async () => {
-      await result.current.createDefaultChannel();
+      await result.current.createCommerceSetup({ catalog: CATALOG });
     });
 
-    expect(createCall()[1]).toMatchObject({
+    expect(callTo('/create-catalog')[1]).toMatchObject({
       currencyCode: 'EUR',
-      name: 'AI Commerce Storefront',
+      defaultLanguageId: 'en_US',
+      name: 'Solara Moto',
     });
+  });
+
+  it('sends the channel the site and the site type the dialog collected', async () => {
+    const { result } = mountWith({});
+
+    await act(async () => {
+      await result.current.createCommerceSetup({
+        catalog: CATALOG,
+        channel: CHANNEL,
+      });
+    });
+
+    expect(callTo('/create-channel')[1]).toMatchObject({
+      name: 'Solara Storefront',
+      siteGroupId: '40188',
+      siteType: 'B2B',
+    });
+  });
+
+  /**
+   * The channel's currency is the *catalog Liferay made*, not the one that was
+   * asked for. Had Liferay created the catalog in something else, a channel
+   * built from the request would be the mismatched pair the dialog exists to
+   * prevent. A test asserting only "EUR was sent" would pass either way.
+   */
+  it('gives the channel the currency the catalog came back with, not the one requested', async () => {
+    const { result } = mountWith(
+      {},
+      {
+        catalogResponse: {
+          success: true,
+          catalog: { ...CREATED_CATALOG, currencyCode: 'GBP' },
+        },
+      }
+    );
+
+    await act(async () => {
+      await result.current.createCommerceSetup({
+        catalog: CATALOG,
+        channel: CHANNEL,
+      });
+    });
+
+    expect(callTo('/create-channel')[1].currencyCode).toBe('GBP');
+    expect(loggedMessages().join('\n')).toMatch(
+      /catalog was asked for in EUR but was created in GBP/
+    );
+  });
+
+  it('gives a channel-only create the selected catalog’s currency', async () => {
+    const { result } = mountWith(
+      { catalogId: 41002 },
+      { catalogs: [{ id: 41002, name: 'Solara Moto', currencyCode: 'EUR' }] }
+    );
+
+    await act(async () => {
+      await result.current.loadRootLists();
+    });
+
+    await act(async () => {
+      await result.current.createCommerceSetup({ channel: CHANNEL });
+    });
+
+    expect(callTo('/create-channel')[1].currencyCode).toBe('EUR');
+  });
+
+  it('refuses a channel-only create when the selected catalog names no currency', async () => {
+    const { result } = mountWith(
+      { catalogId: 55000 },
+      { catalogs: [{ id: 55000, name: 'Currencyless' }] }
+    );
+
+    await act(async () => {
+      await result.current.loadRootLists();
+    });
+
+    await act(async () => {
+      await result.current.createCommerceSetup({ channel: CHANNEL });
+    });
+
+    expect(callTo('/create-channel')).toBeUndefined();
+    expect(notifyUser).toHaveBeenCalledWith(
+      expect.stringMatching(/No currency could be determined/i),
+      'danger'
+    );
   });
 
   it.each([
@@ -94,20 +210,24 @@ describe('useCommerceData: Auto-Create Channel (#745)', () => {
     ['empty', ''],
     ['whitespace', '   '],
   ])(
-    'refuses to create a channel when the currency is %s, instead of substituting one',
+    'refuses when the catalog currency is %s, instead of substituting one',
     async (_label, currencyCode) => {
-      const { result } = mountWith({ currencyCode });
+      const { result } = mountWith({});
 
       await act(async () => {
-        await result.current.createDefaultChannel();
+        await result.current.createCommerceSetup({
+          catalog: { ...CATALOG, currencyCode },
+        });
       });
 
-      expect(createCall()).toBeUndefined();
+      expect(callTo('/create-catalog')).toBeUndefined();
       expect(notifyUser).toHaveBeenCalledWith(
-        expect.stringMatching(/cannot be created without choosing one/i),
+        expect.stringMatching(/No currency could be determined/i),
         'danger'
       );
-      expect(loggedMessages().join('\n')).toMatch(/No currency is set/i);
+      expect(loggedMessages().join('\n')).toMatch(
+        /No currency could be determined/i
+      );
     }
   );
 
@@ -115,65 +235,336 @@ describe('useCommerceData: Auto-Create Channel (#745)', () => {
     const { result } = mountWith({});
 
     await act(async () => {
-      await result.current.createDefaultChannel();
+      await result.current.createCommerceSetup({
+        catalog: { ...CATALOG, currencyCode: '' },
+        channel: CHANNEL,
+      });
     });
 
     expect(JSON.stringify(api.post.mock.calls)).not.toContain('USD');
   });
 
-  it('reports the currency the channel came back with, not the one requested', async () => {
+  it('creates nothing when neither half was asked for', async () => {
+    const { result } = mountWith({});
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.createCommerceSetup({});
+    });
+
+    expect(outcome).toMatchObject({ reason: 'nothing-requested' });
+    expect(callTo('/create-catalog')).toBeUndefined();
+    expect(callTo('/create-channel')).toBeUndefined();
+  });
+
+  it('reports the currency the channel came back with, not the one sent', async () => {
     const { result } = mountWith(
-      { currencyCode: 'EUR' },
+      {},
       {
-        createResponse: {
+        channelResponse: {
           success: true,
-          channel: { ...CREATED, currencyCode: 'USD' },
+          channel: { ...CREATED_CHANNEL, currencyCode: 'USD' },
         },
       }
     );
 
     await act(async () => {
-      await result.current.createDefaultChannel();
+      await result.current.createCommerceSetup({
+        catalog: CATALOG,
+        channel: CHANNEL,
+      });
     });
 
     const messages = loggedMessages().join('\n');
-    expect(messages).toMatch(/asked for in EUR but was created in USD/);
-    expect(messages).toMatch(/makes USD this run's currency/);
+    expect(messages).toMatch(/channel was asked for in EUR/);
+    expect(messages).toMatch(/was created in USD/);
+    expect(messages).toMatch(/currency the prices are not written in/);
   });
 
   it('stays quiet about a substitution when there was none', async () => {
-    const { result } = mountWith({ currencyCode: 'EUR' });
+    const { result } = mountWith({});
 
     await act(async () => {
-      await result.current.createDefaultChannel();
+      await result.current.createCommerceSetup({
+        catalog: CATALOG,
+        channel: CHANNEL,
+      });
     });
 
     expect(loggedMessages().join('\n')).not.toMatch(/but was created in/);
   });
 
-  it('says the name was AICA’s choice rather than the operator’s', async () => {
-    const { result } = mountWith({ currencyCode: 'EUR' });
+  /**
+   * A new channel *displays* B2C while storing nothing, so the route reads the
+   * type back. `applied: false` is the case that must reach the operator - it
+   * is the one where the write was accepted and the value is not there.
+   */
+  it('says so when the site type was accepted but did not persist', async () => {
+    const { result } = mountWith(
+      {},
+      {
+        channelResponse: {
+          success: true,
+          channel: CREATED_CHANNEL,
+          siteType: {
+            applied: false,
+            reason: 'unconfirmed',
+            requested: 'B2B',
+            message:
+              'The commerce site type B2B was accepted but reads back as unset.',
+          },
+        },
+      }
+    );
 
     await act(async () => {
-      await result.current.createDefaultChannel();
+      await result.current.createCommerceSetup({
+        catalog: CATALOG,
+        channel: CHANNEL,
+      });
     });
 
-    const messages = loggedMessages().join('\n');
-    expect(messages).toMatch(/Created channel 'AI Commerce Storefront'/);
-    expect(messages).toMatch(/is AICA's, not one you chose/);
+    expect(addLog).toHaveBeenCalledWith(
+      expect.stringMatching(/accepted but reads back as unset/),
+      'warning'
+    );
   });
 
-  // #622: nothing in Headless sets the commerce site type, so this stays said.
-  it('still warns that the channel has no commerce site type', async () => {
-    const { result } = mountWith({ currencyCode: 'EUR' });
+  it('reports the site type the instance holds when it did persist', async () => {
+    const { result } = mountWith(
+      {},
+      {
+        channelResponse: {
+          success: true,
+          channel: CREATED_CHANNEL,
+          siteType: {
+            applied: true,
+            reason: 'confirmed',
+            requested: 'B2B',
+            siteTypeLabel: 'B2B',
+          },
+        },
+      }
+    );
 
     await act(async () => {
-      await result.current.createDefaultChannel();
+      await result.current.createCommerceSetup({
+        catalog: CATALOG,
+        channel: CHANNEL,
+      });
     });
 
-    expect(loggedMessages().join('\n')).toMatch(
-      /no commerce site type set, so Liferay treats it as B2C/
+    expect(addLog).toHaveBeenCalledWith(
+      expect.stringMatching(/site type reads back as B2B/),
+      'info'
     );
+    expect(loggedMessages().join('\n')).not.toMatch(/did not persist/);
+  });
+
+  it('reports a failed create rather than reporting success', async () => {
+    const { result } = mountWith(
+      {},
+      { catalogResponse: { success: false, error: 'Catalog name in use' } }
+    );
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.createCommerceSetup({ catalog: CATALOG });
+    });
+
+    expect(outcome.success).toBe(false);
+    expect(notifyUser).toHaveBeenCalledWith(
+      expect.stringMatching(/Catalog name in use/),
+      'danger'
+    );
+    expect(callTo('/create-channel')).toBeUndefined();
+  });
+});
+
+/**
+ * The catalog owns the currency (#746).
+ *
+ * Price lists are written into the catalog and denominated by
+ * `config.currencyCode`, so the field has to be the catalog's. It used to have
+ * two writers and no owner: the channel wrote it on every selection, which is
+ * how euro price lists ended up inside a dollar catalog.
+ */
+describe('useCommerceData: the catalog owns the currency (#746)', () => {
+  const CATALOGS = [
+    { id: 33941, name: 'Master', currencyCode: 'USD' },
+    { id: 41002, name: 'Solara Moto', currencyCode: 'EUR' },
+    { id: 55000, name: 'Currencyless' },
+  ];
+
+  const mount = (config = {}, { channels = [] } = {}) => {
+    const setConfig = vi.fn();
+
+    useApp.mockReturnValue({
+      config: { liferayUrl: 'http://localhost:8080', ...config },
+      setConfig,
+      getLanguages: vi.fn().mockResolvedValue({ languages: [] }),
+      getCurrencies: vi.fn().mockResolvedValue({ currencies: [] }),
+    });
+    useApi.mockReturnValue({
+      post: vi.fn(async (path) => {
+        if (path.endsWith('/get-catalogs')) return { catalogs: CATALOGS };
+        if (path.endsWith('/get-channels')) return { channels };
+        return {};
+      }),
+      get: vi.fn().mockResolvedValue({}),
+    });
+
+    const { result } = renderHook(() =>
+      useCommerceData({
+        addLog: vi.fn(),
+        setConnectionEstablished: vi.fn(),
+        setAiKeyAvailable: vi.fn(),
+        setAiMediaKeyAvailable: vi.fn(),
+        setConnectionErrors: vi.fn(),
+        setProgress: vi.fn(),
+      })
+    );
+
+    return { result, setConfig };
+  };
+
+  const nextConfigFrom = (setConfig, prev) =>
+    setConfig.mock.calls.at(-1)[0](prev);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('adopts the catalog’s currency when one is selected', async () => {
+    const { result, setConfig } = mount();
+
+    await act(async () => {
+      await result.current.loadRootLists();
+    });
+
+    act(() => {
+      result.current.selectCatalog('41002');
+    });
+
+    expect(nextConfigFrom(setConfig, { currencyCode: 'USD' })).toMatchObject({
+      catalogId: 41002,
+      currencyCode: 'EUR',
+    });
+  });
+
+  it('keeps what is set when the catalog reports no currency', async () => {
+    const { result, setConfig } = mount();
+
+    await act(async () => {
+      await result.current.loadRootLists();
+    });
+
+    act(() => {
+      result.current.selectCatalog('55000');
+    });
+
+    expect(nextConfigFrom(setConfig, { currencyCode: 'EUR' })).toMatchObject({
+      catalogId: 55000,
+      currencyCode: 'EUR',
+    });
+  });
+
+  /**
+   * The behaviour this change exists to remove. Selecting a USD channel against
+   * the EUR catalog used to rewrite the run to USD, and the price lists went
+   * into the EUR catalog denominated in dollars.
+   */
+  it('no longer takes the run currency from the channel', async () => {
+    const { result, setConfig } = mount(
+      { currencyCode: 'EUR' },
+      { channels: [{ id: 900, name: 'Web Store', currencyCode: 'USD' }] }
+    );
+
+    await act(async () => {
+      await result.current.loadRootLists();
+    });
+
+    await act(async () => {
+      await result.current.selectChannel('900');
+    });
+
+    expect(
+      nextConfigFrom(setConfig, {
+        currencyCode: 'EUR',
+        selectedLanguages: [],
+      }).currencyCode
+    ).toBe('EUR');
+  });
+
+  it('loads the currencies without needing a channel, so a fresh instance can create one', async () => {
+    const getCurrencies = vi
+      .fn()
+      .mockResolvedValue({ currencies: [{ code: 'EUR', name: 'Euro' }] });
+
+    useApp.mockReturnValue({
+      config: { liferayUrl: 'http://localhost:8080' },
+      setConfig: vi.fn(),
+      getLanguages: vi.fn().mockResolvedValue({ languages: [] }),
+      getCurrencies,
+    });
+    useApi.mockReturnValue({
+      post: vi
+        .fn()
+        .mockResolvedValue({ catalogs: [], channels: [], sites: [] }),
+      get: vi.fn().mockResolvedValue({}),
+    });
+
+    const { result } = renderHook(() =>
+      useCommerceData({
+        addLog: vi.fn(),
+        setConnectionEstablished: vi.fn(),
+        setAiKeyAvailable: vi.fn(),
+        setAiMediaKeyAvailable: vi.fn(),
+        setConnectionErrors: vi.fn(),
+        setProgress: vi.fn(),
+      })
+    );
+
+    await act(async () => {
+      await result.current.loadRootLists();
+    });
+
+    expect(getCurrencies).toHaveBeenCalled();
+    expect(result.current.currencies).toEqual([{ code: 'EUR', name: 'Euro' }]);
+  });
+
+  it('lists the sites a channel can be attached to', async () => {
+    useApp.mockReturnValue({
+      config: { liferayUrl: 'http://localhost:8080' },
+      setConfig: vi.fn(),
+      getLanguages: vi.fn().mockResolvedValue({ languages: [] }),
+      getCurrencies: vi.fn().mockResolvedValue({ currencies: [] }),
+    });
+    useApi.mockReturnValue({
+      post: vi.fn(async (path) =>
+        path.endsWith('/get-sites')
+          ? { sites: [{ id: 40188, name: 'Solara' }] }
+          : { catalogs: [], channels: [] }
+      ),
+      get: vi.fn().mockResolvedValue({}),
+    });
+
+    const { result } = renderHook(() =>
+      useCommerceData({
+        addLog: vi.fn(),
+        setConnectionEstablished: vi.fn(),
+        setAiKeyAvailable: vi.fn(),
+        setAiMediaKeyAvailable: vi.fn(),
+        setConnectionErrors: vi.fn(),
+        setProgress: vi.fn(),
+      })
+    );
+
+    await act(async () => {
+      await result.current.loadRootLists();
+    });
+
+    expect(result.current.sites).toEqual([{ id: 40188, name: 'Solara' }]);
   });
 });
 

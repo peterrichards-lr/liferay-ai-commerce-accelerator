@@ -12,9 +12,11 @@ const EXTRACT_COMMERCE_BUNDLE = `${BASE_PATH}/extract-commerce-bundle`;
 const GET_CATALOGS = `${BASE_PATH}/get-catalogs`;
 const GET_CHANNELS = `${BASE_PATH}/get-channels`;
 const GET_WAREHOUSES = `${BASE_PATH}/get-warehouses`;
+const CREATE_CATALOG = `${BASE_PATH}/create-catalog`;
 const CREATE_CHANNEL = `${BASE_PATH}/create-channel`;
 const GET_CURRENCIES = `${BASE_PATH}/get-currencies`;
 const GET_LANGUAGES = `${BASE_PATH}/get-languages`;
+const GET_SITES = `${BASE_PATH}/get-sites`;
 const IMPORT_COMMERCE_DATA = `${BASE_PATH}/import-commerce-data`;
 const TEST_CONNECTION = `${BASE_PATH}/test-connection`;
 
@@ -56,9 +58,11 @@ export {
   GET_CATEGORIES,
   GET_CHANNELS,
   GET_WAREHOUSES,
+  CREATE_CATALOG,
   CREATE_CHANNEL,
   GET_CURRENCIES,
   GET_LANGUAGES,
+  GET_SITES,
   IMPORT_COMMERCE_DATA,
   TEST_CONNECTION,
   AI_MODEL_OPTIONS,
