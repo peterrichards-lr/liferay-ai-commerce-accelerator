@@ -330,6 +330,65 @@ describe('Session progress counters', () => {
     expect(progress.inventory).toEqual({ completed: 0, total: 0 });
   });
 
+  // The rows one deletion step writes. `_runGenericDeletionStep` creates the
+  // batch and updates it with what Liferay removed, then completes the step
+  // with the same two figures - which it has to, because a delete sends no
+  // batch frames and the live bar reads nothing else - and that writes the
+  // SYNC row carrying them a second time.
+  const deletionStepRows = (stepKey, processed, total) => [
+    {
+      erc: `AICA-BATCH-1750000000000-0-aaaaaaaa`,
+      step_key: stepKey,
+      processed_count: processed,
+      total_count: total,
+    },
+    {
+      erc: `SYNC-${stepKey}-1750000000000-0-bbbbbbbb`,
+      step_key: stepKey,
+      processed_count: processed,
+      total_count: total,
+    },
+  ];
+
+  it('counts a deletion step once, not once per row it wrote', () => {
+    // Both rows summed, so a reconnected dashboard read every delete figure
+    // at exactly twice the live one: five products removed showed `10 / 10`.
+    const { products } = summariseSessionProgress({
+      batches: deletionStepRows('delete-products', 5, 5),
+      options: {},
+    });
+
+    expect(products).toEqual({ completed: 5, total: 5 });
+  });
+
+  it('keeps the shortfall a deletion step reported', () => {
+    const { priceLists } = summariseSessionProgress({
+      batches: deletionStepRows('delete-price-lists', 7, 12),
+      options: {},
+    });
+
+    expect(priceLists).toEqual({ completed: 7, total: 12 });
+  });
+
+  it('still counts a step whose only record is a synchronous marker', () => {
+    // A marker is discounted because the step has a row that records the same
+    // work, not because it is a marker. `load-countries` and the sync delays
+    // write nothing else, and what they report is all there is.
+    const { products } = summariseSessionProgress({
+      batches: [
+        {
+          erc: 'SYNC-delete-products-1750000000000-0-cccccccc',
+          step_key: 'delete-products',
+          processed_count: 4,
+          total_count: 9,
+        },
+      ],
+      options: {},
+    });
+
+    expect(products).toEqual({ completed: 4, total: 9 });
+  });
+
   it('counts a failed batch as attempted but not completed', () => {
     // The step that lost one price entry of 47 reported `0/47`. The
     // denominator is what makes that readable as a near miss rather than as

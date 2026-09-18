@@ -139,6 +139,40 @@ function requestedTotals(options) {
 }
 
 /**
+ * The marker `completeSyncStep` writes to advance a step, as opposed to a row
+ * recording work. Its ERC carries the prefix; nothing else does.
+ */
+const isSyncMarker = (batch) => String(batch.erc || '').startsWith('SYNC-');
+
+/**
+ * The rows that may be counted, which is not all of them.
+ *
+ * A deletion step records its work twice. `_runGenericDeletionStep` creates a
+ * batch row and updates it with what Liferay removed, then completes the step
+ * with the same two figures - which it has to, because a delete sends no batch
+ * frames at all and the live bar has nothing else to read - and that writes a
+ * second row carrying them again. Summing both reported a run that removed
+ * five products as `10 / 10` on a reconnected dashboard while the live one
+ * read `5 / 5`, and every other delete figure doubled with it. The same split
+ * between the two views as #891, on the other flow.
+ *
+ * A marker is dropped only where its step also has a row that is not one.
+ * A step whose only record is a marker - every synchronous generate step,
+ * the sync delays, the metadata loads - still counts for exactly what it says,
+ * and the zero-count markers that trail batch work never moved a total either
+ * way.
+ */
+function countableBatches(batches) {
+  const stepsWithWork = new Set(
+    batches.filter((batch) => !isSyncMarker(batch)).map((b) => b.step_key)
+  );
+
+  return batches.filter(
+    (batch) => !isSyncMarker(batch) || !stepsWithWork.has(batch.step_key)
+  );
+}
+
+/**
  * Per-entity `completed` and `total`, both read from the same batch rows.
  *
  * The two numbers used to be gathered differently: `completed` summed every
@@ -168,7 +202,7 @@ function summariseSessionProgress({ batches = [], options = {} }) {
     ])
   );
 
-  batches.forEach((batch) => {
+  countableBatches(batches).forEach((batch) => {
     const counter = counters.get(STEP_ENTITY_MAP[batch.step_key]);
 
     // A step mapped to no bucket declines to be counted, which is how
