@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useApp, useApi } from '../context/AppContext';
+import { DEFAULT_CHANNEL_NAME } from '../config/defaults';
 import notifyUser from '../utils/notifications';
 import { getConnectionErrorsMap, hasAnyErrors } from '../utils/validation';
 import {
@@ -103,17 +104,60 @@ export default function useCommerceData({
   }, [api, buildPayload]);
 
   const createDefaultChannel = useCallback(async () => {
+    const requestedCurrency = String(config.currencyCode ?? '').trim();
+
+    // A channel's currency does not stay the channel's: selectChannel adopts
+    // it as the run's currency, and price lists are written in that. So a
+    // currency nobody chose here is a currency nobody chose for the prices
+    // either (#745). It is the operator's to state, and with none stated the
+    // create is refused rather than completed against a guess.
+    if (!requestedCurrency) {
+      const message =
+        'No currency is set, so a channel cannot be created without choosing ' +
+        'one on your behalf. Import a configuration that names a currency, or ' +
+        'create the channel in Commerce → Channels where the currency is asked for.';
+      notifyUser(message, 'danger');
+      addLog?.(message, 'error');
+      return;
+    }
+
     setIsCreatingChannel(true);
     try {
-      const payload = buildPayload();
+      const payload = buildPayload({
+        currencyCode: requestedCurrency,
+        name: DEFAULT_CHANNEL_NAME,
+      });
       const res = await api.post(CREATE_CHANNEL, payload);
       if (res?.success && res?.channel) {
         notifyUser('Default Commerce Channel created successfully!', 'success');
         if (addLog) {
+          // What the channel came back as, not what was asked for: the request
+          // is the intention and the response is the fact, and the two are
+          // only the same until they are not.
+          const createdCurrency = res.channel.currencyCode ?? null;
+
           addLog(
-            `Created default channel: ${res.channel.name} (ID: ${res.channel.id})`,
+            `Created channel '${res.channel.name}' (ID: ${res.channel.id}) in ${
+              createdCurrency ?? 'an unreported currency'
+            }.`,
             'info'
           );
+
+          if (createdCurrency && createdCurrency !== requestedCurrency) {
+            addLog(
+              `The channel was asked for in ${requestedCurrency} but was created in ` +
+                `${createdCurrency}. Selecting it makes ${createdCurrency} this run's ` +
+                `currency, so check it against the catalog you generate into.`,
+              'warning'
+            );
+          }
+
+          addLog(
+            `The name '${DEFAULT_CHANNEL_NAME}' is AICA's, not one you chose - rename ` +
+              'the channel in Commerce → Channels if this demo needs its own.',
+            'warning'
+          );
+
           // Nothing in Headless can set the commerce site type - that is #622,
           // and the reason the commerce-site-type module exists to *read* it.
           // So a channel created here is always unset, which Liferay defaults
@@ -138,7 +182,7 @@ export default function useCommerceData({
     } finally {
       setIsCreatingChannel(false);
     }
-  }, [api, buildPayload, loadRootLists, addLog]);
+  }, [api, buildPayload, config.currencyCode, loadRootLists, addLog]);
 
   const testConnection = async (options = {}) => {
     const { silent = false } = options;
@@ -256,7 +300,12 @@ export default function useCommerceData({
           channelId: null,
           siteGroupId: null,
           selectedLanguages: [],
-          currencyCode: '',
+          // Languages and the site come from the channel, so clearing it
+          // clears them. A currency does not: an import states one, and an
+          // imported channel that does not exist here is no reason to discard
+          // it. Dropping it was how a configuration asking for EUR reached the
+          // create route with nothing, and left with USD (#745).
+          currencyCode: preferences.currencyCode ?? '',
         }));
         setLanguages([]);
         setCurrencies([]);

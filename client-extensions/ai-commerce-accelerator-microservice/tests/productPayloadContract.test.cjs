@@ -433,10 +433,16 @@ describe('the payload create-products sends', () => {
   it('drops an unresolved category rather than the whole product', async () => {
     // `{ id: undefined }` serialises to `{}`, which Liferay rejects for the
     // entire product. See #651.
+    //
+    // The empty string is the one unresolved id `deepCleanIds` keeps - it
+    // drops `undefined`, `0` and `null` and nothing else - so it is the only
+    // shape that proves the filter in products.cjs is doing work of its own.
+    // Without it the filter can be deleted outright and this stays green
+    // (#1007).
     const { submitted } = await prepareProducts({
       generated: [
         aProduct({
-          categories: [{ id: 42 }, { id: undefined }, { id: 0 }],
+          categories: [{ id: 42 }, { id: undefined }, { id: 0 }, { id: '' }],
         }),
       ],
       options: { productCount: 1 },

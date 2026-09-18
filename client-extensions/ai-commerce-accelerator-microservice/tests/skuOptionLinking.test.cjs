@@ -1,5 +1,6 @@
 const ProductGenerator = require('../generators/productGenerator.cjs');
 const { WORKFLOW_STEPS } = require('../utils/constants.cjs');
+const { LINKED_OPTION_ID } = require('../utils/productOptionLinks.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -236,6 +237,65 @@ describe('SKU option links', () => {
     for (const call of liferay.addProductOptions.mock.calls) {
       expect(call[2][0].optionId).toBe(44862);
     }
+  });
+
+  /**
+   * `productShape.cjs` writes only the names a product already carries: an
+   * extracted dataset holds one of them, and the other arriving from a step
+   * changes the shape an export has to preserve. This step assigned both
+   * names outright, so every product left it carrying both - a duplicate
+   * array in `routes/export.cjs`'s session dataset, and the one write site on
+   * this path contradicting the rule the rest of it keeps. See #1009.
+   */
+  describe('the option shape it writes back', () => {
+    const linkOptions = async () => {
+      await generator.steps[S.ENSURE_OPTIONS]('sess-1');
+      await generator.steps[S.LINK_PRODUCT_OPTIONS]('sess-1');
+
+      return session.context.productDataList[0];
+    };
+
+    it('leaves a product that arrived with the schema name carrying only that', async () => {
+      const linked = await linkOptions();
+
+      expect(linked.options[0][LINKED_OPTION_ID]).toBe(71565);
+      expect(linked).not.toHaveProperty('productOptions');
+    });
+
+    it("leaves a product that arrived with Liferay's name carrying only that", async () => {
+      const [pd] = session.context.productDataList;
+      pd.productOptions = pd.options;
+      delete pd.options;
+
+      const linked = await linkOptions();
+
+      expect(linked.productOptions[0][LINKED_OPTION_ID]).toBe(71565);
+      expect(linked).not.toHaveProperty('options');
+    });
+
+    it('re-points the copy the reload between steps split off', async () => {
+      // updateSessionContext evicts the cache, so the next getSession parses
+      // the context out of SQLite: one array under two names comes back as
+      // two independent ones. Only the name the read picks is linked, and a
+      // stale copy left under the other is #652 in waiting.
+      const [pd] = session.context.productDataList;
+      pd.productOptions = pd.options;
+
+      await generator.steps[S.ENSURE_OPTIONS]('sess-1');
+
+      const reloaded = JSON.parse(JSON.stringify(session));
+      persistence.getSession.mockResolvedValue(reloaded);
+      persistence.updateSessionContext.mockImplementation((_id, patch) => {
+        Object.assign(reloaded.context, patch);
+      });
+
+      await generator.steps[S.LINK_PRODUCT_OPTIONS]('sess-1');
+
+      const [linked] = reloaded.context.productDataList;
+
+      expect(linked.productOptions[0][LINKED_OPTION_ID]).toBe(71565);
+      expect(linked.options[0][LINKED_OPTION_ID]).toBe(71565);
+    });
   });
 
   it('matches the option Liferay echoed under a different key case', async () => {
