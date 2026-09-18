@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { channelOptionLabel } from '../../config/channelSiteType';
-import { DEFAULT_CHANNEL_NAME } from '../../config/defaults';
+import {
+  catalogCurrency,
+  catalogOptionLabel,
+  findCatalog,
+} from '../../config/commerceSetup';
 import ClayCard from '@clayui/card';
 import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
+import CommerceSetupDialog from './CommerceSetupDialog';
 import FieldError from '../ui/FieldError';
 import CheckboxField from '../ui/CheckboxField';
 import { commerceChannelsUrl } from '../../utils/liferayLinks';
@@ -45,28 +50,33 @@ export default function CommerceCard({
   channels = [],
   languages = [],
   currencies = [],
+  sites = [],
   connected = false,
   onSelectChannel,
   onSelectCatalog,
-  isCreatingChannel = false,
-  onCreateDefaultChannel,
+  isCreatingCommerce = false,
+  onCreateCommerceSetup,
+  onLoadSiteLanguages,
   onRefresh,
   commerceConfigured,
   errors,
 }) {
   const { config, setConfig } = useApp();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
+
+  // The catalog is what price lists are written into, so its currency is what
+  // they are denominated in. It used to be invisible here - the dropdown showed
+  // only the name - which is how a run generated euro price lists into a dollar
+  // catalog without anything on screen saying so (#746).
+  const selectedCatalog = findCatalog(catalogs, config.catalogId);
+  const runCurrency = catalogCurrency(selectedCatalog);
 
   // Portal-scoped, so no site to resolve. Null when the configured base URL is
-  // unusable, in which case the caveat below renders as plain text rather than
-  // a dead link. A specific channel's edit screen cannot be linked: it needs
+  // unusable, in which case the note below renders as plain text rather than a
+  // dead link. A specific channel's edit screen cannot be linked: it needs
   // p_auth, a per-session token.
   const channelsUrl = commerceChannelsUrl(config?.liferayUrl);
-
-  // The currency Auto-Create would send. Blank is a state the button has to
-  // respect rather than paper over: the create route refuses a channel with no
-  // currency instead of choosing one (#745).
-  const intendedCurrency = String(config?.currencyCode ?? '').trim();
 
   // Languages come from the channel's *site*, not from the channel, and a
   // channel can exist without one - `get-languages` requires a siteGroupId and
@@ -88,6 +98,14 @@ export default function CommerceCard({
     config.channelId && selectedChannel && !selectedChannel.siteGroupId
   );
 
+  // Two currencies that must agree: the catalog's, which the prices are written
+  // in, and the channel's, which the storefront displays. Nothing reconciles
+  // them, so a disagreement is named rather than resolved.
+  const channelCurrency = String(selectedChannel?.currencyCode ?? '').trim();
+  const currencyMismatch = Boolean(
+    runCurrency && channelCurrency && runCurrency !== channelCurrency
+  );
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -103,9 +121,6 @@ export default function CommerceCard({
   useEffect(() => {
     if (!connected || !config.catalogId || languages.length === 0) return;
 
-    const selectedCatalog = catalogs.find(
-      (c) => String(c.id) === String(config.catalogId)
-    );
     if (!selectedCatalog || !selectedCatalog.defaultLanguageId) return;
 
     const hasLanguage = languages.some(
@@ -128,7 +143,7 @@ export default function CommerceCard({
     connected,
     config.catalogId,
     languages,
-    catalogs,
+    selectedCatalog,
     config.selectedLanguages,
     setConfig,
   ]);
@@ -197,19 +212,21 @@ export default function CommerceCard({
                       value=""
                       label="Select a catalog…"
                     />,
+                    // Labelled with the currency, because that is what every
+                    // price generated into the catalog is denominated in and
+                    // the one value the operator could not see (#746).
                     ...catalogs.map((c) => (
                       <ClaySelect.Option
                         key={c.id}
                         value={c.id}
-                        label={c.name}
+                        label={catalogOptionLabel(c)}
                       />
                     )),
                   ]}
             </ClaySelect>
             {connected && catalogs.length === 0 && (
               <small className="text-danger d-block mt-1">
-                No catalogs found. Please ensure you have at least one Catalog
-                created in Liferay.
+                No catalogs found. Add one below, or create it in Liferay.
               </small>
             )}
             <FieldError errors={errors.catalogId} />
@@ -257,78 +274,62 @@ export default function CommerceCard({
                   ]}
             </ClaySelect>
             {connected && channels.length === 0 && (
-              <div className="mt-2">
-                <small className="text-danger d-block mb-2">
-                  No channels found. Please ensure you have at least one Channel
-                  created in Liferay.
-                </small>
-                <small className="text-secondary d-block mb-2">
-                  Auto-Create makes a channel that can generate data, but it has
-                  no site and no commerce site type (B2B, B2C or B2X) — neither
-                  can be set through the API. If your demo depends on B2B or B2C
-                  behaviour, create the channel in{' '}
-                  {channelsUrl ? (
-                    <a
-                      href={channelsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Commerce → Channels
-                    </a>
-                  ) : (
-                    'Liferay under Commerce → Channels'
-                  )}{' '}
-                  instead, where the site type can be chosen.
-                </small>
-                {/* The name and the currency are applied by the press, so they
-                    are stated before it rather than reported after it -
-                    selecting the channel afterwards adopts its currency as the
-                    run's, so a currency nobody picked here is one nobody picked
-                    for the prices either (#745). Asking for either belongs to
-                    the create dialog in #746. */}
-                {intendedCurrency ? (
-                  <small className="text-secondary d-block mb-2">
-                    It will be named <strong>{DEFAULT_CHANNEL_NAME}</strong> and
-                    use <strong>{intendedCurrency}</strong>, the currency this
-                    configuration asks for. Both are changeable only in Commerce
-                    → Channels afterwards.
-                  </small>
-                ) : (
-                  <small className="text-danger d-block mb-2">
-                    No currency is set, so Auto-Create cannot run — it will not
-                    pick one for you. Import a configuration that names a
-                    currency, or create the channel in Liferay.
-                  </small>
-                )}
-                <div className="d-flex align-items-center mt-2">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-secondary px-3 mr-2"
-                    onClick={handleRefresh}
-                    disabled={disabled || isRefreshing || isCreatingChannel}
-                  >
-                    {isRefreshing ? 'Refreshing...' : 'Refresh Dropdown'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-primary px-3"
-                    onClick={onCreateDefaultChannel}
-                    disabled={
-                      disabled ||
-                      isRefreshing ||
-                      isCreatingChannel ||
-                      !intendedCurrency
-                    }
-                  >
-                    {isCreatingChannel
-                      ? 'Creating Channel...'
-                      : 'Auto-Create Channel'}
-                  </button>
-                </div>
-              </div>
+              <small className="text-danger d-block mt-1">
+                No channels found. Add one below, or create it in Liferay.
+              </small>
             )}
             <FieldError errors={errors.channelId} />
           </ClayForm.Group>
+
+          {/* One button and one dialog, not an Add beside each dropdown, and
+              never gated on a list being empty. The catalog owns the currency
+              and a channel's has to agree with the catalog behind it, so two
+              independent creates are the affordance that makes a mismatched
+              pair - which is the defect this replaces the rescue button to
+              close (#746). */}
+          <div className="d-flex align-items-center mb-3">
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary px-3 mr-2"
+              onClick={handleRefresh}
+              disabled={disabled || isRefreshing || isCreatingCommerce}
+            >
+              {isRefreshing ? 'Refreshing...' : 'Refresh Lists'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary px-3"
+              onClick={() => setIsSetupOpen(true)}
+              disabled={disabled || isRefreshing || isCreatingCommerce}
+            >
+              {isCreatingCommerce ? 'Creating…' : 'Add catalog or channel'}
+            </button>
+          </div>
+
+          <small className="text-secondary d-block mb-3">
+            Renaming, deleting or re-pointing an existing catalog or channel is
+            not done here. That is in{' '}
+            {channelsUrl ? (
+              <a href={channelsUrl} target="_blank" rel="noopener noreferrer">
+                Commerce → Channels
+              </a>
+            ) : (
+              'Liferay under Commerce → Channels'
+            )}
+            .
+          </small>
+
+          <CommerceSetupDialog
+            visible={isSetupOpen}
+            catalogs={catalogs}
+            currencies={currencies}
+            sites={sites}
+            selectedCatalogId={config.catalogId}
+            submitting={isCreatingCommerce}
+            onLoadSiteLanguages={onLoadSiteLanguages}
+            onCreate={onCreateCommerceSetup}
+            onClose={() => setIsSetupOpen(false)}
+          />
 
           <div className="row mt-4">
             <div className="col-12 mb-4">
@@ -339,49 +340,38 @@ export default function CommerceCard({
                 >
                   Currency
                 </label>
-                <ClaySelect
+                {/* Derived, not chosen. The field had two writers and no owner:
+                    the run's currency is what price lists are denominated in,
+                    those lists are written into the *catalog*, and the channel
+                    was the one supplying the number. Giving it an owner is what
+                    removes the ambiguity - so this shows the catalog's, and a
+                    different currency is chosen by creating a catalog in it
+                    (#746). */}
+                <input
                   id="currencyCode"
                   aria-label="Currency"
+                  className="form-control"
+                  type="text"
+                  readOnly
                   value={config.currencyCode || ''}
-                  onChange={(e) => setConfig({ currencyCode: e.target.value })}
-                  disabled={disabled || !config.channelId}
-                >
-                  {currencies.length === 0
-                    ? [
-                        // Before a channel exists there is no currency list,
-                        // but there is still a configured currency, and it is
-                        // the one Auto-Create will use. Rendering it keeps the
-                        // disabled field from reading as "none" while the
-                        // create is about to apply one (#745).
-                        intendedCurrency ? (
-                          <ClaySelect.Option
-                            key="configured-currency"
-                            value={intendedCurrency}
-                            label={intendedCurrency}
-                          />
-                        ) : (
-                          <ClaySelect.Option
-                            key="no-currencies"
-                            value=""
-                            label="No currencies found"
-                          />
-                        ),
-                      ]
-                    : [
-                        <ClaySelect.Option
-                          key="select-currency"
-                          value=""
-                          label="Select a currency…"
-                        />,
-                        ...currencies.map((c) => (
-                          <ClaySelect.Option
-                            key={c.code}
-                            value={c.code}
-                            label={`${c.name} (${c.code})`}
-                          />
-                        )),
-                      ]}
-                </ClaySelect>
+                />
+                <small className="form-text text-muted">
+                  {selectedCatalog
+                    ? runCurrency
+                      ? `From the catalog ${selectedCatalog.name}, which is what every price generated into it is written in.`
+                      : `The catalog ${selectedCatalog.name} reports no currency, so nothing here is derived from it.`
+                    : 'Select a catalog, or add one, to settle the currency. It is not chosen separately.'}
+                </small>
+                {currencyMismatch && (
+                  <small className="text-danger d-block mt-1">
+                    The catalog is in <strong>{runCurrency}</strong> and the
+                    channel is in <strong>{channelCurrency}</strong>. Prices are
+                    written in the catalog&rsquo;s currency and the storefront
+                    displays the channel&rsquo;s, so this run would price in{' '}
+                    {runCurrency} and show {channelCurrency}. Choose a channel
+                    in {runCurrency}, or add one.
+                  </small>
+                )}
                 <FieldError errors={errors.currencyCode} />
               </ClayForm.Group>
             </div>

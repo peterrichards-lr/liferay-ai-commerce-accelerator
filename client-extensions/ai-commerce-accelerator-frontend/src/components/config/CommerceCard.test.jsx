@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import CommerceCard from './CommerceCard';
 import { useApp } from '../../context/AppContext';
 import notifyUser from '../../utils/notifications';
@@ -71,29 +72,6 @@ describe('CommerceCard', () => {
     });
   });
 
-  it('renders currency names as strings, not objects', () => {
-    useApp.mockReturnValue({
-      config: { channelId: '123' },
-      setConfig: vi.fn(),
-    });
-
-    const currencies = [
-      { code: 'USD', name: 'US Dollar' },
-      { code: 'EUR', name: 'Euro' },
-    ];
-
-    render(
-      <CommerceCard connected={true} currencies={currencies} errors={{}} />
-    );
-
-    // Verify that the names are rendered correctly in the options
-    expect(screen.getByText('US Dollar (USD)')).toBeInTheDocument();
-    expect(screen.getByText('Euro (EUR)')).toBeInTheDocument();
-
-    // Explicitly check that [object Object] is NOT present in the component output
-    expect(document.body.innerHTML).not.toContain('[object Object]');
-  });
-
   it('renders catalog and channel names as strings', () => {
     useApp.mockReturnValue({
       config: {},
@@ -136,113 +114,162 @@ describe('CommerceCard', () => {
 
     expect(screen.getByText('No catalogs found')).toBeInTheDocument();
     expect(screen.getByText('No channels found')).toBeInTheDocument();
-    expect(screen.getByText('No currencies found')).toBeInTheDocument();
   });
 
-  it('says what Auto-Create Channel actually produces', () => {
-    // The payload sends only currencyCode, name and type: 'site' - the channel
-    // type, not B2B/B2C/B2X - so the channel has no site association and no
-    // commerce site type, and neither is settable through the API. Without
-    // saying so, the button reads as equivalent to creating one in Liferay.
-    // See #624.
-    useApp.mockReturnValue({
-      config: {},
-      setConfig: vi.fn(),
+  /**
+   * The catalog is what price lists are written into, and a catalog's currency
+   * is what they are denominated in - so it is the value that decides what
+   * every generated price means. The dropdown showed only the name, which is
+   * how a run put euro price lists inside a dollar catalog with nothing on
+   * screen saying so (#746).
+   */
+  describe('the catalog carries its currency', () => {
+    const catalogs = [
+      { id: 33941, name: 'Master', currencyCode: 'USD' },
+      { id: 41002, name: 'Solara Moto', currencyCode: 'EUR' },
+    ];
+
+    const renderWith = (config) => {
+      useApp.mockReturnValue({ config, setConfig: vi.fn() });
+
+      render(
+        <CommerceCard
+          connected={true}
+          catalogs={catalogs}
+          channels={[]}
+          currencies={[]}
+          errors={{}}
+        />
+      );
+    };
+
+    it('labels every catalog option with the currency it denominates', () => {
+      renderWith({ catalogId: 33941 });
+
+      expect(screen.getByText('Master (USD)')).toBeInTheDocument();
+      expect(screen.getByText('Solara Moto (EUR)')).toBeInTheDocument();
     });
 
-    render(
-      <CommerceCard
-        connected={true}
-        catalogs={[]}
-        channels={[]}
-        currencies={[]}
-        errors={{}}
-      />
-    );
+    it('says which catalog the run currency came from', () => {
+      renderWith({ catalogId: 41002, currencyCode: 'EUR' });
 
-    expect(screen.getByText('Auto-Create Channel')).toBeInTheDocument();
+      expect(
+        screen.getByText(/From the catalog Solara Moto/)
+      ).toBeInTheDocument();
+    });
 
-    const caveat = screen.getByText(/no site and no commerce site type/i);
-    expect(caveat).toBeInTheDocument();
-    expect(caveat.textContent).toMatch(/B2B, B2C or B2X/);
-    expect(caveat.textContent).toMatch(/Commerce . Channels/);
+    it('asks for a catalog rather than offering a currency to choose', () => {
+      renderWith({ catalogId: null });
+
+      expect(
+        screen.getByText(/Select a catalog, or add one, to settle the currency/)
+      ).toBeInTheDocument();
+    });
+
+    // The field had two writers and no owner. Making it read-only is what
+    // removes the ambiguity: a different currency is chosen by creating a
+    // catalog in it, which is the one place a catalog is created.
+    it('shows the currency read-only rather than as a select', () => {
+      renderWith({ catalogId: 41002, currencyCode: 'EUR' });
+
+      const field = screen.getByLabelText('Currency');
+
+      expect(field).toHaveValue('EUR');
+      expect(field.tagName).toBe('INPUT');
+      expect(field).toHaveAttribute('readonly');
+    });
+
+    it('names both currencies when the catalog and the channel disagree', () => {
+      useApp.mockReturnValue({
+        config: { catalogId: 41002, channelId: 900, currencyCode: 'EUR' },
+        setConfig: vi.fn(),
+      });
+
+      render(
+        <CommerceCard
+          connected={true}
+          catalogs={catalogs}
+          channels={[{ id: 900, name: 'Web Store', currencyCode: 'USD' }]}
+          currencies={[]}
+          errors={{}}
+        />
+      );
+
+      const warning = screen.getByText(/would price in/);
+
+      expect(warning.textContent).toMatch(/EUR/);
+      expect(warning.textContent).toMatch(/USD/);
+    });
+
+    it('says nothing when the catalog and the channel agree', () => {
+      useApp.mockReturnValue({
+        config: { catalogId: 41002, channelId: 900, currencyCode: 'EUR' },
+        setConfig: vi.fn(),
+      });
+
+      render(
+        <CommerceCard
+          connected={true}
+          catalogs={catalogs}
+          channels={[{ id: 900, name: 'Web Store', currencyCode: 'EUR' }]}
+          currencies={[]}
+          errors={{}}
+        />
+      );
+
+      expect(screen.queryByText(/would price in/)).not.toBeInTheDocument();
+    });
   });
 
-  // Auto-Create applies a name and a currency the operator never typed. The
-  // currency is the damaging one - selecting the channel adopts it as the
-  // run's currency - so both are stated before the press rather than reported
-  // after it, and the press is refused outright when there is no currency to
-  // state (#745). Asking for either belongs to the create dialog in #746.
-  it('names the channel and the currency the press will apply', () => {
-    useApp.mockReturnValue({
-      config: { currencyCode: 'EUR' },
-      setConfig: vi.fn(),
+  /**
+   * The rescue button appeared only when there were no channels and vanished
+   * once there was one, even a wrong one. The dialog replaces it, and it is not
+   * gated on a list being empty (#746).
+   */
+  describe('the setup dialog replaces Auto-Create Channel', () => {
+    const renderWith = ({ catalogs = [], channels = [] } = {}) => {
+      useApp.mockReturnValue({ config: {}, setConfig: vi.fn() });
+
+      render(
+        <CommerceCard
+          connected={true}
+          catalogs={catalogs}
+          channels={channels}
+          currencies={[]}
+          errors={{}}
+        />
+      );
+    };
+
+    it('offers the dialog when a channel already exists', () => {
+      renderWith({ channels: [{ id: 301, name: 'Web Store' }] });
+
+      expect(
+        screen.getByRole('button', { name: 'Add catalog or channel' })
+      ).toBeEnabled();
     });
 
-    render(
-      <CommerceCard
-        connected={true}
-        catalogs={[]}
-        channels={[]}
-        currencies={[]}
-        errors={{}}
-      />
-    );
+    it('no longer offers Auto-Create Channel at all', () => {
+      renderWith();
 
-    const notice = screen.getByText(/It will be named/i);
-    expect(notice.textContent).toMatch(/AI Commerce Storefront/);
-    expect(notice.textContent).toMatch(/EUR/);
-
-    expect(
-      screen.getByRole('button', { name: 'Auto-Create Channel' })
-    ).toBeEnabled();
-  });
-
-  it('will not auto-create a channel when no currency is set', () => {
-    useApp.mockReturnValue({
-      config: {},
-      setConfig: vi.fn(),
+      expect(screen.queryByText('Auto-Create Channel')).not.toBeInTheDocument();
     });
 
-    render(
-      <CommerceCard
-        connected={true}
-        catalogs={[]}
-        channels={[]}
-        currencies={[]}
-        errors={{}}
-      />
-    );
+    it('opens the dialog on the press', async () => {
+      const user = userEvent.setup();
 
-    expect(
-      screen.getByRole('button', { name: 'Auto-Create Channel' })
-    ).toBeDisabled();
-    expect(
-      screen.getByText(/No currency is set, so Auto-Create cannot run/i)
-    ).toBeInTheDocument();
-  });
+      renderWith();
 
-  it('shows the configured currency even before a channel exists to list one', () => {
-    // The field is disabled until a channel is selected, and the list it would
-    // be filled from is channel-derived. Rendering nothing made it read as
-    // "no currency" while the create was about to apply one.
-    useApp.mockReturnValue({
-      config: { currencyCode: 'EUR' },
-      setConfig: vi.fn(),
+      await user.click(
+        screen.getByRole('button', { name: 'Add catalog or channel' })
+      );
+
+      // Clay opens the modal on a 100ms timer, so the body arrives after the
+      // press rather than with it.
+      expect(
+        await screen.findByText('Add a catalog or a channel')
+      ).toBeInTheDocument();
     });
-
-    render(
-      <CommerceCard
-        connected={true}
-        catalogs={[]}
-        channels={[]}
-        currencies={[]}
-        errors={{}}
-      />
-    );
-
-    expect(screen.getByLabelText('Currency')).toHaveValue('EUR');
-    expect(screen.queryByText('No currencies found')).not.toBeInTheDocument();
   });
 
   it('links to the channels screen on the configured instance', () => {
