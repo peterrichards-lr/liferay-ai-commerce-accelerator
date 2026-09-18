@@ -29,9 +29,12 @@ Last Updated: 2026-09-07 | Last Reviewed: 2026-09-07
 """
 
 import argparse
+import functools
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -46,6 +49,10 @@ SOURCE_JSON = (
 )
 MICROSERVICE_CATALOG = (
     ROOT / "client-extensions/ai-commerce-accelerator-microservice/utils/modelCatalog.cjs"
+)
+REGISTRY_CJS = (
+    ROOT
+    / "client-extensions/ai-commerce-accelerator-microservice/utils/providerRegistry.cjs"
 )
 CONFIGURATION_CATALOG = (
     ROOT / "client-extensions/ai-commerce-accelerator-configuration/src/config/modelCatalog.js"
@@ -202,11 +209,92 @@ def fetch_gemini(api_key: str) -> list:
     return models
 
 
-PROVIDERS = {
-    "openai": {"env": "OPENAI_API_KEY", "fetch": fetch_openai},
-    "anthropic": {"env": "ANTHROPIC_API_KEY", "fetch": fetch_anthropic},
-    "gemini": {"env": "GEMINI_API_KEY", "fetch": fetch_gemini},
+# The call that actually reaches a provider's models endpoint. Everything else
+# about a provider - its id, its environment variable, its place in the display
+# order - is declared once in the registry and read from it below, so this is
+# the only provider-specific thing this script still owns. See #635.
+FETCHERS = {
+    "openai": fetch_openai,
+    "anthropic": fetch_anthropic,
+    "gemini": fetch_gemini,
 }
+
+
+@functools.lru_cache(maxsize=1)
+def load_registry() -> dict:
+    """The provider declaration, read from the microservice registry.
+
+    It is a CommonJS module rather than JSON because the microservice deploys
+    only CommonJS files from its own directory, so node evaluates it rather than
+    this parsing it. Keeping a Python copy of the provider list is exactly what
+    #635 removed: the display order below used to be the third place a provider
+    had to be added by hand.
+
+    A failure here is fatal and loud. Falling back to a built-in list would
+    reintroduce the copy, and refreshing the wrong set of providers silently is
+    worse than not refreshing at all.
+    """
+    node = shutil.which("node")
+    if not node:
+        raise SystemExit(
+            "node is required to read the provider registry "
+            f"({REGISTRY_CJS.relative_to(ROOT)}); install Node.js and retry"
+        )
+
+    script = (
+        "process.stdout.write("
+        "JSON.stringify(require(process.argv[1]).registryAsJson()))"
+    )
+    try:
+        completed = subprocess.run(
+            [node, "-e", script, str(REGISTRY_CJS)],
+            capture_output=True,
+            check=True,
+            text=True,
+            timeout=TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise SystemExit(f"Could not read the provider registry: {error}") from error
+
+    return json.loads(completed.stdout)
+
+
+def catalogue_providers() -> dict:
+    """The providers to refresh, in the order the shipped list is grouped into.
+
+    Keyed by id in `catalogueOrder`, which is what makes the display order
+    derived rather than a literal. Python dictionaries preserve insertion order,
+    so iterating this and reading positions out of it give the same answer.
+
+    A provider declared with a catalogue order but no fetch function here cannot
+    be refreshed, and saying so is the whole point: the old failure mode was a
+    provider silently missing from one place in nine.
+    """
+    declared = [
+        entry
+        for entry in load_registry()["providers"]
+        if entry.get("catalogueOrder") is not None
+    ]
+    declared.sort(key=lambda entry: entry["catalogueOrder"])
+
+    missing = [entry["id"] for entry in declared if entry["id"] not in FETCHERS]
+    if missing:
+        raise SystemExit(
+            "No models endpoint is implemented for: "
+            + ", ".join(missing)
+            + " - add a fetch function here, or clear catalogueOrder on the"
+            " declaration"
+        )
+
+    return {
+        entry["id"]: {"env": entry["envVar"], "fetch": FETCHERS[entry["id"]]}
+        for entry in declared
+    }
+
+
+def display_order() -> dict:
+    """Where each provider sits in the shipped list."""
+    return {provider: index for index, provider in enumerate(catalogue_providers())}
 
 
 def derive_label(model_id: str) -> str:
@@ -412,7 +500,7 @@ def main() -> int:
     collected = []
     skipped = []
     unmatched = {}
-    for provider, spec in PROVIDERS.items():
+    for provider, spec in catalogue_providers().items():
         api_key = os.environ.get(spec["env"], "").strip()
         if not api_key:
             # Refresh the providers we can rather than failing the whole run, so a
@@ -463,7 +551,7 @@ def main() -> int:
     # produced - newest first - so the dropdown's first entry per provider is
     # the current one. defaultModelForProvider takes a provider's first option,
     # so this ordering decides what an operator gets by default.
-    order = {"openai": 0, "anthropic": 1, "gemini": 2}
+    order = display_order()
     collected.sort(key=lambda entry: order.get(entry["provider"], 99))
 
     print()

@@ -10,17 +10,13 @@
  * and stay silent when they cannot tell.
  */
 const { providerLabel } = require('./providerCapabilities.cjs');
+const { PROVIDER_PATTERNS } = require('./providerRegistry.cjs');
 
 /**
- * Fallback used when an entry carries no explicit `provider`, so that lists
- * seeded before that field existed keep working without a migration.
+ * Attributes a model by name. Used when an entry carries no explicit
+ * `provider`, so that lists seeded before that field existed keep working
+ * without a migration.
  */
-const PROVIDER_PATTERNS = [
-  { provider: 'anthropic', pattern: /^claude[-.]/i },
-  { provider: 'gemini', pattern: /^(gemini|imagen)[-.]/i },
-  { provider: 'openai', pattern: /^(gpt[-.]|o\d)/i },
-];
-
 function inferProvider(modelId) {
   const id = String(modelId || '').trim();
   if (!id) return null;

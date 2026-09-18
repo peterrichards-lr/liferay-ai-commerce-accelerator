@@ -6,47 +6,25 @@
  * rather than when a run fails. The key is only inspected locally; nothing is
  * sent anywhere to check it.
  *
- * Kept deliberately parallel to
- * ai-commerce-accelerator-microservice/utils/apiKeys.cjs. The two cannot share
- * a module because they are separate packages with different module systems;
- * apiKeys.test.js asserts they stay in step.
+ * The tables the check runs on are no longer mirrored from the microservice:
+ * both sides read the same declaration through providerRegistry.js. Only the
+ * wording differs, because the audiences differ - the operator here is pasting
+ * a key into a form, not reading a startup log.
  */
 import { providerLabel } from './providerCapabilities';
+import {
+  FAMILY_LABELS,
+  KEY_PATTERNS,
+  PROVIDER_ENV_VARS,
+  PROVIDER_KEY_FAMILY,
+} from './providerRegistry';
+
+export { KEY_PATTERNS, PROVIDER_ENV_VARS, PROVIDER_KEY_FAMILY };
 
 /**
  * Sentinel used by the demo/offline path; never a real credential.
  */
 export const MOCK_KEY = 'mock-sandbox';
-
-export const PROVIDER_KEY_FAMILY = {
-  anthropic: 'anthropic',
-  gemini: 'google',
-  nanobanana: 'google',
-  openai: 'openai',
-};
-
-export const PROVIDER_ENV_VARS = {
-  anthropic: 'ANTHROPIC_API_KEY',
-  gemini: 'GEMINI_API_KEY',
-  nanobanana: 'GEMINI_API_KEY',
-  openai: 'OPENAI_API_KEY',
-};
-
-/**
- * Anthropic is tested before OpenAI: an Anthropic key is `sk-ant-...`, which
- * also satisfies OpenAI's `sk-` prefix.
- */
-export const KEY_PATTERNS = [
-  { family: 'anthropic', pattern: /^sk-ant-/ },
-  { family: 'google', pattern: /^AIza/ },
-  { family: 'openai', pattern: /^sk-/ },
-];
-
-const FAMILY_LABELS = {
-  anthropic: 'Anthropic',
-  google: 'Google',
-  openai: 'OpenAI',
-};
 
 export function keyFamily(apiKey) {
   const key = String(apiKey || '').trim();
