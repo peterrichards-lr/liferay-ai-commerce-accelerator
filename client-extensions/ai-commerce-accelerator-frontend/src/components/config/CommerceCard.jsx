@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { channelOptionLabel } from '../../config/channelSiteType';
+import { DEFAULT_CHANNEL_NAME } from '../../config/defaults';
 import ClayCard from '@clayui/card';
 import ClayForm, { ClaySelect } from '@clayui/form';
 import { useApp } from '../../context/AppContext';
@@ -61,6 +62,11 @@ export default function CommerceCard({
   // a dead link. A specific channel's edit screen cannot be linked: it needs
   // p_auth, a per-session token.
   const channelsUrl = commerceChannelsUrl(config?.liferayUrl);
+
+  // The currency Auto-Create would send. Blank is a state the button has to
+  // respect rather than paper over: the create route refuses a channel with no
+  // currency instead of choosing one (#745).
+  const intendedCurrency = String(config?.currencyCode ?? '').trim();
 
   // Languages come from the channel's *site*, not from the channel, and a
   // channel can exist without one - `get-languages` requires a siteGroupId and
@@ -274,6 +280,26 @@ export default function CommerceCard({
                   )}{' '}
                   instead, where the site type can be chosen.
                 </small>
+                {/* The name and the currency are applied by the press, so they
+                    are stated before it rather than reported after it -
+                    selecting the channel afterwards adopts its currency as the
+                    run's, so a currency nobody picked here is one nobody picked
+                    for the prices either (#745). Asking for either belongs to
+                    the create dialog in #746. */}
+                {intendedCurrency ? (
+                  <small className="text-secondary d-block mb-2">
+                    It will be named <strong>{DEFAULT_CHANNEL_NAME}</strong> and
+                    use <strong>{intendedCurrency}</strong>, the currency this
+                    configuration asks for. Both are changeable only in Commerce
+                    → Channels afterwards.
+                  </small>
+                ) : (
+                  <small className="text-danger d-block mb-2">
+                    No currency is set, so Auto-Create cannot run — it will not
+                    pick one for you. Import a configuration that names a
+                    currency, or create the channel in Liferay.
+                  </small>
+                )}
                 <div className="d-flex align-items-center mt-2">
                   <button
                     type="button"
@@ -287,7 +313,12 @@ export default function CommerceCard({
                     type="button"
                     className="btn btn-sm btn-primary px-3"
                     onClick={onCreateDefaultChannel}
-                    disabled={disabled || isRefreshing || isCreatingChannel}
+                    disabled={
+                      disabled ||
+                      isRefreshing ||
+                      isCreatingChannel ||
+                      !intendedCurrency
+                    }
                   >
                     {isCreatingChannel
                       ? 'Creating Channel...'
@@ -317,11 +348,24 @@ export default function CommerceCard({
                 >
                   {currencies.length === 0
                     ? [
-                        <ClaySelect.Option
-                          key="no-currencies"
-                          value=""
-                          label="No currencies found"
-                        />,
+                        // Before a channel exists there is no currency list,
+                        // but there is still a configured currency, and it is
+                        // the one Auto-Create will use. Rendering it keeps the
+                        // disabled field from reading as "none" while the
+                        // create is about to apply one (#745).
+                        intendedCurrency ? (
+                          <ClaySelect.Option
+                            key="configured-currency"
+                            value={intendedCurrency}
+                            label={intendedCurrency}
+                          />
+                        ) : (
+                          <ClaySelect.Option
+                            key="no-currencies"
+                            value=""
+                            label="No currencies found"
+                          />
+                        ),
                       ]
                     : [
                         <ClaySelect.Option
