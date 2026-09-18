@@ -6,21 +6,15 @@
  * configuration UI showing only what the selected provider can actually run.
  *
  * Kept deliberately parallel to
- * ai-commerce-accelerator-microservice/utils/modelCatalog.cjs. The two cannot
- * share a module because they are separate packages with different module
- * systems; modelCatalog.test.js asserts they stay in step.
+ * ai-commerce-accelerator-microservice/utils/modelCatalog.cjs, which holds the
+ * same helpers for the run itself; modelCatalog.test.js asserts they stay in
+ * step. The provider attribution they share is no longer duplicated - both read
+ * the one declaration through providerRegistry.js.
  */
 import { providerLabel } from './providerCapabilities';
+import { PROVIDER_PATTERNS } from './providerRegistry';
 
-/**
- * Fallback used when an entry carries no explicit `provider`, so that lists
- * seeded before that field existed keep working without a migration.
- */
-export const PROVIDER_PATTERNS = [
-  { provider: 'anthropic', pattern: /^claude[-.]/i },
-  { provider: 'gemini', pattern: /^(gemini|imagen)[-.]/i },
-  { provider: 'openai', pattern: /^(gpt[-.]|o\d)/i },
-];
+export { PROVIDER_PATTERNS };
 
 /**
  * The list shipped with this build, used when the AICAConfiguration entry is
@@ -43,6 +37,11 @@ export const DEFAULT_MODEL_OPTIONS = [
   { label: 'Gemini 3.6 Flash', value: 'gemini-3.6-flash', provider: 'gemini' },
 ];
 
+/**
+ * Attributes a model by name. Used when an entry carries no explicit
+ * `provider`, so that lists seeded before that field existed keep working
+ * without a migration.
+ */
 export function inferProvider(modelId) {
   const id = String(modelId || '').trim();
   if (!id) return null;
