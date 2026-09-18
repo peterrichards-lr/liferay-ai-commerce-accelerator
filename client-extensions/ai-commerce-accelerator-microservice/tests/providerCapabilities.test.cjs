@@ -1,10 +1,12 @@
 const {
   aiImagesRequested,
   canGenerateImages,
+  imageCapableLabels,
   mediaProviderIssue,
   providerLabel,
   resolveMediaProvider,
 } = require('../utils/providerCapabilities.cjs');
+const { modelModality } = require('../utils/modelCatalog.cjs');
 
 describe('provider capabilities', () => {
   describe('canGenerateImages', () => {
@@ -108,6 +110,33 @@ describe('provider capabilities', () => {
 
     it('falls back rather than rendering undefined', () => {
       expect(providerLabel(undefined)).toBe('The selected provider');
+    });
+  });
+
+  // The resolution of #637 against #642, pinned so neither can quietly undo the
+  // other. Modality says what a vendor's model produces; capability says what
+  // this codebase's generateImage returns. Deriving the second from the first -
+  // which is what #637 proposed - would put Nano Banana back in the Media
+  // Provider dropdown, where it succeeded and produced nothing usable.
+  describe('image capability is a fact about the adapter, not the catalogue', () => {
+    const imageModels = [
+      { value: 'gemini-3-pro-image', provider: 'gemini' },
+      { value: 'nano-banana-pro-preview', provider: 'nanobanana' },
+    ];
+
+    it.each(imageModels)(
+      '$value is an image model whose provider still cannot generate images',
+      ({ value, provider }) => {
+        expect(modelModality({ value }).images).toBe(true);
+        expect(canGenerateImages(provider)).toBe(false);
+        expect(mediaProviderIssue(provider, 'inherit')).toMatch(
+          /cannot generate images/
+        );
+      }
+    );
+
+    it('recommends only providers whose adapter returns an image', () => {
+      expect(imageCapableLabels()).toBe('OpenAI');
     });
   });
 });

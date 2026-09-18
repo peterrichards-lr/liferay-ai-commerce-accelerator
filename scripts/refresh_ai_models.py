@@ -25,7 +25,7 @@ a personal key, say - can still refresh its provider from a developer's machine:
 The scheduled workflow refreshes the providers whose keys are repository secrets, and
 leaves the others exactly as they were. Neither run clobbers the other.
 
-Last Updated: 2026-09-07 | Last Reviewed: 2026-09-07
+Last Updated: 2026-09-18 | Last Reviewed: 2026-09-18
 """
 
 import argparse
@@ -60,16 +60,22 @@ CONFIGURATION_CATALOG = (
 
 TIMEOUT_SECONDS = 30
 
-# How many models to offer per provider. Three gives an operator a cheap, a
-# balanced and a capable choice without turning the dropdown into a catalogue.
+# How many text models to offer per provider. Three gives an operator a cheap, a
+# balanced and a capable choice without turning the dropdown into a catalogue -
+# one per tier, which is what TIER_IDS in the provider registry names. See #636.
 MODELS_PER_PROVIDER = 3
+
+# How many image models to offer per provider whose adapter can generate images.
+# One, because there is no image-model setting yet: these entries exist so the
+# catalogue records what a provider can produce, not to be chosen between.
+IMAGE_MODELS_PER_PROVIDER = 1
 
 # A model within this many days of its published shutdown is not offered. A
 # model retired mid-demo is worse than one a version behind, and the dropdown
 # is seeded into a running install that may not be redeployed for a while.
 SHUTDOWN_MARGIN_DAYS = 30
 
-# Kinds of model that cannot serve a generateJSON call, matched on the id.
+# Kinds of model no adapter in this codebase can drive, matched on the id.
 #
 # This was previously an allowlist of known-good families, which meant a new
 # family stayed out of the dropdown until someone widened the list by hand -
@@ -79,13 +85,19 @@ SHUTDOWN_MARGIN_DAYS = 30
 # `sora`, `lyria`, `codex`, `deep-research`, `computer-use`, `robotics` and
 # `omni` were all absent from the original list.
 #
-# It is deliberately a cheap pre-filter and not the safety mechanism. Names
-# cannot be trusted to describe capability, so what actually decides whether a
-# model is offered is the probe in scripts/probe_ai_models.mjs, which makes a
-# real call. This only avoids probing a hundred models to find three.
-NON_TEXT_HINT = re.compile(
-    r"embedding|moderation|whisper|tts|audio|realtime|speech|dall-e|imagen"
-    r"|image|vision|rerank|transcribe|sora|lyria|veo|nano-banana|codex"
+# This is the only mechanism deciding what is offered. It used to claim to be
+# "a cheap pre-filter and not the safety mechanism", in front of a probe in
+# scripts/probe_ai_models.mjs that makes a real call - but that script has never
+# existed, in this tree or in its history. Anything admitted here is admitted on
+# the strength of its name alone, which is why the image rule below is narrow.
+#
+# The image terms that used to live here - `dall-e`, `imagen`, `image`,
+# `nano-banana` - have moved out: an image model is now classified rather than
+# dropped (#637). `vision` stays, because it means a model that *accepts*
+# images, which this build has no use for either way.
+UNUSABLE_HINT = re.compile(
+    r"embedding|moderation|whisper|tts|audio|realtime|speech"
+    r"|vision|rerank|transcribe|sora|lyria|veo|codex"
     r"|deep-research|computer-use|robotics|omni|antigravity|search"
     r"|instruct|babbage|davinci|gemma|guard|^chat-latest$",
     re.IGNORECASE,
@@ -297,6 +309,133 @@ def display_order() -> dict:
     return {provider: index for index, provider in enumerate(catalogue_providers())}
 
 
+def _compiled(spec: dict):
+    """A JavaScript regular expression from the registry, as a Python one.
+
+    The registry serialises a RegExp as its source and flags because it has to
+    survive JSON. Only the ignore-case flag is meaningful here; the patterns are
+    deliberately written in the subset both engines share.
+    """
+    flags = re.IGNORECASE if "i" in (spec.get("flags") or "") else 0
+    return re.compile(spec["source"], flags)
+
+
+@functools.lru_cache(maxsize=1)
+def declared_providers() -> dict:
+    """Every provider declaration, keyed by id."""
+    return {entry["id"]: entry for entry in load_registry()["providers"]}
+
+
+@functools.lru_cache(maxsize=1)
+def image_model_patterns() -> tuple:
+    """The names that mean "produces images", from every declaration at once.
+
+    Scanned together rather than per provider because a vendor serves models it
+    did not name after itself: nano-banana-* arrives from the Gemini endpoint.
+    """
+    return tuple(
+        _compiled(entry["imageModelPattern"])
+        for entry in declared_providers().values()
+        if entry.get("imageModelPattern")
+    )
+
+
+def generates_images(model_id: str) -> bool:
+    """True when a model's name says it produces images rather than text.
+
+    Name is the only signal there is. Gemini's image models report the same
+    `generateContent` as its text models, OpenAI exposes no capability field,
+    and Anthropic's `capabilities.image_input` is vision - accepting images -
+    which is the field this is most easily confused with. See #637.
+    """
+    return any(pattern.search(model_id) for pattern in image_model_patterns())
+
+
+def can_generate_images(provider: str) -> bool:
+    """Whether this codebase's adapter for a provider returns an image.
+
+    Not whether the vendor publishes image models - that is generates_images
+    above, and conflating the two is what #642 had to undo. Nano Banana's
+    adapter returned a placeholder string and Gemini's throws, so an image model
+    from either is a broken choice however convincing its name.
+    """
+    entry = declared_providers().get(provider) or {}
+    return bool((entry.get("capabilities") or {}).get("images"))
+
+
+def _tokens(model_id: str) -> list:
+    return model_id.lower().split("-")
+
+
+@functools.lru_cache(maxsize=None)
+def tier_terms(provider: str) -> tuple:
+    """A provider's tier vocabulary as (tokens, tier), longest phrase first.
+
+    Longest first so gemini-3.8-flash-lite ranks as cheap on `flash-lite`
+    rather than as mid on the `flash` it also contains.
+    """
+    tiers = (declared_providers().get(provider) or {}).get("tiers") or {}
+    terms = [
+        (tuple(term.split("-")), tier)
+        for tier, words in tiers.items()
+        for term in words
+    ]
+    terms.sort(key=lambda item: len(item[0]), reverse=True)
+    return tuple(terms)
+
+
+def _contains(tokens: list, term: tuple) -> bool:
+    span = len(term)
+    return any(
+        tuple(tokens[index : index + span]) == term
+        for index in range(len(tokens) - span + 1)
+    )
+
+
+def unknown_tier_words(provider: str, model_id: str) -> list:
+    """Qualifiers in a model name that this build has no tier for.
+
+    Everything after the vendor prefix that is not a version, not a release
+    channel and not a word in the provider's tier table. `fable`, `luna`, `sol`,
+    `terra` and `astra` are all of them today.
+
+    These are reported rather than ranked. Silently treating a name we have
+    never seen as mid-range would put a model of unknown price in front of an
+    operator with no trace, which is worse than the bug #636 describes.
+    """
+    known = {word for term, _ in tier_terms(provider) for word in term}
+    neutral = set(load_registry()["neutralQualifiers"])
+
+    return [
+        token
+        for token in _tokens(model_id)[1:]
+        if token
+        and not any(character.isdigit() for character in token)
+        and token not in known
+        and token not in neutral
+    ]
+
+
+def tier_of(provider: str, model_id: str) -> str:
+    """The price tier a model belongs to, or None when it cannot be ranked.
+
+    A recognised tier word wins. Failing that, a model carrying an unrecognised
+    qualifier is unrankable - there is no fallback tier, deliberately. Only a
+    model with no qualifier at all falls through to the provider's untiered
+    tier, which exists because OpenAI leaves its middle rung unnamed: plain
+    gpt-5.5 is the balanced model and gpt-5.5-pro the premium one.
+    """
+    tokens = _tokens(model_id)
+    for term, tier in tier_terms(provider):
+        if _contains(tokens, term):
+            return tier
+
+    if unknown_tier_words(provider, model_id):
+        return None
+
+    return (declared_providers().get(provider) or {}).get("untieredTier")
+
+
 def derive_label(model_id: str) -> str:
     """A readable label for a provider that does not supply one.
 
@@ -371,22 +510,45 @@ def retiring_soon(model: dict, today: int) -> bool:
     return shutdown - today < SHUTDOWN_MARGIN_DAYS * 86400
 
 
-def curate(provider: str, models: list, today: int = None) -> list:
-    """The newest MODELS_PER_PROVIDER families a provider offers.
+def _entry(provider: str, model: dict, images: bool) -> dict:
+    """A catalogue record: who serves it, what it produces, what it costs.
 
-    Undated aliases are preferred over dated snapshots so the list does not
-    churn every time a provider publishes a new snapshot of the same model.
+    `tier` is None rather than absent when a model cannot be ranked, so the gap
+    is a fact the catalogue carries rather than a field someone forgot.
+    """
+    return {
+        "label": model["label"] or derive_label(model["id"]),
+        "value": model["id"],
+        "provider": provider,
+        "tier": None if images else tier_of(provider, model["id"]),
+        "text": not images,
+        "images": images,
+    }
+
+
+def assess(provider: str, models: list, today: int = None) -> dict:
+    """What to offer for a provider, and everything worth reporting about it.
+
+    Returns the catalogue entries alongside the three things that are invisible
+    otherwise: what the kind filter excluded, what was excluded because no
+    adapter here can run it, and which tier words this build does not know.
     """
     if today is None:
         today = int(datetime.now().timestamp())
 
     ids = {model["id"] for model in models}
 
-    candidates = []
+    unusable = []
+    unrunnable_images = []
+    text_candidates = []
+    image_candidates = []
+
     for model in models:
         model_id = model["id"]
 
-        if NON_TEXT_HINT.search(model_id):
+        if UNUSABLE_HINT.search(model_id):
+            if not DATED_SNAPSHOT.match(model_id):
+                unusable.append(model_id)
             continue
 
         if retiring_soon(model, today):
@@ -396,54 +558,100 @@ def curate(provider: str, models: list, today: int = None) -> list:
         if dated and (dated.group("base") or dated.group("base2")) in ids:
             continue
 
-        candidates.append(model)
+        if not generates_images(model_id):
+            text_candidates.append(model)
+        elif can_generate_images(provider):
+            image_candidates.append(model)
+        elif not dated:
+            unrunnable_images.append(model_id)
 
-    candidates.sort(key=recency_key, reverse=True)
+    text_candidates.sort(key=recency_key, reverse=True)
+    image_candidates.sort(key=recency_key, reverse=True)
 
-    kept = []
-    seen_families = set()
-    for model in candidates:
-        family = family_of(model["id"])
-        if family in seen_families:
-            continue
-        seen_families.add(family)
-
-        kept.append(
-            {
-                "label": model["label"] or derive_label(model["id"]),
-                "value": model["id"],
-                "provider": provider,
-            }
+    # One model per tier, newest within the tier. Families are deliberately not
+    # de-duplicated here: cheap, mid and premium members of a single release are
+    # three different choices, which is the whole point of #636. The old
+    # "newest family wins" rule survives as the backfill below, so a provider
+    # whose vocabulary this build cannot read is no worse off than before.
+    selected = []
+    families = set()
+    unfilled = []
+    for tier in load_registry()["tierIds"]:
+        match = next(
+            (
+                model
+                for model in text_candidates
+                if model not in selected and tier_of(provider, model["id"]) == tier
+            ),
+            None,
         )
+        if match is None:
+            unfilled.append(tier)
+            continue
+        selected.append(match)
+        families.add(family_of(match["id"]))
 
-        if len(kept) == MODELS_PER_PROVIDER:
+    for model in text_candidates:
+        if len(selected) >= MODELS_PER_PROVIDER:
             break
+        family = family_of(model["id"])
+        if model in selected or family in families:
+            continue
+        families.add(family)
+        selected.append(model)
 
-    return kept
+    selected.sort(key=recency_key, reverse=True)
 
-
-def rejected_candidates(provider: str, models: list) -> list:
-    """What the kind filter excluded, so an over-broad term stays visible.
-
-    The filter is a cost optimisation rather than a correctness mechanism, and
-    a term that accidentally excludes a usable family would otherwise be
-    invisible - the dropdown would simply be missing something with no trace.
-    """
-    return sorted(
-        model["id"]
-        for model in models
-        if NON_TEXT_HINT.search(model["id"])
-        and not DATED_SNAPSHOT.match(model["id"])
+    entries = [_entry(provider, model, False) for model in selected]
+    entries.extend(
+        _entry(provider, model, True)
+        for model in image_candidates[:IMAGE_MODELS_PER_PROVIDER]
     )
+
+    return {
+        "entries": entries,
+        "unusable": sorted(unusable),
+        "unrunnable_images": sorted(unrunnable_images),
+        "unfilled_tiers": unfilled,
+        "unknown_tier_words": sorted(
+            {
+                word
+                for model in text_candidates
+                for word in unknown_tier_words(provider, model["id"])
+            }
+        ),
+    }
+
+
+def curate(provider: str, models: list, today: int = None) -> list:
+    """The entries a provider contributes to the shipped list."""
+    return assess(provider, models, today)["entries"]
+
+
+JS_LITERALS = {True: "true", False: "false", None: "null"}
+
+
+def _js_value(value) -> str:
+    if isinstance(value, bool) or value is None:
+        return JS_LITERALS[value]
+    return f"'{value}'"
 
 
 def render_js_array(entries: list, indent: str) -> str:
+    """The shipped list as a JavaScript array literal.
+
+    Every entry is written across several lines even though a short one would
+    fit on one. Prettier keeps an object expanded when its first property starts
+    on a new line, so this is the shape that survives `prettier --write`
+    unchanged - and the workflow this script runs in opens a pull request whose
+    format check would otherwise fail on the script's own output.
+    """
     lines = []
     for entry in entries:
-        lines.append(
-            f"{indent}{{ label: '{entry['label']}', value: '{entry['value']}', "
-            f"provider: '{entry['provider']}' }},"
-        )
+        lines.append(f"{indent}{{")
+        for field, value in entry.items():
+            lines.append(f"{indent}  {field}: {_js_value(value)},")
+        lines.append(f"{indent}}},")
     return "\n".join(lines)
 
 
@@ -486,6 +694,72 @@ def summarise(previous: list, current: list) -> str:
     return "\n".join(lines)
 
 
+def describe_entry(entry: dict) -> str:
+    """How a kept model is announced: its tier, or why it has none."""
+    if entry["images"]:
+        return "images"
+    return entry["tier"] or "tier unknown"
+
+
+def _section(title: str, rationale: list, rows: dict) -> list:
+    if not rows:
+        return []
+    return ["", title, *rationale] + [
+        f"  {provider}: {', '.join(values)}"
+        for provider, values in sorted(rows.items())
+    ]
+
+
+def _collect(reports: dict, field: str) -> dict:
+    return {
+        provider: report[field]
+        for provider, report in reports.items()
+        if report[field]
+    }
+
+
+def render_report(reports: dict) -> str:
+    """Everything the selection did that the list itself does not show.
+
+    The workflow pipes this into the body of the pull request it opens, so this
+    is where a word the vocabulary does not cover actually reaches a person - on
+    the first run that sees it, rather than whenever someone next wonders why a
+    model is missing.
+    """
+    lines = []
+    lines += _section(
+        "Excluded by the kind filter.",
+        [
+            "A usable family wrongly listed here is invisible in the dropdown,",
+            "so it is worth a glance when this list changes:",
+        ],
+        _collect(reports, "unusable"),
+    )
+    lines += _section(
+        "Image models excluded because no adapter here can run them.",
+        [
+            "Named like image models, but that provider's generateImage does not",
+            "return an image (#642). Offering one would produce nothing usable:",
+        ],
+        _collect(reports, "unrunnable_images"),
+    )
+    lines += _section(
+        "Unrecognised tier words.",
+        [
+            "These models could not be ranked cheap, mid or premium, so they were",
+            "offered on recency alone rather than guessed at. Add the word to the",
+            "provider's `tiers` in providerRegistry.cjs to rank it (#636):",
+        ],
+        _collect(reports, "unknown_tier_words"),
+    )
+    lines += _section(
+        "Tiers no model could be found for.",
+        ["Backfilled with the next newest model instead:"],
+        _collect(reports, "unfilled_tiers"),
+    )
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -499,7 +773,7 @@ def main() -> int:
 
     collected = []
     skipped = []
-    unmatched = {}
+    reports = {}
     for provider, spec in catalogue_providers().items():
         api_key = os.environ.get(spec["env"], "").strip()
         if not api_key:
@@ -518,10 +792,9 @@ def main() -> int:
             skipped.append(provider)
             continue
 
-        curated = curate(provider, fetched)
-        excluded = rejected_candidates(provider, fetched)
-        if excluded:
-            unmatched[provider] = excluded
+        report = assess(provider, fetched)
+        reports[provider] = report
+        curated = report["entries"]
         if not curated:
             print(
                 f"  {provider}: returned {len(fetched)} models, none survived the kind"
@@ -531,9 +804,11 @@ def main() -> int:
             skipped.append(provider)
             continue
 
+        kept = ", ".join(
+            f"{entry['value']} [{describe_entry(entry)}]" for entry in curated
+        )
         print(
-            f"  {provider}: {len(fetched)} models offered, {len(curated)} kept"
-            f" ({', '.join(entry['value'] for entry in curated)})"
+            f"  {provider}: {len(fetched)} models offered, {len(curated)} kept ({kept})"
         )
         collected.extend(curated)
 
@@ -547,26 +822,22 @@ def main() -> int:
         print("No provider could be refreshed; leaving the list untouched.", file=sys.stderr)
         return 1
 
-    # Grouped by provider, and within a provider left in the order curate()
-    # produced - newest first - so the dropdown's first entry per provider is
-    # the current one. defaultModelForProvider takes a provider's first option,
-    # so this ordering decides what an operator gets by default.
+    # Grouped by provider, and within a provider left in the order assess()
+    # produced - text models newest first, then any image model - so the
+    # dropdown's first entry per provider is the current one.
+    # defaultModelForProvider takes a provider's first *text* option, so this
+    # ordering decides what an operator gets by default. Which tier that lands
+    # on is deliberately unchanged by #636: widening what is offered and
+    # changing what is preselected are separate decisions.
     order = display_order()
     collected.sort(key=lambda entry: order.get(entry["provider"], 99))
 
     print()
     print(summarise(previous, collected))
 
-    if unmatched:
-        print()
-        print(
-            "Excluded by the kind filter. A usable family wrongly listed here is"
-        )
-        print(
-            "invisible in the dropdown, so it is worth a glance when this list changes:"
-        )
-        for provider, ids in sorted(unmatched.items()):
-            print(f"  {provider}: {', '.join(ids)}")
+    report = render_report(reports)
+    if report:
+        print(report)
 
     if args.check:
         return 0

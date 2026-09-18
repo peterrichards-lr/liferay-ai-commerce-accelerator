@@ -48,6 +48,31 @@ const KEY_FAMILIES = [
 ];
 
 /**
+ * The price tiers a model can be ranked into, cheapest first.
+ *
+ * Every provider sells a ladder and every provider names it differently, so
+ * the words live on each declaration and only the rungs are shared.
+ */
+const TIER_IDS = ['cheap', 'mid', 'premium'];
+
+/**
+ * Words that describe a release channel rather than a price tier.
+ *
+ * Needed because an unrecognised qualifier makes a model unrankable by design
+ * (#636), and `-preview` is not a statement about price. Without this,
+ * gemini-3.8-flash-preview would be reported as an unknown tier every week.
+ */
+const NEUTRAL_QUALIFIERS = [
+  'beta',
+  'exp',
+  'experimental',
+  'ga',
+  'latest',
+  'preview',
+  'stable',
+];
+
+/**
  * Every provider this build knows about, declared once.
  *
  * Listed by id so the maps derived from it keep a stable, reviewable order.
@@ -68,6 +93,23 @@ const KEY_FAMILIES = [
  * its vendor sells. Gemini's generateImage throws and Nano Banana's returned a
  * placeholder string, so neither is image-capable however many image models
  * Google publishes (#642).
+ *
+ * `imageModelPattern` is the opposite kind of fact: what a *model* produces,
+ * read off the vendor's own naming because no provider reports output modality
+ * (#637). Gemini's image models report the same `generateContent` as its text
+ * models, OpenAI exposes no capability field, and Anthropic's
+ * `capabilities.image_input` is vision - accepting images - which is the field
+ * this is most likely to be confused with. The two must stay separate: folding
+ * model names into `capabilities.images` would make Gemini and Nano Banana
+ * image-capable again on the strength of models their adapters cannot run,
+ * which is exactly what #642 removed.
+ *
+ * `tiers` names the vendor's own price ladder, and `untieredTier` is the tier a
+ * model with no qualifier at all belongs to. Only OpenAI has one: plain
+ * `gpt-5.5` *is* the balanced model and `gpt-5.5-pro` the premium one. For the
+ * others every model carries a tier word, so a name this build does not
+ * recognise is genuinely unrankable and must be reported rather than guessed
+ * (#636).
  */
 const PROVIDERS = [
   {
@@ -76,7 +118,10 @@ const PROVIDERS = [
     keyFamily: 'anthropic',
     envVar: 'ANTHROPIC_API_KEY',
     modelPattern: /^claude[-.]/i,
+    imageModelPattern: null,
     capabilities: { text: true, images: false },
+    tiers: { cheap: ['haiku'], mid: ['sonnet'], premium: ['opus'] },
+    untieredTier: null,
     preferenceOrder: 2,
     catalogueOrder: 1,
   },
@@ -86,7 +131,10 @@ const PROVIDERS = [
     keyFamily: 'google',
     envVar: 'GEMINI_API_KEY',
     modelPattern: /^(gemini|imagen)[-.]/i,
+    imageModelPattern: /(^imagen[-.]|-image(-|$))/i,
     capabilities: { text: true, images: false },
+    tiers: { cheap: ['flash-lite'], mid: ['flash'], premium: ['pro', 'ultra'] },
+    untieredTier: null,
     preferenceOrder: 1,
     catalogueOrder: 2,
   },
@@ -101,7 +149,14 @@ const PROVIDERS = [
     keyFamily: 'google',
     envVar: 'GEMINI_API_KEY',
     modelPattern: null,
+    // The one thing it is still worth knowing about Nano Banana: which model
+    // names are its. Nothing fetches them - it has no catalogue order - but a
+    // name typed in by hand is recognised as an image model and kept out of the
+    // Core AI Model list, where it would fail every generateJSON call.
+    imageModelPattern: /^nano-banana(-|$)/i,
     capabilities: { text: false, images: false },
+    tiers: null,
+    untieredTier: null,
     preferenceOrder: null,
     catalogueOrder: null,
   },
@@ -114,7 +169,13 @@ const PROVIDERS = [
     keyFamily: 'openai',
     envVar: 'OPENAI_API_KEY',
     modelPattern: /^(gpt[-.]|o\d)/i,
+    imageModelPattern: /^(gpt-image|dall-e)(-|$)/i,
     capabilities: { text: true, images: true },
+    // OpenAI names the cheap rungs and the top rung and leaves the middle one
+    // unnamed, which is what untieredTier carries: gpt-5.5 is the balanced
+    // model and gpt-5.5-pro the premium one.
+    tiers: { cheap: ['nano', 'mini'], mid: [], premium: ['pro'] },
+    untieredTier: 'mid',
     preferenceOrder: 0,
     catalogueOrder: 0,
   },
@@ -147,6 +208,22 @@ const PROVIDER_PATTERNS = PROVIDERS.filter(
 ).map((provider) => ({
   provider: provider.id,
   pattern: provider.modelPattern,
+}));
+
+/**
+ * The model names that mean "produces images", from every provider at once.
+ *
+ * Scanned without reference to which provider is selected, because the question
+ * a caller asks is what a model *is*, not who serves it - and the answer has to
+ * hold for a name an administrator typed in by hand. Deliberately separate from
+ * IMAGE_CAPABLE_PROVIDERS below, which answers the different question of
+ * whether an adapter can return an image (#637, #642).
+ */
+const IMAGE_MODEL_PATTERNS = PROVIDERS.filter(
+  (provider) => provider.imageModelPattern
+).map((provider) => ({
+  provider: provider.id,
+  pattern: provider.imageModelPattern,
 }));
 
 const IMAGE_CAPABLE_PROVIDERS = PROVIDERS.filter(
@@ -205,7 +282,9 @@ const serialise = (entry) =>
 function registryAsJson() {
   return {
     keyFamilies: KEY_FAMILIES.map(serialise),
+    neutralQualifiers: NEUTRAL_QUALIFIERS,
     providers: PROVIDERS.map(serialise),
+    tierIds: TIER_IDS,
   };
 }
 
@@ -213,8 +292,10 @@ module.exports = {
   CATALOGUE_PROVIDERS,
   FAMILY_LABELS,
   IMAGE_CAPABLE_PROVIDERS,
+  IMAGE_MODEL_PATTERNS,
   KEY_FAMILIES,
   KEY_PATTERNS,
+  NEUTRAL_QUALIFIERS,
   PROVIDERS,
   PROVIDER_ENV_VARS,
   PROVIDER_IDS,
@@ -222,6 +303,7 @@ module.exports = {
   PROVIDER_LABELS,
   PROVIDER_PATTERNS,
   TEXT_PROVIDERS,
+  TIER_IDS,
   providerForFamily,
   registryAsJson,
 };

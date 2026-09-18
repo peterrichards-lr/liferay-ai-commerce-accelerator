@@ -2,46 +2,73 @@
   {
     "label": "GPT Live 1",
     "value": "gpt-live-1",
-    "provider": "openai"
+    "provider": "openai",
+    "tier": null,
+    "text": true,
+    "images": false
   },
   {
     "label": "GPT-6 Astra",
     "value": "gpt-6-astra",
-    "provider": "openai"
+    "provider": "openai",
+    "tier": null,
+    "text": true,
+    "images": false
   },
   {
     "label": "GPT-5.6 Luna",
     "value": "gpt-5.6-luna",
-    "provider": "openai"
+    "provider": "openai",
+    "tier": null,
+    "text": true,
+    "images": false
   },
   {
     "label": "Claude Opus 5",
     "value": "claude-opus-5",
-    "provider": "anthropic"
+    "provider": "anthropic",
+    "tier": "premium",
+    "text": true,
+    "images": false
   },
   {
     "label": "Claude Sonnet 5",
     "value": "claude-sonnet-5",
-    "provider": "anthropic"
+    "provider": "anthropic",
+    "tier": "mid",
+    "text": true,
+    "images": false
   },
   {
     "label": "Claude Haiku 4.5",
     "value": "claude-haiku-4-5",
-    "provider": "anthropic"
+    "provider": "anthropic",
+    "tier": "cheap",
+    "text": true,
+    "images": false
   },
   {
     "label": "Gemini 3.8 Flash",
     "value": "gemini-3.8-flash",
-    "provider": "gemini"
+    "provider": "gemini",
+    "tier": "mid",
+    "text": true,
+    "images": false
   },
   {
     "label": "Gemini 3.7 Flash",
     "value": "gemini-3.7-flash",
-    "provider": "gemini"
+    "provider": "gemini",
+    "tier": "mid",
+    "text": true,
+    "images": false
   },
   {
     "label": "Gemini 3.6 Flash",
     "value": "gemini-3.6-flash",
-    "provider": "gemini"
+    "provider": "gemini",
+    "tier": "mid",
+    "text": true,
+    "images": false
   }
 ]
