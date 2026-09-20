@@ -130,9 +130,35 @@ version_ge() {
     [ "$(printf '%s\n%s' "$1" "$2" | sort -V | head -n1)" = "$1" ]
 }
 
+# Every LDM call names the compute target, or it silently means "local".
+#
+# `--node` only ever reached node_power.sh, the licence lookup and the sleep in
+# the EXIT trap. No `ldm` invocation carried it, and nothing ran
+# `ldm target use`, so on a CI runner - where ~/.ldmrc starts empty and there is
+# no persisted default - every `ldm import`, `run`, `deploy`, `wait` and `logs`
+# resolved to local.
+#
+# That is why the activation key kept failing. #805 registered the node with the
+# MAC its licence is bound to, which was necessary and not sufficient: the
+# container was never started on that node, so it took a bridge MAC and DXP
+# refused the key with "MAC address matching failed, allowed MAC addresses:
+# [<the node's>]" - then logged "License registered" at INFO on the next line
+# and served the Activation page anyway.
+#
+# Injected here rather than at each call site because LDM's own design notes
+# record that as the recurring defect: a target threaded through call sites
+# individually, where each one has to remember. All the subcommands this script
+# uses accept `--node` (verified against `ldm <cmd> --help`), so there is no
+# per-command exception to carry. See #1077.
 ldm_cmd() {
-    log_command "ldm $*"
-    ldm "$@"
+    local node_args=()
+
+    if [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ]; then
+        node_args=(--node "$LDM_NODE_TARGET")
+    fi
+
+    log_command "ldm $* ${node_args[*]}"
+    ldm "$@" "${node_args[@]}"
 }
 
 other_running_ldm_projects() {
