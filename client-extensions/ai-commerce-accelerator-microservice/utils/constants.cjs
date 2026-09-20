@@ -152,8 +152,6 @@ const JOB_TYPES = {
 // Environment variables and their defaults
 const ENV = {
   // AI Service configuration
-  AI_MODEL: str('AI_MODEL', 'gpt-4o-mini'),
-  AI_SERVICE_URL: str('AI_SERVICE_URL', 'https://api.openai.com/v1'),
   AI_API_KEY: str('AI_API_KEY', ''),
   AI_MEDIA_API_KEY: str('AI_MEDIA_API_KEY', ''),
   OPENAI_API_KEY: str('OPENAI_API_KEY', ''),
@@ -169,6 +167,11 @@ const ENV = {
   LIFERAY_URL: str('LIFERAY_URL', 'http://localhost:8080'),
   LIFERAY_API_USERNAME: str('LIFERAY_API_USERNAME', ''),
   LIFERAY_API_PASSWORD: str('LIFERAY_API_PASSWORD', ''),
+  // Kept deliberately, though nothing reads it. It is the one survivor of the
+  // never-wired block removed in #1065, left because a company id is what
+  // multi-company support would need and deleting it would throw away the name
+  // rather than a line of code. If that support does not arrive, delete it -
+  // but as a decision, not as a sweep.
   LIFERAY_COMPANY_ID: num('LIFERAY_COMPANY_ID', 20101),
   LIFERAY_OAUTH_CLIENT_ID: str('LIFERAY_OAUTH_CLIENT_ID', ''),
   LIFERAY_OAUTH_CLIENT_SECRET: str('LIFERAY_OAUTH_CLIENT_SECRET', ''),
@@ -231,7 +234,6 @@ const ENV = {
   NODE_ENV: str('NODE_ENV', 'development'),
   SERVICE_NAME: str('SERVICE_NAME', 'liferay-ai-data-microservice'),
   SERVICE_VERSION: str('SERVICE_VERSION', '1.0.0'),
-  DEFAULT_LOCALE: str('DEFAULT_LOCALE', 'en-US'),
   PERSISTENCE_DB_PATH: str(
     'PERSISTENCE_DB_PATH',
     process.env.NODE_ENV === 'test' ? ':memory:' : './data/workflows.db'
@@ -275,8 +277,6 @@ const ENV = {
   // single busy day filling the volume well inside that window.
   MEDIA_ARCHIVE_RETENTION_HOURS: num('MEDIA_ARCHIVE_RETENTION_HOURS', 72, 1),
   MEDIA_ARCHIVE_MAX_SESSIONS: num('MEDIA_ARCHIVE_MAX_SESSIONS', 10, 1),
-  BATCH_CACHE_TTL_MS: num('BATCH_CACHE_TTL_MS', 3600000, 0), // 1 hour
-  API_REQUEST_TIMEOUT_MS: num('API_REQUEST_TIMEOUT_MS', 15000, 0), // 15 seconds
 
   // AI request settings, as the ENV layer of a four-step chain resolved in
   // aiService.getRuntimeAIConfig: request body, then the target's ai-config
@@ -311,48 +311,8 @@ const ENV = {
   // remedy for the setting above, so it was equally undiscoverable while both
   // lived only in `process.env`.
   ALLOW_LARGE_PROMPTS: bool('ALLOW_LARGE_PROMPTS', false),
-  WS_HEARTBEAT_MS: num(
-    'WS_HEARTBEAT_INTERVAL_MS',
-    30000,
-    ABS_MIN.WS_HEARTBEAT_INTERVAL_MS
-  ),
-  WS_RETRY_INTERVAL_MS: num(
-    'WS_RETRY_INTERVAL_MS',
-    500,
-    ABS_MIN.WS_RETRY_INTERVAL_MS
-  ),
-  WS_MAX_RETRIES: num('WS_MAX_RETRIES', 5, ABS_MIN.WS_MAX_RETRIES),
-  QUEUE_GEN_CONCURRENCY: num('QUEUE_GEN_CONCURRENCY', 2, 1),
-  QUEUE_PDF_CONCURRENCY: num('QUEUE_PDF_CONCURRENCY', 1, 1),
-  QUEUE_NOTIFY_CONCURRENCY: num('QUEUE_NOTIFY_CONCURRENCY', 5, 1),
-  POLLING_DELAY_MS: num('POLLING_DELAY_MS', 2000, 100), // 2 seconds
-  POLLING_RETRIES: num('POLLING_RETRIES', 12, 1), // 1 minute total
-  MAX_DELTA_FETCH_RETRIES: num('MAX_DELTA_FETCH_RETRIES', 5, 1),
-  RETRY_BACKOFF_MS: num('RETRY_BACKOFF_MS', 1000, 100),
-  GRAPHQL_RETRY_ATTEMPTS: num('GRAPHQL_RETRY_ATTEMPTS', 10, 1),
   // New delay for Liferay inter-service sync
   LIFERAY_SYNC_DELAY_MS: num('LIFERAY_SYNC_DELAY_MS', 3000, 0), // 3 seconds
-
-  // Generation configuration
-  BATCH_SIZE: num('BATCH_SIZE', 10, 1),
-  IMAGE_HEIGHT: num('IMAGE_HEIGHT', 512, 128),
-  IMAGE_WIDTH: num('IMAGE_WIDTH', 512, 128),
-  IMAGE_MODE: str('IMAGE_MODE', 'placeholder'), // 'none', 'ai', 'picsum', 'placeholder', 'custom'
-  IMAGE_QUALITY: str('IMAGE_QUALITY', 'standard'), // 'standard', 'hd'
-  IMAGE_RATIO: num('IMAGE_RATIO', 80, 0), // 80% of products get images
-  IMAGE_STYLE: str('IMAGE_STYLE', 'photographic'),
-  PDF_MODE: str('PDF_MODE', 'placeholder'), // 'none', 'ai', 'placeholder', 'custom'
-  PDF_RATIO: num('PDF_RATIO', 50, 0), // 50% of products get PDFs
-  INVENTORY_ASSIGNMENT_RATIO: num('INVENTORY_ASSIGNMENT_RATIO', 80, 0), // 80% of SKUs get assigned inventory
-  INVENTORY_MIN: num('INVENTORY_MIN', 10, 0),
-  INVENTORY_MAX: num('INVENTORY_MAX', 100, 0),
-  PRICING_PROMOTION_RATIO: num('PRICING_PROMOTION_RATIO', 0.2, 0), // 20% of products get a promotion
-  PRICING_BULK_RATIO: num('PRICING_BULK_RATIO', 0.15, 0), // 15% of products get bulk pricing
-  PRICING_TIER_RATIO: num('PRICING_TIER_RATIO', 0.15, 0), // 15% of products get tier pricing
-
-  // Exclusions (comma separated externalReferenceCodes)
-  EXCLUDE_LISTS: list('EXCLUDE_LISTS', []),
-  EXCLUDE_ACCOUNTS: list('EXCLUDE_ACCOUNTS', ['Test Test']),
 };
 
 // External Reference Code Prefixes
