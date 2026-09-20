@@ -42,15 +42,12 @@ const SKIP = new Set([
 // The second case below keeps it from becoming a permanent excuse: an entry
 // that no longer matches an undeclared read fails, so fixing one forces its
 // removal from this list rather than leaving a stale allowance behind.
-const KNOWN_UNDECLARED = new Set([
-  'CACHE_MAX_SIZE',
-  'CACHE_DEFAULT_TTL',
-  'CACHE_CLEANUP_INTERVAL',
-  'CONFIG_CACHE_TTL',
-  'PROMPTS_DIR',
-  'PROMPT_CACHE_TTL',
-  'PROMPT_CACHE_DISABLED',
-]);
+// Empty, and meant to stay that way. It held eight entries when this check
+// arrived: seven settings read from ENV but declared nowhere, and one on the
+// request-signing path. #1070 removed the last of that one, #1068 declared the
+// other seven, and the second case below fails if anything is added here that
+// is not actually an undeclared read.
+const KNOWN_UNDECLARED = new Set([]);
 
 function sourceFiles(dir, acc = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

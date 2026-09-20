@@ -10,12 +10,12 @@ class PromptService {
     const envDir = ENV.PROMPTS_DIR;
     const cfgDir = configService?.getAIConfigCached?.()?.promptsDir;
     this.baseDir = path.resolve(process.cwd(), envDir || cfgDir || 'prompts');
-    this.cacheTTL =
-      Number(ENV.PROMPT_CACHE_TTL) > 0
-        ? Number(ENV.PROMPT_CACHE_TTL)
-        : 10 * 60 * 1000;
-    this.disableCache =
-      String(ENV.PROMPT_CACHE_DISABLED || '').toLowerCase() === 'true';
+    // Both were read here with a fallback because neither was declared in ENV,
+    // so both were always undefined. They are declared now, with those same
+    // fallbacks as their defaults and a minimum on the TTL, so the coercion
+    // that stood here guarded a case that can no longer arise (#1068).
+    this.cacheTTL = ENV.PROMPT_CACHE_TTL;
+    this.disableCache = ENV.PROMPT_CACHE_DISABLED === true;
     this.cache = this.ctx?.cache || new Map();
   }
 
