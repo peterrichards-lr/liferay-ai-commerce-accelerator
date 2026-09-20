@@ -9,7 +9,6 @@ const INTERNAL_API_PATHS = {
   CONFIG_CACHE: '/config/cache',
   CONFIG_QUEUES: '/config/queues',
   CONFIG_OAUTH: '/config/oauth',
-  CONFIG_OBJECT_STORAGE: '/config/object-storage',
   CONFIG_WS: '/config/ws',
   CONFIG_HEALTH: '/config/health',
   STATUS_OPENAI: '/status/openai',

@@ -11,13 +11,6 @@ Media assets (Images and PDFs) must be submitted to Liferay via its Headless API
 **Live Mode**: Triggers real-time generation of images (e.g., via DALL-E) or PDFs (via jsPDF) and submits them to Liferay.
 **Demo Mode**: Uses static placeholders, user-supplied assets, or skips attachment based on configuration.
 
-### Object Storage Service Role
-
-The `ObjectStorageService` is **not** used for hosting assets for Liferay consumption. Its purpose is restricted to:
-
-1.  **Data Preservation**: Storing generated AI payloads, images, and documents for offline analysis.
-2.  **Export/Import Support**: Enabling the "Replay" feature where a full generation run can be reconstructed without re-invoking AI models.
-
 ### Dataset Portability & Replication
 
 To ensure environment parity and support the "Replay" feature, the system mandates comprehensive data preservation:

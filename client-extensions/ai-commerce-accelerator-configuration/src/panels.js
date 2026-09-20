@@ -68,14 +68,6 @@ export const PANELS = [
     component: lazy(() => import('./components/panels/OAuthConfigPanel')),
   },
   {
-    id: 'objectstorage',
-    label: 'Object Storage',
-    icon: 'cloud',
-    component: lazy(
-      () => import('./components/panels/ObjectStorageConfigPanel')
-    ),
-  },
-  {
     id: 'websocket',
     label: 'WebSocket',
     icon: 'bolt',

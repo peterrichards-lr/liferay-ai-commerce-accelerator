@@ -62,9 +62,6 @@ const DEFAULT_PDF_CONFIG_KEY = 'default-pdf';
 const OAUTH_CONFIG_CACHE_KEY = 'OAUTH_CONFIG_KEY';
 const OAUTH_CONFIG_KEY = 'oauth-config';
 
-const OBJECT_STORAGE_CONFIG_CACHE_KEY = 'OBJECT_STORAGE_CONFIG_KEY';
-const OBJECT_STORAGE_CONFIG_KEY = 'object-storage-config';
-
 const AI_API_CACHE_KEY = 'AI_API_KEY';
 const AI_CREDENTIALS_CONFIG_KEY = 'ai-credentials';
 
@@ -970,21 +967,6 @@ class ConfigService {
   getOAuthConfigCached() {
     const cache = this.cache;
     return cache.get(OAUTH_CONFIG_CACHE_KEY) || {};
-  }
-
-  async getObjectStorageConfig(requestConfig) {
-    return this._getConfigWithFallback(
-      requestConfig,
-      OBJECT_STORAGE_CONFIG_CACHE_KEY,
-      OBJECT_STORAGE_CONFIG_KEY,
-      'get-object-storage-config',
-      'Failed to load Object Storage config:'
-    );
-  }
-
-  getObjectStorageConfigCached() {
-    const cache = this.cache;
-    return cache.get(OBJECT_STORAGE_CONFIG_CACHE_KEY) || {};
   }
 
   async getWSConfig(requestConfig) {

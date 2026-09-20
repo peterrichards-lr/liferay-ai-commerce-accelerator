@@ -48,7 +48,6 @@ const NOT_ON_ANY_SURFACE = {
     'The panels write these settings to Liferay object storage directly (useObjectStorage), so this microservice endpoint is a second path to the same values that no surface uses. See #824 on naming the configuration source separately.',
   CONFIG_EXCLUDE_LISTS: 'As CONFIG_CACHE: the panel writes object storage.',
   CONFIG_OAUTH: 'As CONFIG_CACHE: the panel writes object storage.',
-  CONFIG_OBJECT_STORAGE: 'As CONFIG_CACHE: the panel writes object storage.',
   CONFIG_QUEUES: 'As CONFIG_CACHE: the panel writes object storage.',
   CONFIG_WS: 'As CONFIG_CACHE: the panel writes object storage.',
   HEALTH_LIVE: 'Container liveness probe. Not an operator action.',
