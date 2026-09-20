@@ -210,10 +210,16 @@ const ENV = {
   REQUEST_MAX_BYTES: num('REQUEST_MAX_BYTES', 10 * 1024 * 1024),
   IMPORT_MAX_BYTES: num('IMPORT_MAX_BYTES', 256 * 1024 * 1024),
 
-  // Internal microservice configuration
-  MICROSERVICE_URL: str('MICROSERVICE_URL', 'http://localhost:3001'),
-  SERVER_PORT: num('SERVER_PORT', 3001),
-  SERVER_HOST: str('SERVER_HOST', '0.0.0.0'),
+  // Internal microservice configuration.
+  //
+  // The listener's host and port are NOT declared here. `server.cjs` resolves
+  // them through `lookupConfig('server.host')` / `lookupConfig('server.port')`,
+  // and config-node's env-var provider mangles those keys to SERVER_HOST and
+  // SERVER_PORT - so the environment variables still work, through that path.
+  // Declaring them here as well created a second, unread copy whose default
+  // (3001) disagreed with the one server.cjs actually fell back to (3000).
+  // `MICROSERVICE_URL` was likewise unread; the CLI's own knob is
+  // AICA_MICROSERVICE_URL, in `scripts/aica-cli.cjs`.
   LOGGER_LEVEL: str('logger.level', 'info'),
   LOGGER_PRETTY: bool('logger.pretty', false),
   // Read here, the same way PERSISTENCE_DB_PATH and MEDIA_ARCHIVE_PATH are,

@@ -226,7 +226,14 @@ const gracefulShutdown = async (signal) => {
 
   persistence = persistenceService;
 
-  const PORT = process.env.PORT || lookupConfig('server.port') || 3000;
+  // `lookupConfig` reaches the SERVER_PORT / SERVER_HOST environment variables
+  // too: config-node's env-var provider uppercases the key and turns dots into
+  // underscores. The port fallback is 3001 to agree with `application.json`,
+  // MICROSERVICE_URL's documented default and the docs; it was 3000, which only
+  // ever showed if `application.json` went missing. The host was not looked up
+  // at all - the literal below was the only value it could take (#1058).
+  const PORT = process.env.PORT || lookupConfig('server.port') || 3001;
+  const HOST = lookupConfig('server.host') || '0.0.0.0';
 
   const lxcDXPServerProtocol = lookupConfig(
     'com.liferay.lxc.dxp.server.protocol'
@@ -608,7 +615,7 @@ const gracefulShutdown = async (signal) => {
   // properly; they were only ever wired to the scheduled timer (#772).
   cycleLogsForThisRun();
 
-  server.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, HOST, () => {
     // Reported here because the helpers that collect them run while
     // constants.cjs is loading, before any logger exists - which is why a
     // mistyped setting used to take its default in silence (#934).
@@ -619,12 +626,12 @@ const gracefulShutdown = async (signal) => {
     logger.success('Server started successfully', {
       operation: 'server-start',
       port: PORT,
-      host: '0.0.0.0',
+      host: HOST,
       environment: ENV.NODE_ENV,
       websocketEnabled: true,
     });
     logger.info(
-      `Liferay Commerce AI Data Generator server running on http://0.0.0.0:${PORT}`
+      `Liferay Commerce AI Data Generator server running on http://${HOST}:${PORT}`
     );
     logger.info(`Frontend available at: http://localhost:${PORT}`);
     logger.info(`WebSocket server listening on ws://localhost:${PORT}`);

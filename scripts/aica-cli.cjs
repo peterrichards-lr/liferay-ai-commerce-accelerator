@@ -528,7 +528,7 @@ const WITHHELD_GENERATE_KEYS = {
   authMethod:
     'Connection resolution detail (oauth vs basic), decided together with liferayUrl/clientId/clientSecret in resolveEffectiveLiferayConnection rather than chosen per generate run.',
   microserviceUrl:
-    'Lets a browser client behind a reverse proxy tell the server its own externally-visible origin, for constructing callback links. A CLI talking to the microservice directly already supplies that origin as MICROSERVICE_URL/AICA_MICROSERVICE_URL - the request target itself - so sending it again in the body would be redundant plumbing, not a generation input.',
+    'Lets a browser client behind a reverse proxy tell the server its own externally-visible origin, for constructing callback links. A CLI talking to the microservice directly already supplies that origin as AICA_MICROSERVICE_URL - the request target itself - so sending it again in the body would be redundant plumbing, not a generation input.',
   chunkSizes:
     "A structured per-phase tuning object that normalize.cjs passes through unvalidated, not a scalar/boolean/list a single flag can express cleanly. AI-runtime tuning, not something a demo run's content depends on.",
   configSource:
