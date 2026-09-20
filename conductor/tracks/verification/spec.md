@@ -35,7 +35,7 @@ Empirically verify the end-to-end "Delete" and "Generate" flows using Playwright
 
 - **Liferay**: Must be accessible on `http://localhost:8080`.
 - **Microservice**: Must be started as a standalone Node.js server.
-- **Environment**: Node.js `20.12.2`.
+- **Environment**: Node.js as pinned by `.nvmrc` (`nodeVersion` in `build.gradle` must match).
 - **Tooling**: Playwright, Vitest (for log analysis logic if needed).
 
 ## Definition of Done

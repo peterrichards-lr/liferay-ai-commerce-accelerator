@@ -13,19 +13,23 @@ For all installation instructions, including the **Sales Engineering Demo (LDM)*
 
 ---
 
-## 📚 Documentation Directory
+## 📚 Documentation
 
-Our official documentation is kept clean and user-focused:
+**[Browse the documentation index →](./docs/README.md)**
+
+The index routes by what you are trying to do and lists every document by
+subject. The most common destinations:
 
 - **[Quick Start Guide](./docs/QUICKSTART.md)**: Full instructions for manual installation, running the microservices, and automated testing.
-- **[Architectural Overview](./docs/ARCHITECTURE.md)**: Deep dive into the stateful workflow engine and system map.
+- **[Local Execution Guide](./docs/LOCAL_EXECUTION.md)**: Running AICA against an existing DXP environment, without LDM.
+- **[Architectural Overview](./docs/ARCHITECTURE.md)**: The stateful workflow engine and system map, with [deep dives](./docs/architecture/README.md) per subsystem.
 - **[Features & Capabilities](./docs/FEATURES.md)**: Details on AI generation, real-time monitoring, and visual assets.
-- **[Liferay MCP Server](./docs/MCP.md)**: Documentation on connecting the accelerator's Model Context Protocol (MCP) server to AI agents.
-- **[JSON Web Services Guide](./docs/JSONWS_GUIDE.md)**: Guide on configuring Liferay's API authentication.
+- **[Liferay MCP Server](./docs/MCP.md)**: Connecting the accelerator's Model Context Protocol (MCP) server to AI agents.
 - **[Prompt Templates](./docs/PROMPT_TEMPLATES.md)**: The template syntax available to whoever writes a prompt - variables, conditionals, loops and filters.
 - **[Automation Playbook](./docs/PLAYBOOK.md)**: The rules, workflows, and issue templates driving the AI-assisted development of this repository.
 
-_(Note: If you see folders like `conductor/`, `jira/`, or `internal/` in the repository, they contain internal tracking state and upstream bug reports meant for the project maintainers and AI agents. You do not need to read them)._
+_(Note: the `conductor/` and `.agents/` folders hold internal tracking state and
+agent context for maintainers and AI agents. You do not need to read them)._
 
 ---
 

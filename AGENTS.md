@@ -7,7 +7,10 @@ Welcome to the **Liferay AI Commerce Accelerator (AICA)** codebase. This documen
 ## 1. Project Identity
 
 - **Project Name**: Liferay AI Commerce Accelerator (AICA)
-- **Primary Languages & Runtimes**: Node.js (v18/v20), TypeScript, Java (OSGi / Gradle), Docker, Python (LDM CLI)
+- **Primary Languages & Runtimes**: Node.js (pinned by `.nvmrc` and `nodeVersion`
+  in `build.gradle`; `package.json` requires `>=22.12.0` — check those rather
+  than trusting a version quoted here), TypeScript, Java (OSGi / Gradle, see
+  `.java-version`), Docker, Python (LDM CLI)
 - **Architecture**: Liferay DXP Client Extensions (Microservice, Custom Element, Global JS), Headless Commerce APIs, Modular SDKs, AI/LLM Orchestration
 - **Documentation Root**: [`docs/`](docs/) and [`docs/architecture/`](docs/architecture/)
 
@@ -75,4 +78,4 @@ Active, in-flight task state and intra-task scratchpad context are maintained lo
 
 ---
 
-_Last Updated: 2026-09-16_ | _Last Reviewed: 2026-09-16_
+_Last Updated: 2026-09-20_ | _Last Reviewed: 2026-09-20_
