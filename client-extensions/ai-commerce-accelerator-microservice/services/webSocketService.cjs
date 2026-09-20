@@ -13,12 +13,36 @@ function isLoopbackSocket(socket) {
   return LOOPBACK_ADDRESSES.has(addr);
 }
 
+// The `ws-config` object carries `heartbeatIntervalMs`. The panel that writes
+// it also offers `retryIntervalMs` and `maxRetries`, which described a reconnect
+// model no client implements - the dashboard backs off exponentially from 1s to
+// a 10s ceiling and never stops trying - so those two were removed from the
+// panel rather than wired to nothing. See #1064.
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 30000;
+const MIN_HEARTBEAT_INTERVAL_MS = 1000;
+
 class WebSocketService {
   constructor(ctx) {
     this.ctx = ctx;
     this.clients = new Map(); // id -> ws
     this.heartbeatTimer = null;
-    this.heartbeatIntervalMs = 30000;
+    this.heartbeatIntervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS;
+  }
+
+  // Read at `init` rather than in the constructor: the config cache is warmed
+  // by the first request that needs it, which is after this service is built.
+  _resolveHeartbeatIntervalMs() {
+    const cfgSvc = this.ctx?.config;
+    if (!cfgSvc || typeof cfgSvc.getWSConfigCached !== 'function') {
+      return DEFAULT_HEARTBEAT_INTERVAL_MS;
+    }
+
+    const configured = Number(cfgSvc.getWSConfigCached()?.heartbeatIntervalMs);
+
+    return Number.isFinite(configured) &&
+      configured >= MIN_HEARTBEAT_INTERVAL_MS
+      ? configured
+      : DEFAULT_HEARTBEAT_INTERVAL_MS;
   }
 
   init(server) {
@@ -107,6 +131,8 @@ class WebSocketService {
         logger.error('WebSocket error', { id, error: err.message });
       });
     });
+
+    this.heartbeatIntervalMs = this._resolveHeartbeatIntervalMs();
 
     this.heartbeatTimer = setInterval(() => {
       this.clients.forEach((ws) => {
