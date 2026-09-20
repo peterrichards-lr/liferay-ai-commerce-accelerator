@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const { logger } = require('../utils/logger.cjs');
 
-const { ENV } = require('../utils/constants.cjs');
 const {
   isLoopbackRequest,
   trustedClientAddress,
@@ -276,23 +275,30 @@ function verifyRequestSignature(req, signature, clientId) {
   return crypto.timingSafeEqual(signatureBuf, expectedBuf);
 }
 
+// Resolves the shared secret for a signed request, and has no built-in answer.
+//
+// It used to carry one: a literal for the client id the tests use, behind an
+// `ENV.TEST_CLIENT_SECRET` override that was never declared in ENV and so was
+// permanently undefined. An operator who set that variable changed nothing and
+// was told nothing, and the value it was meant to replace is in the history of
+// a public repository. Nothing in this codebase signs a request - the only
+// producers are two test files - so the literal served no caller.
+//
+// With no source configured this returns undefined, `verifyRequestSignature`
+// refuses, and the request is rejected. That is the intended direction for a
+// credential lookup that cannot answer: fail closed.
+//
+// The cache remains the supported way to supply a secret. Note that nothing
+// populates it today, so the signature branch currently rejects every request
+// that reaches it; JWT, loopback and signed batch callbacks are the live paths.
+// Whether to give this a real configuration source or remove the branch
+// outright is recorded in #1070 - it is a decision about the feature, not
+// about the credential, which had to go either way.
 function getClientSecret(clientId, req) {
   const cache = req?.app?.locals?.ctx?.cache;
-  if (cache) {
-    const cached = cache.getConfig(`client_secret:${clientId}`);
-    if (cached) return cached;
-  }
+  if (!cache) return undefined;
 
-  const secrets = {
-    'test-client': ENV.TEST_CLIENT_SECRET || 'test-secret-key',
-  };
-
-  const secret = secrets[clientId];
-  if (secret && cache) {
-    cache.cacheConfig(`client_secret:${clientId}`, secret, 3600000);
-  }
-
-  return secret;
+  return cache.getConfig(`client_secret:${clientId}`) || undefined;
 }
 function sqlInjectionProtectionMiddleware(req, res, next) {
   // Allow config and import routes that contain templates/arbitrary text/datasets
