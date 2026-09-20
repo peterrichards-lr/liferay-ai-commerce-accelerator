@@ -111,15 +111,6 @@
       "externalReferenceCode": "OAUTH-CONFIG"
     },
     {
-      "configKey": "object-storage-config",
-      "configStatus": {
-        "key": "Active"
-      },
-      "configValue": "{\"sidecarEndpoint\": \"http://127.0.0.1:1106\", \"signedUrlTtlSec\": 900, \"uploadPrefix\": \"uploads\"}",
-      "description": "Object storage settings: signed URL TTL (sec), upload prefix, sidecar endpoint",
-      "externalReferenceCode": "OBJECT-STORAGE-CONFIG"
-    },
-    {
       "configKey": "ws-config",
       "configStatus": {
         "key": "Active"

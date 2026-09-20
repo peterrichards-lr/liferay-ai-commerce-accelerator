@@ -198,30 +198,6 @@ module.exports = (
     }
   });
 
-  app.get(INTERNAL_API_PATHS.CONFIG_OBJECT_STORAGE, async (req, res) => {
-    const { config } = buildConfigAndOptions(req);
-
-    try {
-      const objCfg = await configService.getObjectStorageConfig(config);
-
-      const safeObjCfg = {
-        signedUrlTtlSec: objCfg?.signedUrlTtlSec,
-        uploadPrefix: objCfg?.uploadPrefix,
-        sidecarEndpoint: objCfg?.sidecarEndpoint ? '[configured]' : undefined,
-      };
-
-      res.json({
-        success: true,
-        config: safeObjCfg,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      sendSafeError(res, logger, req, error, 'get-object-storage-config', {
-        sanitizeConfig: sanitizedObject(config),
-      });
-    }
-  });
-
   app.get(INTERNAL_API_PATHS.CONFIG_WS, async (req, res) => {
     const { config } = buildConfigAndOptions(req);
 

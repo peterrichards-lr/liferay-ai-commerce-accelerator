@@ -16,7 +16,6 @@ const CacheService = require('./services/cacheService.cjs');
 const ConfigService = require('./services/configService.cjs');
 const DeleteCoordinatorService = require('./services/deleteCoordinatorService.cjs');
 const { LiferayService } = require('./services/liferay/index.cjs');
-const { ObjectStorageService } = require('./services/objectStorageService.cjs');
 const PersistenceService = require('./services/persistenceService.cjs');
 const ContractValidator = require('./services/contractValidator.cjs');
 
@@ -154,10 +153,6 @@ module.exports = async (ws) => {
     logger,
     liferay: ctx.liferay,
   });
-  ctx.objectStorage = new ObjectStorageService({
-    configService: ctx.config,
-    logger,
-  });
   ctx.media = new MediaGenerator(ctx);
   const { GenerationFacade } = require('./services/generationFacade.cjs');
   ctx.generation = new GenerationFacade(ctx);
@@ -274,7 +269,6 @@ module.exports = async (ws) => {
     oauthService: ctx.oauth,
     orderGenerator: ctx.orderGenerator,
     productGenerator: ctx.productGenerator,
-    objectStorageService: ctx.objectStorage,
     persistenceService: ctx.persistence,
     progressService: ctx.progress,
     promptService: ctx.prompt,

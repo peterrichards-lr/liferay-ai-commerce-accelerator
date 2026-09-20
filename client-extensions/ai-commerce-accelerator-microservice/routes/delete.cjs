@@ -97,13 +97,6 @@ function createLoadAppConfigMiddleware(configService, logger) {
             )
           ),
         configService
-          .getObjectStorageConfig(config)
-          .catch((e) =>
-            logger.warn(
-              `Failed to load Object Storage config during delete middleware: ${e.message}`
-            )
-          ),
-        configService
           .getWSConfig(config)
           .catch((e) =>
             logger.warn(
