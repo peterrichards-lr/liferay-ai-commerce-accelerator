@@ -162,9 +162,9 @@ docker exec -u 0 <container> mv /tmp/aica-staging/artifact.zip /opt/liferay/depl
 
 - **Documentation Repository**: [peterrichards-lr/liferay-docker-manager](https://github.com/peterrichards-lr/liferay-docker-manager)
 - **Main Documentation Index**: [LDM README](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/README.md)
-- **Environment Architecture & Routing Details**: [LDM Architecture](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/LDM_ARCHITECTURE.md)
-- **Client Extension Routing & SSL Setup**: [LDM Networking & DNS Guide](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/guides/NETWORKING_DNS.md)
-- **Local Replication of Cloud Environments**: [LDM PAAS Local Dev Guide](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/guides/PAAS_LOCAL_DEV.md)
+- **Environment Architecture & Routing Details**: [LDM Architecture](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/explanation/architecture.md)
+- **Client Extension Routing & SSL Setup**: [LDM Networking & DNS Guide](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/reference/networking.md)
+- **Local Replication of Cloud Environments**: [LDM PAAS Local Dev Guide](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/tutorials/paas_local_dev.md)
 
 <!-- markdownlint-disable MD049 -->
 
