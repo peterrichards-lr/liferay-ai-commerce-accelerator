@@ -69,9 +69,49 @@ jobs:
             fi
           fi
 
+  # Sharding is only safe while each shard owns its environment.
+  #
+  # Every shard runs the whole of run-e2e-ldm.sh, and under GITHUB_ACTIONS that
+  # script names its project `aica-e2e` - the same name for all of them. That
+  # was harmless while each shard ran on its own ephemeral runner: three
+  # isolated Dockers, three projects that happened to share a name. Pointing
+  # them at one compute node makes it three concurrent `ldm run aica-e2e`
+  # against a single host, all waking it, all provisioning into it, and all
+  # tearing it down on exit.
+  #
+  # So a remote target runs a single shard. The suite takes longer and is
+  # correct; splitting it again would need a project name per shard and a node
+  # with the headroom for three Liferays, which is a different piece of work.
+  # See #1079.
+  #
+  # Resolved here rather than in the job so the target is derived once. #718
+  # was two chains deriving it separately and disagreeing, which powered off an
+  # instance the suite had never used.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      target: ${{ steps.plan.outputs.target }}
+    steps:
+      - name: Resolve the target node and the shard plan
+        id: plan
+        env:
+          REQUESTED_NODE: ${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
+        run: |
+          TARGET="${REQUESTED_NODE:-local}"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
+          if [ "$TARGET" = "local" ]; then
+            echo 'matrix={"shardIndex":[1,2,3],"shardTotal":[3]}' >> "$GITHUB_OUTPUT"
+            echo "Target 'local': 3 shards, each on its own runner."
+          else
+            echo 'matrix={"shardIndex":[1],"shardTotal":[1]}' >> "$GITHUB_OUTPUT"
+            echo "Target '$TARGET' is remote: 1 shard, because all shards share one node and one project name."
+          fi
+
   e2e-verification:
-    needs: check-for-changes
-    if: always() && !cancelled() && (github.event_name != 'schedule' || needs.check-for-changes.outputs.should_run == 'true')
+    needs: [check-for-changes, plan]
+    if: always() && !cancelled() && needs.plan.result == 'success' && (github.event_name != 'schedule' || needs.check-for-changes.outputs.should_run == 'true')
     name: CI/e2e-verification (${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
     runs-on: ubuntu-latest
     concurrency:
@@ -79,9 +119,7 @@ jobs:
       cancel-in-progress: true
     strategy:
       fail-fast: false
-      matrix:
-        shardIndex: [1, 2, 3]
-        shardTotal: [3]
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
       # Resolved once for the whole job so wake, run and sleep are incapable of
@@ -90,7 +128,7 @@ jobs:
       # actually uses - so it fell through to a literal 'aws-1' and powered off
       # an instance the suite had never touched, leaving the instance it did use
       # running and billable every night (#718).
-      E2E_TARGET_NODE: ${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
+      E2E_TARGET_NODE: ${{ needs.plan.outputs.target }}
 
     steps:
       - name: Checkout code
