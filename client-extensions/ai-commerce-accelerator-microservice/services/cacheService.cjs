@@ -143,10 +143,24 @@ class CacheService {
         this.evictOldest();
       }
 
-      const effectiveTtl = Math.max(
-        this.defaultTTL,
-        Number(ttl) || this.defaultTTL
-      );
+      // A caller's TTL is honoured, shorter or longer.
+      //
+      // This was `Math.max(this.defaultTTL, Number(ttl) || this.defaultTTL)`,
+      // which floored every entry at the global default - so no caller could
+      // ask for a shorter life than the cache's own, only a longer one. An
+      // entry asking to live five minutes lived an hour, and said nothing.
+      // It dates from 67c6cdf, the commit that wrote this service's settings
+      // ahead of the code that would read them, and reads as scaffolding
+      // rather than a decision about expiry. See #1075.
+      //
+      // Unusable values still fall back rather than being taken literally:
+      // undefined, NaN, zero and negatives would each mean "expired on
+      // arrival", which is not what a caller omitting a TTL is asking for.
+      const requested = Number(ttl);
+      const effectiveTtl =
+        Number.isFinite(requested) && requested > 0
+          ? requested
+          : this.defaultTTL;
       const now = Date.now();
       const expiry = now + effectiveTtl;
       // console.log(`[CACHE-DEBUG] set key=${key} now=${now} effectiveTtl=${effectiveTtl} expiry=${expiry}`);
