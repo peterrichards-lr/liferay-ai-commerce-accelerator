@@ -1,3 +1,4 @@
+const { ENV } = require('../utils/constants.cjs');
 const ConfigService = require('../services/configService.cjs');
 const {
   listPromptNames,
@@ -52,10 +53,15 @@ describe('ConfigService', () => {
       await configService.getWorkflowResilienceConfig(requestConfig);
 
     expect(result).toEqual(mockResilience);
+    // This asserted `undefined` until #1068. That was not a deliberate "no
+    // TTL": `getConfigTTL` returned `ENV.CONFIG_CACHE_TTL`, which was declared
+    // nowhere and so could only ever be undefined. The assertion pinned that.
+    // Read from ENV rather than repeating the number, so the default moving
+    // does not silently make this test wrong again.
     expect(mockCtx.cache.set).toHaveBeenCalledWith(
       'WORKFLOW_RESILIENCE_CONFIG_KEY',
       mockResilience,
-      undefined
+      ENV.CONFIG_CACHE_TTL
     );
   });
 
@@ -284,7 +290,6 @@ describe('ConfigService', () => {
   });
 
   describe('Fallback resolving to environment variables', () => {
-    const { ENV } = require('../utils/constants.cjs');
     let originalApiKey;
     let originalMediaKey;
 

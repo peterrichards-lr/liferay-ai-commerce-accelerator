@@ -212,6 +212,38 @@ const ENV = {
   REQUEST_MAX_BYTES: num('REQUEST_MAX_BYTES', 10 * 1024 * 1024),
   IMPORT_MAX_BYTES: num('IMPORT_MAX_BYTES', 256 * 1024 * 1024),
 
+  // Cache sizing. These were read as `ENV.*` by `cacheService` and declared
+  // nowhere, so they were permanently undefined and the service silently took
+  // the fallback beside each read. The defaults below are those fallbacks, so
+  // an unset deployment behaves exactly as before - what changes is that
+  // setting one now does something (#1068).
+  //
+  // Note these are NOT the values in the DEFAULTS object above, which carries a
+  // different CACHE_MAX_SIZE and CACHE_DEFAULT_TTL. Those are unrelated to this
+  // service and were never what it used; matching them here would have changed
+  // behaviour rather than preserved it.
+  CACHE_MAX_SIZE: num('CACHE_MAX_SIZE', 10000, 100),
+  CACHE_DEFAULT_TTL: num('CACHE_DEFAULT_TTL', 3600000, 1000),
+  CACHE_CLEANUP_INTERVAL: num('CACHE_CLEANUP_INTERVAL', 60000, 5000),
+
+  // How long a configuration object stays cached. The default is the intent
+  // already recorded in DEFAULTS.CONFIG_DEFAULT_TTL.
+  //
+  // Only raising it has an effect today. `cacheService.set` computes
+  // `Math.max(this.defaultTTL, ttl)`, so any per-entry TTL below
+  // CACHE_DEFAULT_TTL is floored away - which is why declaring this is
+  // behaviour-neutral rather than a change. If that floor is ever removed,
+  // this default becomes live and the config cache drops from an hour to six
+  // minutes; that would be the moment to decide whether six minutes is right.
+  CONFIG_CACHE_TTL: num('CONFIG_CACHE_TTL', 360000, 1000),
+
+  // Prompt templates. PROMPTS_DIR defaults to empty on purpose: `promptService`
+  // resolves `envDir || cfgDir || 'prompts'`, so a non-empty default here would
+  // shadow the `promptsDir` an operator set in ai-config.
+  PROMPTS_DIR: str('PROMPTS_DIR', ''),
+  PROMPT_CACHE_TTL: num('PROMPT_CACHE_TTL', 10 * 60 * 1000, 1),
+  PROMPT_CACHE_DISABLED: bool('PROMPT_CACHE_DISABLED', false),
+
   // Internal microservice configuration.
   //
   // The listener's host and port are NOT declared here. `server.cjs` resolves
