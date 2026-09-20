@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import ClayForm, { ClayInput } from '@clayui/form';
 import ClayAlert from '@clayui/alert';
 import ClayButton from '@clayui/button';
 import ClayIcon from '@clayui/icon';
@@ -9,11 +8,14 @@ import MillisecondsInput from '../common/MillisecondsInput';
 
 const WS_CONFIG_KEY = 'ws-config';
 
+// `retryIntervalMs` and `maxRetries` used to be offered here. Nothing read
+// them, and the behaviour they described did not exist: there is no message
+// delivery retry, and the dashboard reconnects with exponential backoff from
+// 1s to a 10s ceiling without ever giving up. They were removed rather than
+// wired to a mechanism that would have had to be invented. See #1064.
 const DEFAULTS = {
   [WS_CONFIG_KEY]: {
     heartbeatIntervalMs: 30000,
-    retryIntervalMs: 500,
-    maxRetries: 3,
   },
 };
 
@@ -42,23 +44,11 @@ export default function WsConfigPanel() {
 
   useEffect(() => {
     const found = [];
-    const { heartbeatIntervalMs, retryIntervalMs, maxRetries } = values;
+    const { heartbeatIntervalMs } = values;
 
+    // The server applies the same floor, falling back to 30000 below it.
     if (!Number.isFinite(heartbeatIntervalMs) || heartbeatIntervalMs < 1000)
       found.push('Heartbeat interval should be at least 1000ms.');
-    if (!Number.isFinite(retryIntervalMs) || retryIntervalMs < 100)
-      found.push('Retry interval should be at least 100ms.');
-    if (!Number.isFinite(maxRetries) || maxRetries < 0)
-      found.push('Max retries cannot be negative.');
-
-    if (
-      Number.isFinite(heartbeatIntervalMs) &&
-      Number.isFinite(retryIntervalMs) &&
-      heartbeatIntervalMs < retryIntervalMs
-    )
-      found.push(
-        'Heartbeat interval should typically be greater than retry interval.'
-      );
 
     setIssues(found);
   }, [values]);
@@ -74,7 +64,8 @@ export default function WsConfigPanel() {
         <h2 className="sheet-title">WebSocket</h2>
         <div className="sheet-text">
           Stored under <code>{WS_CONFIG_KEY}</code> as JSON:{' '}
-          <code>{'{ heartbeatIntervalMs, retryIntervalMs, maxRetries }'}</code>.
+          <code>{'{ heartbeatIntervalMs }'}</code>. Applied by the microservice
+          when it starts accepting connections.
         </div>
       </div>
 
@@ -102,35 +93,8 @@ export default function WsConfigPanel() {
           min={1000}
           step={500}
           onChange={onNumberChange('heartbeatIntervalMs')}
-          helper="Frequency of health checks between client and server."
+          helper="How often the server pings each connected client, terminating any that has not answered since the previous ping."
         />
-
-        <MillisecondsInput
-          id="retry-interval"
-          label="Retry interval (ms)"
-          value={values.retryIntervalMs}
-          min={100}
-          step={100}
-          onChange={onNumberChange('retryIntervalMs')}
-          helper="Delay before retrying a failed message delivery."
-        />
-
-        <ClayForm.Group>
-          <label htmlFor="max-retries" className="font-weight-semi-bold">
-            Max retries
-          </label>
-          <ClayInput
-            id="max-retries"
-            type="number"
-            min={0}
-            step={1}
-            value={values.maxRetries}
-            onChange={onNumberChange('maxRetries')}
-          />
-          <small className="form-text text-secondary">
-            Maximum retry attempts before giving up.
-          </small>
-        </ClayForm.Group>
       </div>
 
       <div className="sheet-footer">
