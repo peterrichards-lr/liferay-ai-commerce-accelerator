@@ -115,8 +115,8 @@
       "configStatus": {
         "key": "Active"
       },
-      "configValue": "{\"heartbeatIntervalMs\": 30000, \"maxRetries\": 3, \"retryIntervalMs\": 500}",
-      "description": "WebSocket delivery config (milliseconds for heartbeat and retry interval; integer for max retries)",
+      "configValue": "{\"heartbeatIntervalMs\": 30000}",
+      "description": "WebSocket heartbeat interval in milliseconds",
       "externalReferenceCode": "WS-CONFIG"
     },
     {
