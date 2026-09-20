@@ -43,7 +43,6 @@ const SKIP = new Set([
 // that no longer matches an undeclared read fails, so fixing one forces its
 // removal from this list rather than leaving a stale allowance behind.
 const KNOWN_UNDECLARED = new Set([
-  'TEST_CLIENT_SECRET',
   'CACHE_MAX_SIZE',
   'CACHE_DEFAULT_TTL',
   'CACHE_CLEANUP_INTERVAL',
@@ -66,12 +65,64 @@ function sourceFiles(dir, acc = []) {
   return acc;
 }
 
+// Comments are stripped before scanning, because prose about a setting is not
+// a read of it. Without this a comment naming `ENV.SOMETHING` counts as usage:
+// it would keep an entry in KNOWN_UNDECLARED looking live after the real read
+// was gone - which is exactly what a comment added by the #1070 fix did - and
+// could equally fail the check for a name only ever discussed. See #1072.
+function stripComments(src) {
+  let out = '';
+  let i = 0;
+  let quote = null;
+
+  while (i < src.length) {
+    const c = src[i];
+    const next = src[i + 1];
+
+    if (quote) {
+      if (c === '\\') {
+        out += c + (next ?? '');
+        i += 2;
+        continue;
+      }
+      if (c === quote) quote = null;
+      out += c;
+      i += 1;
+      continue;
+    }
+
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c;
+      out += c;
+      i += 1;
+      continue;
+    }
+
+    if (c === '/' && next === '/') {
+      while (i < src.length && src[i] !== '\n') i += 1;
+      continue;
+    }
+
+    if (c === '/' && next === '*') {
+      i += 2;
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i += 1;
+      i += 2;
+      continue;
+    }
+
+    out += c;
+    i += 1;
+  }
+
+  return out;
+}
+
 function undeclaredReads() {
   const declared = new Set(Object.keys(ENV));
   const found = new Map();
 
   for (const file of sourceFiles(ROOT)) {
-    const src = fs.readFileSync(file, 'utf8');
+    const src = stripComments(fs.readFileSync(file, 'utf8'));
 
     for (const [, name] of src.matchAll(/\bENV\.([A-Z][A-Z0-9_]*)\b/g)) {
       if (!declared.has(name)) {
