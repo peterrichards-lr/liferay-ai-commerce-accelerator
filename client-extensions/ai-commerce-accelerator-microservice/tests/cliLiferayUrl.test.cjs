@@ -17,12 +17,16 @@ const CLI = path.join(__dirname, '..', '..', '..', 'scripts', 'aica-cli.cjs');
  * are: the resolution happens at module load from the environment, so a test of
  * a function alone would not prove the binary refuses.
  *
- * The `.env` discovery walks up from the working directory, so these run from a
- * directory with no `.env` above it - otherwise the repository's own would
- * supply a URL and the refusal would never fire.
+ * Isolation needs AICA_IGNORE_DOTENV, not a working directory. Two of the CLI's
+ * four `.env` search paths are relative to the script rather than to `cwd`
+ * (`aica-cli.cjs`, `loadEnv`), so running from `/` does not escape the
+ * repository's own `.env` - and deleting the variables here does not help
+ * either, because the loader fills anything unset. Without the flag these cases
+ * passed in CI, which has no `.env`, and failed on every machine that has one
+ * (#1061).
  */
 const NO_URL_ENV = () => {
-  const env = { ...process.env };
+  const env = { ...process.env, AICA_IGNORE_DOTENV: '1' };
 
   delete env.LIFERAY_PORTAL_URL;
   delete env.LIFERAY_URL;

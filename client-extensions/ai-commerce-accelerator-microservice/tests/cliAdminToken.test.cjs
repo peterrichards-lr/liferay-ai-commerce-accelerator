@@ -98,10 +98,25 @@ describe('aica CLI: admin token for gated commands (#930)', () => {
       }
     }
 
+    // The CLI reads a `.env` at module load, and two of its four search paths
+    // are relative to the script rather than to `cwd` - so it finds this
+    // repository's own `.env` and fills back in whatever was just deleted
+    // above. That is what made the unstated-Liferay case pass in CI, which has
+    // no `.env`, and fail on every machine that has one (#1061).
+    const previousIgnore = process.env.AICA_IGNORE_DOTENV;
+
+    process.env.AICA_IGNORE_DOTENV = '1';
+
     // vi.resetModules() does not clear Node's CJS require cache, so the module
     // would be returned with its constants already frozen from the first load.
     delete require.cache[require.resolve('../../../scripts/aica-cli.cjs')];
     const mod = require('../../../scripts/aica-cli.cjs');
+
+    if (previousIgnore === undefined) {
+      delete process.env.AICA_IGNORE_DOTENV;
+    } else {
+      process.env.AICA_IGNORE_DOTENV = previousIgnore;
+    }
 
     for (const key of CRED_VARS) {
       if (previous[key] === undefined) {

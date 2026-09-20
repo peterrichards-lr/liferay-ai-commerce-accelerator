@@ -9,7 +9,24 @@ const fs = require('fs');
 const path = require('path');
 
 // --- 1. Dynamic .env / Convention Discovery ---
+//
+// Two of the search paths are relative to this script rather than to the
+// working directory, so the CLI finds the repository's `.env` wherever it is
+// run from. That is deliberate and dates from the CLI's first commit
+// (c8c5d93) - it is what lets `aica generate` work from any directory.
+//
+// It also means a caller cannot ask for an environment that has no Liferay in
+// it: `cwd` cannot escape a path anchored to `__dirname`, and the assignment
+// below only fills a variable that is unset, so passing an empty value does
+// not clear one either. AICA_IGNORE_DOTENV exists for that case - it uses only
+// the environment it was handed. Set it when a run must not inherit a
+// developer's `.env`: a test asserting the unconfigured path, or a scripted
+// run that has to fail rather than quietly target the wrong instance (#1061).
 function loadEnv() {
+  if (process.env.AICA_IGNORE_DOTENV === '1') {
+    return;
+  }
+
   const searchPaths = [
     process.cwd(),
     path.resolve(process.cwd(), '..'),
@@ -1871,7 +1888,13 @@ Moving a dataset between instances:
     missing a field the schema requires.
 
 Convention Rules:
-  - Scans current directory cascading up for standard local '.env' parameters.
+  - Reads a local '.env': the working directory and its parent, then the two
+    directories above this script - so the repository's own '.env' is found
+    wherever aica is run from, and a working directory alone cannot escape it.
+    It only fills variables that are unset; it never overrides one you passed.
+  - Set AICA_IGNORE_DOTENV=1 to skip that entirely and use only the environment
+    as given. It must be set in the environment - setting it inside '.env' is
+    too late to be read.
   - Defaults to local microservice running at port 3001.
 `);
 }
