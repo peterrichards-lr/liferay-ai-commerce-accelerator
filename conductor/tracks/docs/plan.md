@@ -10,15 +10,21 @@
 
 - [x] Document the MSW mocking strategy. (Included in SYSTEM_MAP.md)
 - [ ] Provide examples of adding new unit and integration tests.
-- [x] Document Playwright smoke test setup. (Basic instructions added to GETTING_STARTED.md)
+- [ ] Document Playwright smoke test setup. (The instructions cited here lived in
+      `GETTING_STARTED.md`, deleted in #244. `docs/QUICKSTART.md` documents the
+      LDM-orchestrated e2e run and `docs/architecture/e2e-and-orchestration.md`
+      covers the Playwright configuration, but the `yarn smoke` script itself is
+      still undocumented.)
 
 ## Phase 3: Developer Experience
 
-- [x] Update `GETTING_STARTED.md` with current installation and test commands.
+- [x] Update the installation and test commands. (Consolidated into
+      `docs/QUICKSTART.md` by #244, which deleted `GETTING_STARTED.md`.)
 - [x] Add a "Troubleshooting" section for common dev environment issues.
+      (`docs/QUICKSTART.md`, "Known Issues & Troubleshooting".)
 
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-09-20_ | _Last Reviewed: 2026-09-20_

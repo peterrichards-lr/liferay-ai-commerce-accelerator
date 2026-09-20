@@ -53,7 +53,7 @@ Ensure `portal-ext.properties` contains:
 feature.flag.LPD-35443=true
 ```
 
-For a smooth local experience (bypassing password reset prompts and setup wizards), you can use the repository defaults located in [`configs/common/portal-ext.properties`](file:///Users/peterrichards/dev/repos/liferay-ai-commerce-accelerator/configs/common/portal-ext.properties):
+For a smooth local experience (bypassing password reset prompts and setup wizards), you can use the repository defaults located in [`configs/common/portal-ext.properties`](../configs/common/portal-ext.properties):
 
 ```properties
 setup.wizard.enabled=false
@@ -214,7 +214,7 @@ This command automatically:
 
 ### Configure `.env`
 
-Create or update [`.env`](file:///Users/peterrichards/dev/repos/liferay-ai-commerce-accelerator/.env) in the project root to target your DXP instance:
+Create or update `.env` in the project root to target your DXP instance:
 
 ```env
 # Target DXP Endpoint
@@ -361,7 +361,7 @@ When populating commerce data for a remote Liferay PaaS (LCP) or Experience Clou
 
 ### Configure Remote `.env`
 
-Point your local [`.env`](file:///Users/peterrichards/dev/repos/liferay-ai-commerce-accelerator/.env) to the remote PaaS hostname:
+Point your local `.env` to the remote PaaS hostname:
 
 ```env
 # Remote Liferay PaaS / Cloud URL
@@ -446,7 +446,7 @@ Two rules follow, and both are deliberate:
    node scripts/aica-cli.cjs generate --products 30 --accounts 4 --orders 10
    ```
 
-   _(For full bi-directional communication with custom element microfrontends or webhook callbacks on remote SaaS instances, see [`docs/SaaS_TARGETING_GUIDE.md`](file:///Users/peterrichards/dev/repos/liferay-ai-commerce-accelerator/docs/SaaS_TARGETING_GUIDE.md))._
+   _(For full bi-directional communication with custom element microfrontends or webhook callbacks on remote SaaS instances, see [`SaaS_TARGETING_GUIDE.md`](./SaaS_TARGETING_GUIDE.md))._
 
 ---
 

@@ -2,6 +2,9 @@
 
 The Liferay AI Commerce Accelerator employs a sophisticated, stateful, and asynchronous architecture to manage the creation of large amounts of commerce data.
 
+This page is the overview. For the detailed specification of any one subsystem,
+see the **[architecture deep dives](./architecture/README.md)**.
+
 ## System Map
 
 ```mermaid
