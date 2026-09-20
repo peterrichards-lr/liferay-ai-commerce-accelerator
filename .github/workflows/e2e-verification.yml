@@ -90,8 +90,14 @@ jobs:
   plan:
     runs-on: ubuntu-latest
     outputs:
+      # The matrix only. The target itself cannot be passed this way: its value
+      # equals secrets.LDM_NODE_TARGET, and a job output whose value matches a
+      # secret is scrubbed on the way out, so the consuming job receives an
+      # empty string. That is not hypothetical - it is what #1079 shipped, and
+      # the run it produced reported itself as a single remote shard while
+      # actually going local: no node woken, the MAC registration step skipped
+      # by its own `if`, and the unqualified licence used instead of the node's.
       matrix: ${{ steps.plan.outputs.matrix }}
-      target: ${{ steps.plan.outputs.target }}
     steps:
       - name: Resolve the target node and the shard plan
         id: plan
@@ -128,9 +134,33 @@ jobs:
       # actually uses - so it fell through to a literal 'aws-1' and powered off
       # an instance the suite had never touched, leaving the instance it did use
       # running and billable every night (#718).
-      E2E_TARGET_NODE: ${{ needs.plan.outputs.target }}
+      E2E_TARGET_NODE: ${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
 
     steps:
+      # Two places now decide what the target is: the plan job, to choose a
+      # shard count, and this job, to drive the run. They read the same chain,
+      # but nothing forces them to agree - and the failure mode when they do
+      # not is silent, because a job that believes it is local still runs.
+      #
+      # So assert the pair. One shard means remote; three means local. A
+      # mismatch stops the run instead of quietly testing the wrong thing.
+      - name: Check the shard plan and the target agree
+        run: |
+          if [ "$E2E_TARGET_NODE" = "local" ] || [ -z "$E2E_TARGET_NODE" ]; then
+            EXPECTED=3
+            DESCRIBED="local"
+          else
+            EXPECTED=1
+            DESCRIBED="remote"
+          fi
+
+          if [ "${{ matrix.shardTotal }}" != "$EXPECTED" ]; then
+            echo "::error::The shard plan and the target disagree. The target resolves as $DESCRIBED, which wants $EXPECTED shard(s), but the matrix was built for ${{ matrix.shardTotal }}. A job output carrying the target is scrubbed when its value matches a secret."
+            exit 1
+          fi
+
+          echo "Target is $DESCRIBED; ${{ matrix.shardTotal }} shard(s), as planned."
+
       - name: Checkout code
         uses: actions/checkout@v4
 
