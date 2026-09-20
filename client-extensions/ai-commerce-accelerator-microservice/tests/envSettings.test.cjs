@@ -40,7 +40,6 @@ describe('ENV settings', () => {
       IMPORT_MAX_BYTES: process.env.IMPORT_MAX_BYTES,
       LIFERAY_COMPANY_ID: process.env.LIFERAY_COMPANY_ID,
       REQUEST_MAX_BYTES: process.env.REQUEST_MAX_BYTES,
-      SERVER_PORT: process.env.SERVER_PORT,
     };
 
     for (const key of Object.keys(saved)) delete process.env[key];
@@ -63,13 +62,11 @@ describe('ENV settings', () => {
       IMPORT_MAX_BYTES: '104857600',
       LIFERAY_COMPANY_ID: '20999',
       REQUEST_MAX_BYTES: '5242880',
-      SERVER_PORT: '3005',
     };
 
     it('honours a supplied value rather than returning NaN', () => {
       const { ENV } = loadConstants(NO_MINIMUM);
 
-      expect(ENV.SERVER_PORT).toBe(3005);
       expect(ENV.LIFERAY_COMPANY_ID).toBe(20999);
       expect(ENV.REQUEST_MAX_BYTES).toBe(5242880);
       expect(ENV.IMPORT_MAX_BYTES).toBe(104857600);
@@ -87,7 +84,6 @@ describe('ENV settings', () => {
     it('still falls back when nothing is supplied', () => {
       const { ENV } = loadConstants({});
 
-      expect(ENV.SERVER_PORT).toBe(3001);
       expect(ENV.REQUEST_MAX_BYTES).toBe(10 * 1024 * 1024);
     });
   });
@@ -147,5 +143,58 @@ describe('ENV settings', () => {
       expect(ENV_WARNINGS).toHaveLength(1);
       expect(ENV_WARNINGS[0]).toContain('minimum');
     });
+  });
+});
+
+// The listener's host and port are deliberately absent from ENV. `server.cjs`
+// resolves them through config-node, whose env-var provider uppercases the key
+// and turns dots into underscores - so `server.port` reads SERVER_PORT and
+// `server.host` reads SERVER_HOST.
+//
+// Declaring them in ENV as well produced a second copy that nothing read, and
+// whose default (3001) disagreed with the fallback the listener actually used
+// (3000). Nothing caught it because a grep for `SERVER_PORT` finds the unread
+// declaration and not the live read, which never spells the name (#1058).
+//
+// These cases pin the mechanism that misled us, not the two call sites.
+describe('the listener reads its host and port through config-node (#1058)', () => {
+  const { defaultConfig, lookupConfig } = require('@rotty3000/config-node');
+  const applicationJson = require('../application.json');
+
+  let savedPort;
+  let savedHost;
+
+  beforeEach(() => {
+    savedPort = process.env.SERVER_PORT;
+    savedHost = process.env.SERVER_HOST;
+    delete process.env.SERVER_PORT;
+    delete process.env.SERVER_HOST;
+    defaultConfig();
+  });
+
+  afterEach(() => {
+    if (savedPort === undefined) delete process.env.SERVER_PORT;
+    else process.env.SERVER_PORT = savedPort;
+    if (savedHost === undefined) delete process.env.SERVER_HOST;
+    else process.env.SERVER_HOST = savedHost;
+  });
+
+  it('reaches SERVER_PORT, which spells the key differently', () => {
+    process.env.SERVER_PORT = '3005';
+
+    expect(String(lookupConfig('server.port'))).toBe('3005');
+  });
+
+  it('reaches SERVER_HOST the same way, so the host is configurable at all', () => {
+    process.env.SERVER_HOST = '127.0.0.1';
+
+    expect(String(lookupConfig('server.host'))).toBe('127.0.0.1');
+  });
+
+  it("agrees with application.json's port, so the fallback is never reached in practice", () => {
+    // server.cjs falls back to 3001. That number is only correct while
+    // application.json says the same thing; if this drifts, the fallback
+    // silently becomes a different port from the one everything documents.
+    expect(String(applicationJson['server.port'])).toBe('3001');
   });
 });
