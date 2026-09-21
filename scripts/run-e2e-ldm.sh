@@ -320,29 +320,6 @@ if [ -n "$GRADLE_JAVA_21" ]; then
         echo "☕ Force-configured global JAVA_HOME to JDK 21: $JAVA_HOME"
     fi
 fi
-
-# Helper function to check if a port is free
-is_port_free() {
-    local port=$1
-    if command -v nc &>/dev/null; then
-        ! nc -z localhost "$port" &>/dev/null
-    elif command -v lsof &>/dev/null; then
-        ! lsof -i:"$port" &>/dev/null
-    else
-        (echo >/dev/tcp/localhost/"$port") &>/dev/null
-        return $?
-    fi
-}
-
-find_free_port() {
-    local start_port=$1
-    local port=$start_port
-    while ! is_port_free "$port"; do
-        port=$((port + 1))
-    done
-    echo "$port"
-}
-
 # Reads Bundle-SymbolicName from a jar's manifest, or nothing when it cannot be
 # read. The header may carry directives (com.example;singleton:=true), which are
 # stripped, and manifests use CRLF line endings.
@@ -571,12 +548,20 @@ host_is_resolvable() {
 # The URL of the target host itself. This is the one place the protocol/port
 # decision is made; LIFERAY_URL, LIFERAY_API_URL and BASE_URL are all derived
 # from its result rather than repeating it.
-target_host_url() {
+host_url() {
+    local host="$1"
+
     if [ $NO_SSL -eq 1 ]; then
-        echo "http://$TARGET_HOST"
+        echo "http://$host"
     else
-        echo "https://$TARGET_HOST$SSL_PORT_SUFFIX"
+        echo "https://$host$SSL_PORT_SUFFIX"
     fi
+}
+
+# The client extensions are served by the same proxy on their own subdomains,
+# so they take the same protocol and port decision rather than a second one.
+target_host_url() {
+    host_url "$TARGET_HOST"
 }
 
 # The fallback for an unresolvable host: Tomcat on whichever host port docker
@@ -1013,61 +998,6 @@ open_node_tunnel() {
 
     echo "✅ Tunnel up; '$TARGET_HOST' now reaches the stack on '$LDM_NODE_TARGET'."
 }
-
-NODE_PORT_FORWARD_PID=""
-
-# The main tunnel forwards 443 and 80 because that is what the browser needs
-# and those are known up front. The microservice's mapped port is not known
-# until its container exists, so it gets its own forward.
-forward_node_port() {
-    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
-
-    local port="$1" endpoint key waited=0
-    local ssh_args=()
-
-    endpoint="$(node_ssh_endpoint)"
-    if [ -z "$endpoint" ]; then
-        echo "❌ ERROR: No SSH endpoint recorded for node '$LDM_NODE_TARGET'."
-        return 1
-    fi
-
-    key="${LDM_SSH_KEY:-$HOME/.ssh/aws-key.pem}"
-    ssh_args=(-N
-        -o StrictHostKeyChecking=no
-        -o UserKnownHostsFile=/dev/null
-        -o ExitOnForwardFailure=yes
-        -o ServerAliveInterval=30
-        -o BatchMode=yes
-        -L "${port}:localhost:${port}")
-    [ -f "$key" ] && ssh_args=(-i "$key" "${ssh_args[@]}")
-
-    echo "🔌 Forwarding microservice port ${port} from '$LDM_NODE_TARGET'..."
-    ssh "${ssh_args[@]}" "$endpoint" &
-    NODE_PORT_FORWARD_PID=$!
-
-    until (exec 3<>/dev/tcp/127.0.0.1/"$port") 2>/dev/null && exec 3<&- 3>&-; do
-        if ! kill -0 "$NODE_PORT_FORWARD_PID" 2>/dev/null; then
-            NODE_PORT_FORWARD_PID=""
-            echo "❌ ERROR: The forward for port ${port} exited immediately."
-            return 1
-        fi
-        if [ "$waited" -ge "${TUNNEL_READY_TIMEOUT:-30}" ]; then
-            echo "❌ ERROR: Nothing is listening on 127.0.0.1:${port} after ${waited}s."
-            return 1
-        fi
-        sleep 1
-        waited=$((waited + 1))
-    done
-
-    echo "✅ Microservice reachable on localhost:${port}."
-}
-
-close_node_port_forward() {
-    [ -n "$NODE_PORT_FORWARD_PID" ] || return 0
-    kill "$NODE_PORT_FORWARD_PID" 2>/dev/null || true
-    NODE_PORT_FORWARD_PID=""
-}
-
 close_node_tunnel() {
     [ -n "$NODE_TUNNEL_PID" ] || return 0
     echo "🔌 Closing the tunnel to '$LDM_NODE_TARGET'..."
@@ -1244,7 +1174,6 @@ cleanup() {
     # Before anything that talks to the node, so a hung tunnel cannot delay
     # teardown of a billable instance.
     close_node_tunnel
-    close_node_port_forward
     if [ $exit_code -eq 0 ]; then
         write_signal "SUCCESS"
     else
@@ -1280,49 +1209,38 @@ cleanup() {
 
 trap cleanup EXIT
 
-# The microservice container, which is not the "sidecar".
+# The microservice is reached through the proxy, not a published port.
 #
-# This asked `docker port "${PROJECT_NAME}-sidecar"` for years. No such
-# container has ever existed: LDM's --sidecar flag selects Liferay's internal
-# Elasticsearch ("Use internal Liferay Sidecar search instead of the shared
-# Global Search container"), which runs inside the Liferay container on
-# 127.0.0.1:9201 and publishes nothing. The container serving 3001 is the
-# client extension's own, named after it.
+# Nothing publishes to the host except the shared proxy. A run against a node
+# listed every container:
 #
-# So the lookup always returned empty and always fell through to the invented
-# port below - silently, on local runs too. Routing docker to the node (#1089)
-# did not cause this; it only made a lookup that never worked fail somewhere
-# that says so.
-MICROSERVICE_CONTAINER="${PROJECT_NAME}-ai-commerce-accelerator-microservice"
-MICROSERVICE_PORT_BINDING=$(docker port "$MICROSERVICE_CONTAINER" 3001 2>/dev/null || echo "")
-if [ -n "$MICROSERVICE_PORT_BINDING" ]; then
-    RESOLVED_MICROSERVICE_PORT=$(echo "$MICROSERVICE_PORT_BINDING" | head -n 1 | cut -d':' -f2)
-elif [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ]; then
-    # find_free_port cannot stand in here. It returns a port *because* nothing
-    # is listening on it, so the run would carry on with an address guaranteed
-    # to be dead and announce it as resolved (#1089).
-    echo "❌ ERROR: '$MICROSERVICE_CONTAINER' published no port for 3001 on '$LDM_NODE_TARGET'."
-    echo "   Refusing to invent one: every URL built from it would point at nothing."
-    echo "   What it does publish:"
-    docker port "$MICROSERVICE_CONTAINER" 2>&1 | sed 's/^/     /' || true
-    echo "   Containers on the node:"
-    docker ps --format '     {{.Names}}  {{.Ports}}' 2>&1 | head -20 || true
-    write_signal "UNHEALTHY"
-    exit 1
-else
-    RESOLVED_MICROSERVICE_PORT=$(find_free_port 3001)
-fi
-echo "ℹ  Resolved microservice port: $RESOLVED_MICROSERVICE_PORT"
-
-if ! forward_node_port "$RESOLVED_MICROSERVICE_PORT"; then
-    write_signal "UNHEALTHY"
-    exit 1
-fi
-
-# Set the environment variables for Playwright and the Microservice
+#   aica-e2e                                       8000/tcp, 8080/tcp, …
+#   aica-e2e-ai-commerce-accelerator-microservice  (nothing)
+#   aica-e2e-db                                    5432/tcp
+#   liferay-proxy-global                           0.0.0.0:80->80, 0.0.0.0:443->443
+#
+# The microservice publishes nothing - not even an exposed port - so
+# http://localhost:<anything> could never reach it, on a node or on this host.
+# Reading a port from it, and forwarding that port, were both chasing something
+# that does not exist (#1099, #1089).
+#
+# The route that does exist is the one this script already requires: the proxy
+# serves each client extension on its own subdomain, and Phase 1 fails the run
+# if `ai-commerce-accelerator-microservice.$TARGET_HOST` does not resolve. On a
+# node, 443 arrives there through the tunnel (#1087), so the same URL works
+# either way and needs no port at all.
 export_target_urls "the environment became ready"
-export LIFERAY_BATCH_CALLBACK_URL="http://host.docker.internal:${RESOLVED_MICROSERVICE_PORT}/api/v1/batch/callback"
-export AICA_MICROSERVICE_URL="http://localhost:${RESOLVED_MICROSERVICE_PORT}"
+
+MICROSERVICE_URL="$(host_url "ai-commerce-accelerator-microservice.${TARGET_HOST}")"
+
+export AICA_MICROSERVICE_URL="$MICROSERVICE_URL"
+
+# Liferay calls this from inside the node, where host.docker.internal pointed
+# at a port nothing published. The proxy subdomain is the one address that
+# resolves from both sides.
+export LIFERAY_BATCH_CALLBACK_URL="${MICROSERVICE_URL}/api/v1/batch/callback"
+
+echo "ℹ  Microservice reachable at $AICA_MICROSERVICE_URL"
 
 
 # Attempt to fetch dynamic credentials from LDM

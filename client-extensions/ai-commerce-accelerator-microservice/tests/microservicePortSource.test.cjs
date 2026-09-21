@@ -1,27 +1,29 @@
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
 /**
- * The port for AICA_MICROSERVICE_URL comes from the container that serves it.
+ * The microservice is reached through the proxy, never a published port.
  *
- * The lookup asked `docker port "${PROJECT_NAME}-sidecar" 3001`. No such
- * container has ever existed. LDM's `--sidecar` selects Liferay's internal
- * Elasticsearch - "Use internal Liferay Sidecar search instead of the shared
- * Global Search container" - which runs inside the Liferay container on
- * 127.0.0.1:9201 and publishes nothing at all.
+ * Three rounds of this chased a port that does not exist. First the lookup
+ * asked a `-sidecar` container that has never existed (#1099). Then it asked
+ * the right container, which answered nothing. A run against a node finally
+ * listed every container and settled it:
  *
- * A remote run proved it: `aica-e2e-sidecar` appeared in exactly one line of
- * the log, the error naming it, while `aica-e2e-ai-commerce-accelerator-
- * microservice` was up and logging throughout.
+ *   aica-e2e                                       8000/tcp, 8080/tcp, …
+ *   aica-e2e-ai-commerce-accelerator-microservice  (nothing)
+ *   aica-e2e-db                                    5432/tcp
+ *   liferay-proxy-global                           0.0.0.0:80->80, 0.0.0.0:443->443
  *
- * So the lookup always failed and always fell through to `find_free_port`,
- * which returns a port *because* nothing is listening on it. Both consumers
- * default to localhost:3001 (`playwright/tests/e2e/test-helper.js:41`,
- * `scripts/aica-cli.cjs:71`), so a run either got lucky or pointed them at
- * nothing - quietly, either way.
+ * Nothing publishes to the host except the proxy. So `http://localhost:<port>`
+ * could never have worked, for any port, on a node or on this host - and
+ * `find_free_port` was inventing one for an address that was wrong in kind,
+ * not merely in value.
  *
- * Routing docker to the node (#1089) did not break this. It made a lookup that
- * never worked fail somewhere that says so.
+ * The route that does exist is the one the script already requires: Phase 1
+ * fails the run if `ai-commerce-accelerator-microservice.$TARGET_HOST` does not
+ * resolve, and the workflow puts it in /etc/hosts. On a node, 443 reaches the
+ * proxy through the tunnel (#1087), so one URL serves both.
  */
 const SCRIPT = path.resolve(
   __dirname,
@@ -32,75 +34,83 @@ const SCRIPT = path.resolve(
   'run-e2e-ldm.sh'
 );
 const source = fs.readFileSync(SCRIPT, 'utf8');
-const block = source.slice(
-  source.indexOf('MICROSERVICE_CONTAINER='),
-  source.indexOf('LIFERAY_BATCH_CALLBACK_URL')
-);
 
-describe('the microservice port comes from the microservice container', () => {
-  it('queries the container that actually serves 3001', () => {
-    expect(block).toContain(
-      'MICROSERVICE_CONTAINER="${PROJECT_NAME}-ai-commerce-accelerator-microservice"'
+function hostUrl({ noSsl = 0, portSuffix = '' } = {}) {
+  const lines = source.split('\n');
+  const start = lines.findIndex((l) => l.startsWith('host_url() {'));
+  const end = lines.findIndex((l, i) => i > start && l === '}');
+
+  const script = [
+    `NO_SSL=${noSsl}`,
+    `SSL_PORT_SUFFIX='${portSuffix}'`,
+    'TARGET_HOST=aica-e2e.demo',
+    lines.slice(start, end + 1).join('\n'),
+    'host_url "ai-commerce-accelerator-microservice.${TARGET_HOST}"',
+  ].join('\n');
+
+  return execFileSync('bash', ['-c', script], { encoding: 'utf8' }).trim();
+}
+
+describe('the microservice URL goes through the proxy', () => {
+  it('uses the subdomain the script already requires', () => {
+    // Phase 1 fails the run if this host does not resolve, so the address is
+    // already guaranteed by the time anything needs it.
+    expect(source).toContain(
+      'host_url "ai-commerce-accelerator-microservice.${TARGET_HOST}"'
     );
-    expect(block).toContain('docker port "$MICROSERVICE_CONTAINER" 3001');
+    expect(hostUrl()).toBe(
+      'https://ai-commerce-accelerator-microservice.aica-e2e.demo'
+    );
   });
 
-  it('never asks for a -sidecar container again', () => {
-    // Comments stripped first: the one above this code quotes the old lookup,
-    // and a sweep that counts its own explanation as an offence is the trap
-    // from #1072 - where my comment kept a stale allowlist entry alive.
-    const code = source
-      .split('\n')
-      .filter((l) => !l.trim().startsWith('#'))
-      .join('\n');
-
-    expect(code).not.toMatch(/\$\{PROJECT_NAME\}-sidecar/);
+  it('never points at localhost with a port', () => {
+    // The shape that was wrong in kind: nothing is published to the host.
+    expect(source).not.toMatch(/AICA_MICROSERVICE_URL="http:\/\/localhost:/);
+    expect(source).not.toMatch(/host\.docker\.internal:\$\{/);
   });
 
-  it('does not keep calling it the sidecar in the variables either', () => {
-    // The name is the defect. A variable still called SIDECAR invites the next
-    // reader to believe there is such a container.
-    const code = source
-      .split('\n')
-      .filter((l) => !l.trim().startsWith('#'))
-      .join('\n');
-
-    expect(code).not.toMatch(/SIDECAR_PORT/);
+  it('gives Liferay the same address it gives Playwright', () => {
+    // The callback is made from inside the node; the proxy subdomain is the
+    // one address that resolves from both sides.
+    expect(source).toContain(
+      'export LIFERAY_BATCH_CALLBACK_URL="${MICROSERVICE_URL}/api/v1/batch/callback"'
+    );
   });
 
-  it('still refuses to invent a port on a remote target', () => {
-    // #1089's guard stands: a port chosen for being free is a port nothing
-    // answers on.
-    expect(block).toContain('Refusing to invent one');
-    expect(block).toMatch(/exit 1/);
-  });
-
-  it('keeps the local fallback, where it is meaningful', () => {
-    expect(block).toContain('find_free_port 3001');
+  it('makes the protocol decision once, not twice', () => {
+    // The comment on target_host_url calls itself "the one place the
+    // protocol/port decision is made". A second copy for the subdomain is how
+    // two chains come to disagree - #1081, again.
+    expect(source).toContain('host_url "$TARGET_HOST"');
+    expect(hostUrl({ noSsl: 1 })).toBe(
+      'http://ai-commerce-accelerator-microservice.aica-e2e.demo'
+    );
+    expect(hostUrl({ portSuffix: ':8443' })).toBe(
+      'https://ai-commerce-accelerator-microservice.aica-e2e.demo:8443'
+    );
   });
 });
 
-describe('the failure says enough to diagnose itself', () => {
-  it('prints what the container does publish', () => {
-    // The previous message named a port that was missing and stopped. Knowing
-    // what *is* published is the difference between one more run and several.
-    expect(block).toMatch(/What it does publish/);
-    expect(block).toMatch(/docker port "\$MICROSERVICE_CONTAINER" 2>&1/);
+describe('the machinery that chased a published port is gone', () => {
+  it('no longer invents a free port', () => {
+    // find_free_port returned a port *because* nothing was listening on it.
+    expect(source).not.toMatch(/find_free_port/);
   });
 
-  it('lists the containers actually on the node', () => {
-    // If the name is wrong again, this is what says so immediately.
-    expect(block).toMatch(/Containers on the node/);
-    expect(block).toMatch(/docker ps --format/);
+  it('no longer forwards a microservice port', () => {
+    // #1087's tunnel still carries 443 and 80; this was the extra forward for
+    // a port that was never published.
+    expect(source).not.toMatch(/forward_node_port/);
+    expect(source).not.toMatch(/NODE_PORT_FORWARD_PID/);
   });
 
-  it('does not let the diagnostics mask the failure', () => {
-    // They run after the error and before exit; a `|| true` on the exit itself
-    // would turn a fatal misconfiguration back into a silent one.
-    const afterDiagnostics = block.slice(
-      block.indexOf('Containers on the node')
-    );
+  it('still forwards 443, which is how the proxy is reached', () => {
+    // Removing the wrong forward must not take the right one with it.
+    expect(source).toContain('-L "443:localhost:443"');
+  });
 
-    expect(afterDiagnostics).toMatch(/exit 1/);
+  it('leaves no orphaned helpers behind', () => {
+    // is_port_free existed only for find_free_port.
+    expect(source).not.toMatch(/is_port_free/);
   });
 });
