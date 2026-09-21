@@ -132,37 +132,15 @@ describe('docker follows the target', () => {
   });
 });
 
-describe('the microservice port is resolved, never invented', () => {
-  it('refuses to fall back to a free port on a remote target', () => {
-    // find_free_port returns a port precisely because nothing is listening on
-    // it. Using it guarantees every derived URL points at nothing.
-    const block = source.slice(
-      source.indexOf('MICROSERVICE_PORT_BINDING='),
-      source.indexOf('LIFERAY_BATCH_CALLBACK_URL')
-    );
-
-    expect(block).toMatch(/published no port/);
-    expect(block).toMatch(/exit 1/);
-    // The local branch keeps the fallback; only remote is fatal.
-    expect(block).toContain('find_free_port 3001');
-  });
-
-  it('forwards the resolved port so this host can reach it', () => {
-    // The main tunnel carries 443 and 80 only - the browser's needs, known up
-    // front. The microservice's port is not known until its container exists.
-    const block = source.slice(source.indexOf('MICROSERVICE_PORT_BINDING='));
-
-    expect(block).toMatch(/forward_node_port "\$RESOLVED_MICROSERVICE_PORT"/);
-  });
-
-  it('closes that forward from the cleanup trap', () => {
-    const cleanup = source.slice(source.indexOf('cleanup() {'));
-
-    expect(cleanup.slice(0, cleanup.indexOf('\n}'))).toContain(
-      'close_node_port_forward'
-    );
-  });
-});
+// The three cases that lived here asserted the microservice port lookup, the
+// forward for it, and its teardown. None of those exist any more: the port was
+// never published by anything, so the address was wrong in kind rather than in
+// value, and the machinery is deleted (#1101). Their intent - never invent an
+// address, never point a consumer at nothing - is asserted more directly in
+// microservicePortSource.test.cjs, against the proxy URL that does work.
+//
+// Removed rather than loosened. A case kept alive by relaxing it until it
+// passes is worse than no case.
 
 describe('the ldm wrapper is defined before anything calls it', () => {
   it('precedes its first caller', () => {
