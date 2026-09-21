@@ -63,6 +63,10 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+          # The wrapper fetches gradle-8.5-bin.zip from an external host on
+          # every run, with a 10s timeout and no retry. Two consecutive runs
+          # died there - one read timeout, one HTTP 504 - having built nothing.
+          cache: 'gradle'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
