@@ -43,7 +43,8 @@
   },
   "scripts": {
     "prepare": "husky || true",
-    "test": "FORCE_COLOR=0 yarn workspaces run test",
+    "test": "FORCE_COLOR=0 yarn workspaces run test && yarn test:scripts",
+    "test:scripts": "python3 -m unittest discover -s scripts -p 'test_*.py'",
     "smoke": "playwright test --config playwright/playwright.config.js",
     "verify": "node scripts/test-e2e-orchestrator.js",
     "verification": "playwright test --config playwright/playwright-e2e.config.js",
