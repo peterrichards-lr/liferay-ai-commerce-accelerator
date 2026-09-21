@@ -55,14 +55,47 @@ export async function injectAndConnectApp(page) {
     }
   });
 
-  // 1. Go to the highly-stable default AICA page, or fallback to Guest Home page
-  console.log('>>> Navigating to AICA site page...');
-  const res = await page.goto('/web/aica').catch(() => null);
-  if (!res || res.status() >= 400) {
+  // 1. Go to the AICA site.
+  //
+  // Liferay derives the site's friendly URL from the siteName declared in the
+  // site initializer's client-extension.yaml ("AI Commerce Accelerator"), so
+  // the site lives at /web/ai-commerce-accelerator. There is no way to declare
+  // /aica: BundleSiteInitializer reads friendlyURL only from page.json and
+  // menu items, never for the site, and it fetches the group rather than
+  // creating it.
+  //
+  // /web/aica is kept as a second attempt because the URL can still be changed
+  // through the UI or the API, and a suite that only knows one of them fails
+  // the way this one did - 404 on the site, silent fallback to Guest, then a
+  // run of /web/undefined that points at the frontend rather than the site.
+  const SITE_PATHS = ['/web/ai-commerce-accelerator', '/web/aica'];
+  let landedOn = null;
+
+  for (const path of SITE_PATHS) {
+    console.log(`>>> Navigating to AICA site page at ${path}...`);
+
+    const res = await page.goto(path).catch(() => null);
+
+    if (res && res.status() < 400) {
+      landedOn = path;
+      break;
+    }
+
+    console.log(`>>> ${path} returned ${res ? res.status() : 'no response'}.`);
+  }
+
+  if (landedOn === null) {
     console.log(
-      '>>> AICA site page not found/unreachable. Falling back to Guest page...'
+      `>>> DEGRADED: no AICA site page reachable (tried ${SITE_PATHS.join(', ')}). ` +
+        'Falling back to Guest, where the component has no site context. ' +
+        'Expect URLs built from undefined; fix the site URL rather than these tests.'
     );
     await page.goto('/web/guest');
+  } else if (landedOn !== SITE_PATHS[0]) {
+    console.log(
+      `>>> NOTE: reached the site at ${landedOn}, not ${SITE_PATHS[0]}. ` +
+        'The site friendly URL no longer matches the siteName it is derived from.'
+    );
   }
 
   // Resolve Liferay URL dynamically from environment configuration
