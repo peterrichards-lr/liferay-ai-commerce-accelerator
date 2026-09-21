@@ -98,6 +98,12 @@ jobs:
       # actually going local: no node woken, the MAC registration step skipped
       # by its own `if`, and the unqualified licence used instead of the node's.
       matrix: ${{ steps.plan.outputs.matrix }}
+      # An opaque digest of the target, never the target itself. The name
+      # equals secrets.LDM_NODE_TARGET and would be scrubbed to an empty string
+      # on the way out (#1081); its digest does not match the secret, so it
+      # survives. A concurrency key only has to be stable and unique, so a
+      # digest serves as well as the name - and leaks nothing.
+      node_key: ${{ steps.plan.outputs.node_key }}
     steps:
       - name: Resolve the target node and the shard plan
         id: plan
@@ -106,6 +112,22 @@ jobs:
         run: |
           TARGET="${REQUESTED_NODE:-local}"
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
+          # Derived here, in the one place the target is resolved. Deriving it
+          # again in the concurrency expression would be a second chain that
+          # can disagree with this one, which is the defect behind #1081.
+          if [ "$TARGET" = "local" ]; then
+            echo "node_key=local" >> "$GITHUB_OUTPUT"
+          else
+            # sha256sum on the runners, shasum on macOS; the step has to give
+            # the same answer wherever its guard runs it.
+            if command -v sha256sum >/dev/null 2>&1; then
+              NODE_DIGEST="$(printf '%s' "$TARGET" | sha256sum | cut -c1-12)"
+            else
+              NODE_DIGEST="$(printf '%s' "$TARGET" | shasum -a 256 | cut -c1-12)"
+            fi
+            echo "node_key=node-$NODE_DIGEST" >> "$GITHUB_OUTPUT"
+          fi
 
           if [ "$TARGET" = "local" ]; then
             echo 'matrix={"shardIndex":[1,2,3],"shardTotal":[3]}' >> "$GITHUB_OUTPUT"
@@ -120,9 +142,22 @@ jobs:
     if: always() && !cancelled() && needs.plan.result == 'success' && (github.event_name != 'schedule' || needs.check-for-changes.outputs.should_run == 'true')
     name: CI/e2e-verification (${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
     runs-on: ubuntu-latest
+    # What two runs contend for is the node, not the ref. Keying on the ref let
+    # a scheduled run on master and a dispatch from a branch take the same node
+    # at once: different groups, one machine, one project name - the shape that
+    # made three shards destroy each other in #1077, arriving by another route.
+    #
+    # Local keeps ref semantics, because there each shard owns a throwaway
+    # runner and a newer push should supersede an older one. Remote serialises
+    # on the node and *queues* rather than cancelling: a cancelled run can drop
+    # its teardown mid-flight and leave a billable instance awake, and the
+    # second run is one we want to happen, not discard.
+    #
+    # An empty node_key - the scrubbing failure this is built to avoid - groups
+    # every run together and serialises everything. Slow, and safe.
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.shardIndex }}
-      cancel-in-progress: true
+      group: ${{ github.workflow }}-${{ needs.plan.outputs.node_key == 'local' && format('{0}-{1}', github.ref, matrix.shardIndex) || needs.plan.outputs.node_key }}
+      cancel-in-progress: ${{ needs.plan.outputs.node_key == 'local' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
