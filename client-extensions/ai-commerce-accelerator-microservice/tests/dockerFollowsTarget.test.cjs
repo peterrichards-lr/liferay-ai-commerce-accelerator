@@ -11,10 +11,14 @@ const path = require('node:path');
  * so on a remote target they addressed this host's daemon, found nothing, and
  * said nothing (#1089).
  *
- * The sidecar lookup was the worst of them. When `docker port` returned
- * nothing it fell back to `find_free_port`, which succeeds *because* nothing
- * is listening, and that invented port became AICA_MICROSERVICE_URL and
- * Liferay's batch callback - announced as "Resolved sidecar port".
+ * The microservice port lookup was the worst of them. When `docker port`
+ * returned nothing it fell back to `find_free_port`, which succeeds *because*
+ * nothing is listening, and that invented port became AICA_MICROSERVICE_URL
+ * and Liferay's batch callback - announced as resolved.
+ *
+ * It also asked for the wrong container entirely; see #1099 and
+ * microservicePortSource.test.cjs. This file guards the routing and the
+ * refusal to invent, not which container is named.
  *
  * These drive the extracted functions with a recording `docker`/`ssh`, so the
  * guard cannot drift from what ships.
@@ -128,27 +132,27 @@ describe('docker follows the target', () => {
   });
 });
 
-describe('the sidecar port is resolved, never invented', () => {
+describe('the microservice port is resolved, never invented', () => {
   it('refuses to fall back to a free port on a remote target', () => {
     // find_free_port returns a port precisely because nothing is listening on
     // it. Using it guarantees every derived URL points at nothing.
-    const sidecar = source.slice(
-      source.indexOf('SIDECAR_PORT_BINDING='),
+    const block = source.slice(
+      source.indexOf('MICROSERVICE_PORT_BINDING='),
       source.indexOf('LIFERAY_BATCH_CALLBACK_URL')
     );
 
-    expect(sidecar).toMatch(/published no port/);
-    expect(sidecar).toMatch(/exit 1/);
+    expect(block).toMatch(/published no port/);
+    expect(block).toMatch(/exit 1/);
     // The local branch keeps the fallback; only remote is fatal.
-    expect(sidecar).toContain('find_free_port 3001');
+    expect(block).toContain('find_free_port 3001');
   });
 
   it('forwards the resolved port so this host can reach it', () => {
     // The main tunnel carries 443 and 80 only - the browser's needs, known up
-    // front. The sidecar's port is not known until its container exists.
-    const sidecar = source.slice(source.indexOf('SIDECAR_PORT_BINDING='));
+    // front. The microservice's port is not known until its container exists.
+    const block = source.slice(source.indexOf('MICROSERVICE_PORT_BINDING='));
 
-    expect(sidecar).toMatch(/forward_node_port "\$RESOLVED_SIDECAR_PORT"/);
+    expect(block).toMatch(/forward_node_port "\$RESOLVED_MICROSERVICE_PORT"/);
   });
 
   it('closes that forward from the cleanup trap', () => {
