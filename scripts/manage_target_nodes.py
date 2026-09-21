@@ -9,9 +9,12 @@ Last Updated: 2026-08-20 | Last Reviewed: 2026-08-20
 
 import argparse
 import json
+import os
+import socket
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -205,20 +208,94 @@ def update_node_host_ip(node_name: str, new_ip: str) -> None:
             pass
 
 
-def wait_for_ssh(host: str, timeout: int = 60) -> bool:
-    """Polls TCP port 22 on the target host until SSH service is ready."""
-    import socket
-    import time
+def resolve_ssh_key() -> str:
+    """The private key an SSH readiness probe should authenticate with.
+
+    LDM_SSH_KEY first, then the path CI writes the deploy key to. Returns an
+    empty string when neither exists, which is the ordinary local case.
+    """
+    candidates = [os.environ.get("LDM_SSH_KEY", ""), str(Path.home() / ".ssh" / "aws-key.pem")]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file():
+            return candidate
+    return ""
+
+
+def ssh_probe_command(host: str, user: str, key: str) -> list:
+    """The cheapest command that proves SSH will authenticate, not merely connect."""
+    cmd = ["ssh"]
+    if key:
+        cmd += ["-i", key]
+    cmd += [
+        "-o", "BatchMode=yes",
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "ConnectTimeout=5",
+        f"{user}@{host}",
+        "true",
+    ]
+    return cmd
+
+
+def wait_for_ssh(host: str, user: str = "ubuntu", timeout: int = 60, auth_timeout: int = 180) -> bool:
+    """Waits until SSH will authenticate, not merely until TCP 22 answers.
+
+    The port answering is a weaker signal than it looks. A cold-booted EC2
+    instance accepts a TCP connection on 22 while `authorized_keys` is still
+    being written, so the old check - `socket.create_connection((host, 22))`
+    and nothing else - returned "ready" and the next LDM command was refused
+    at authentication seconds later. Measured on a single-shard run, with no
+    contention to blame: TCP accepted at 07:19:14, credentials refused at
+    07:19:32. See #1083.
+
+    So the port is now a precondition rather than the answer, and the real
+    check is a `true` over SSH. Without a usable key the probe is skipped and
+    said so aloud: half a check reported as a whole one is what this replaces.
+    """
     start_time = time.time()
     print(f"⏳ Waiting for SSH service (TCP 22) on {host}...")
+    port_open = False
     while time.time() - start_time < timeout:
         try:
             with socket.create_connection((host, 22), timeout=3):
-                print(f"✅ SSH service ready on {host}:22.")
-                return True
+                port_open = True
+                break
         except (socket.timeout, OSError):
             time.sleep(3)
-    print(f"⚠️ Timed out waiting for SSH on {host}:22.")
+
+    if not port_open:
+        print(f"⚠️ Timed out waiting for SSH on {host}:22.")
+        return False
+
+    key = resolve_ssh_key()
+    if not key:
+        print(
+            f"✅ SSH port open on {host}:22. No key available (set LDM_SSH_KEY), "
+            "so authentication was not verified."
+        )
+        return True
+
+    print(f"⏳ Waiting for SSH to authenticate on {host} as {user}...")
+    auth_start = time.time()
+    last_error = ""
+    while time.time() - auth_start < auth_timeout:
+        res = subprocess.run(
+            ssh_probe_command(host, user, key),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0:
+            waited = int(time.time() - auth_start)
+            print(f"✅ SSH ready on {host}:22 as {user} (authenticated after {waited}s).")
+            return True
+        last_error = (res.stderr or "").strip().splitlines()[-1:] or [""]
+        time.sleep(5)
+
+    print(
+        f"⚠️ SSH on {host}:22 accepted a connection but would not authenticate as "
+        f"{user} within {auth_timeout}s. Last error: {last_error[0]}"
+    )
     return False
 
 
@@ -237,7 +314,7 @@ def power_on_node(node_name: str, config: dict) -> bool:
             if new_ip:
                 print(f"🌐 Resolved updated public IP for '{node_name}': {new_ip}")
                 update_node_host_ip(node_name, new_ip)
-                wait_for_ssh(new_ip)
+                wait_for_ssh(new_ip, config.get("user", "ubuntu"))
             return True
         print(f"⚠️ AWS CLI error for '{node_name}': {res.stderr.strip()}")
         return False
