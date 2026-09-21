@@ -1017,8 +1017,8 @@ open_node_tunnel() {
 NODE_PORT_FORWARD_PID=""
 
 # The main tunnel forwards 443 and 80 because that is what the browser needs
-# and those are known up front. The sidecar's mapped port is not known until
-# its container exists, so it gets its own forward.
+# and those are known up front. The microservice's mapped port is not known
+# until its container exists, so it gets its own forward.
 forward_node_port() {
     [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
 
@@ -1041,7 +1041,7 @@ forward_node_port() {
         -L "${port}:localhost:${port}")
     [ -f "$key" ] && ssh_args=(-i "$key" "${ssh_args[@]}")
 
-    echo "🔌 Forwarding sidecar port ${port} from '$LDM_NODE_TARGET'..."
+    echo "🔌 Forwarding microservice port ${port} from '$LDM_NODE_TARGET'..."
     ssh "${ssh_args[@]}" "$endpoint" &
     NODE_PORT_FORWARD_PID=$!
 
@@ -1059,7 +1059,7 @@ forward_node_port() {
         waited=$((waited + 1))
     done
 
-    echo "✅ Sidecar reachable on localhost:${port}."
+    echo "✅ Microservice reachable on localhost:${port}."
 }
 
 close_node_port_forward() {
@@ -1280,32 +1280,49 @@ cleanup() {
 
 trap cleanup EXIT
 
-# Dynamically resolve mapped host port for the microservice sidecar container
-SIDECAR_PORT_BINDING=$(docker port "${PROJECT_NAME}-sidecar" 3001 2>/dev/null || echo "")
-if [ -n "$SIDECAR_PORT_BINDING" ]; then
-    RESOLVED_SIDECAR_PORT=$(echo "$SIDECAR_PORT_BINDING" | head -n 1 | cut -d':' -f2)
+# The microservice container, which is not the "sidecar".
+#
+# This asked `docker port "${PROJECT_NAME}-sidecar"` for years. No such
+# container has ever existed: LDM's --sidecar flag selects Liferay's internal
+# Elasticsearch ("Use internal Liferay Sidecar search instead of the shared
+# Global Search container"), which runs inside the Liferay container on
+# 127.0.0.1:9201 and publishes nothing. The container serving 3001 is the
+# client extension's own, named after it.
+#
+# So the lookup always returned empty and always fell through to the invented
+# port below - silently, on local runs too. Routing docker to the node (#1089)
+# did not cause this; it only made a lookup that never worked fail somewhere
+# that says so.
+MICROSERVICE_CONTAINER="${PROJECT_NAME}-ai-commerce-accelerator-microservice"
+MICROSERVICE_PORT_BINDING=$(docker port "$MICROSERVICE_CONTAINER" 3001 2>/dev/null || echo "")
+if [ -n "$MICROSERVICE_PORT_BINDING" ]; then
+    RESOLVED_MICROSERVICE_PORT=$(echo "$MICROSERVICE_PORT_BINDING" | head -n 1 | cut -d':' -f2)
 elif [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ]; then
     # find_free_port cannot stand in here. It returns a port *because* nothing
     # is listening on it, so the run would carry on with an address guaranteed
     # to be dead and announce it as resolved (#1089).
-    echo "❌ ERROR: Sidecar '${PROJECT_NAME}-sidecar' published no port for 3001 on '$LDM_NODE_TARGET'."
+    echo "❌ ERROR: '$MICROSERVICE_CONTAINER' published no port for 3001 on '$LDM_NODE_TARGET'."
     echo "   Refusing to invent one: every URL built from it would point at nothing."
+    echo "   What it does publish:"
+    docker port "$MICROSERVICE_CONTAINER" 2>&1 | sed 's/^/     /' || true
+    echo "   Containers on the node:"
+    docker ps --format '     {{.Names}}  {{.Ports}}' 2>&1 | head -20 || true
     write_signal "UNHEALTHY"
     exit 1
 else
-    RESOLVED_SIDECAR_PORT=$(find_free_port 3001)
+    RESOLVED_MICROSERVICE_PORT=$(find_free_port 3001)
 fi
-echo "ℹ  Resolved sidecar port: $RESOLVED_SIDECAR_PORT"
+echo "ℹ  Resolved microservice port: $RESOLVED_MICROSERVICE_PORT"
 
-if ! forward_node_port "$RESOLVED_SIDECAR_PORT"; then
+if ! forward_node_port "$RESOLVED_MICROSERVICE_PORT"; then
     write_signal "UNHEALTHY"
     exit 1
 fi
 
 # Set the environment variables for Playwright and the Microservice
 export_target_urls "the environment became ready"
-export LIFERAY_BATCH_CALLBACK_URL="http://host.docker.internal:${RESOLVED_SIDECAR_PORT}/api/v1/batch/callback"
-export AICA_MICROSERVICE_URL="http://localhost:${RESOLVED_SIDECAR_PORT}"
+export LIFERAY_BATCH_CALLBACK_URL="http://host.docker.internal:${RESOLVED_MICROSERVICE_PORT}/api/v1/batch/callback"
+export AICA_MICROSERVICE_URL="http://localhost:${RESOLVED_MICROSERVICE_PORT}"
 
 
 # Attempt to fetch dynamic credentials from LDM
