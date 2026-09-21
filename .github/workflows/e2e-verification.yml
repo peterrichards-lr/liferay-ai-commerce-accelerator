@@ -241,7 +241,31 @@ jobs:
             if [ -n "$SSH_KEY_DATA" ]; then
               echo "$SSH_KEY_DATA" > ~/.ssh/aws-key.pem
               chmod 600 ~/.ssh/aws-key.pem
-              echo "🔑 SSH key configured at ~/.ssh/aws-key.pem"
+              # Writing the key is not enough: only a caller passing `-i` can
+              # use it at this path, and most callers here do not. LDM drives
+              # Docker over SSH, which shells out to `ssh` carrying no identity
+              # of its own, and manage_target_nodes.py's shutdown is a plain
+              # `ssh user@host`. Both were told "refused the SSH credentials"
+              # while a probe passing `-i` authenticated on the same host
+              # seconds earlier.
+              #
+              # `Host *` rather than the node's address, because the address is
+              # not known until after the wake and this runner is ephemeral with
+              # a single SSH destination. Host key checking is off for the same
+              # reason the readiness probe turns it off: a rebuilt instance
+              # presents a new key, which otherwise fails in a way that reads
+              # as refused credentials.
+              {
+                echo "Host *"
+                echo "  IdentityFile ~/.ssh/aws-key.pem"
+                echo "  IdentitiesOnly yes"
+                echo "  StrictHostKeyChecking no"
+                echo "  UserKnownHostsFile /dev/null"
+                echo "  ConnectTimeout 10"
+              } > ~/.ssh/config
+              chmod 600 ~/.ssh/config
+
+              echo "🔑 SSH key at ~/.ssh/aws-key.pem, named in ~/.ssh/config so callers that pass no identity can use it."
             else
               echo "⚠️ No EC2_SSH_KEY secret found in repository."
             fi
