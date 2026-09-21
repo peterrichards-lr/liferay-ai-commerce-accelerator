@@ -41,7 +41,7 @@ describe('the Gradle distribution is fetched before anything costs money', () =>
     // leaves a billable instance to power off.
     const fetchAt = lineOf(
       e2e,
-      'Fetch the Gradle distribution before anything'
+      'Fetch every external download before anything'
     );
     const wakeAt = lineOf(e2e, 'Wake remote target node');
 
@@ -51,10 +51,9 @@ describe('the Gradle distribution is fetched before anything costs money', () =>
   });
 
   it('retries rather than failing on one bad response', () => {
-    const step = e2e.slice(lineOf(e2e, 'Fetch the Gradle distribution') * 0);
-    const body = step.slice(
-      step.indexOf('Fetch the Gradle distribution'),
-      step.indexOf('Wake remote target node')
+    const body = e2e.slice(
+      e2e.indexOf('Fetch every external download'),
+      e2e.indexOf('Wake remote target node')
     );
 
     expect(body).toMatch(/for attempt in 1 2 3/);
@@ -65,17 +64,19 @@ describe('the Gradle distribution is fetched before anything costs money', () =>
     // A warm-up that swallows its own failure just moves the error later,
     // back to after the wake.
     const body = e2e.slice(
-      e2e.indexOf('Fetch the Gradle distribution'),
+      e2e.indexOf('Fetch every external download'),
       e2e.indexOf('Wake remote target node')
     );
 
     expect(body).toMatch(/::error::/);
-    expect(body).toMatch(/exit 1/);
+    // `warm` returns non-zero; the step runs under `bash -e` with no `|| true`,
+    // so either failure stops the run before the wake.
+    expect(body).toMatch(/return 1/);
   });
 
   it('says the retry is free, because that is the point', () => {
     const body = e2e.slice(
-      e2e.indexOf('Fetch the Gradle distribution'),
+      e2e.indexOf('Fetch every external download'),
       e2e.indexOf('Wake remote target node')
     );
 
@@ -92,5 +93,48 @@ describe('the distribution is cached so most runs never fetch it', () => {
     // CI hit the same failure first; fixing only the nightly would leave every
     // pull request exposed to it.
     expect(ci).toMatch(/java-version: '21'[\s\S]{0,400}?cache: 'gradle'/);
+  });
+});
+
+describe('the warm-up covers every download the build makes', () => {
+  const body = e2e.slice(
+    e2e.indexOf('Fetch every external download'),
+    e2e.indexOf('Wake remote target node')
+  );
+
+  it('warms the shared OSGi modules, not just the wrapper', () => {
+    // The first version warmed only the distribution, and the next run died on
+    // downloadSharedOsgiModules instead - same 504, same wasted wake.
+    expect(body).toContain('./gradlew downloadSharedOsgiModules');
+  });
+
+  it('still warms the wrapper distribution', () => {
+    expect(body).toContain('./gradlew --version');
+  });
+
+  it('fails the run if either one cannot be fetched', () => {
+    // `warm` returns non-zero and the step has no `|| true`, so a failure of
+    // either stops the run before the wake.
+    expect(body).toMatch(/return 1/);
+    expect(body).not.toMatch(/warm .*\|\| true/);
+  });
+});
+
+describe('the build rides out a bad minute', () => {
+  const gradle = fs.readFileSync(
+    path.resolve(__dirname, '..', '..', '..', 'build.gradle'),
+    'utf8'
+  );
+
+  it('retries long enough to outlast a 504', () => {
+    // Three attempts at 1s and 2s put every try inside three seconds, which a
+    // 504 outlasts comfortably - a run died with "retrying" logged twice.
+    expect(gradle).toMatch(/def attempts = 5/);
+  });
+
+  it('backs off exponentially rather than linearly', () => {
+    expect(gradle).toMatch(
+      /Thread\.sleep\(2000L \* \(1L << \(attempt - 1\)\)\)/
+    );
   });
 });

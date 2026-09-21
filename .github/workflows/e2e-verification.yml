@@ -320,20 +320,32 @@ jobs:
       # Retried because the failure is a remote host having a bad minute, not
       # a broken build: the same URL served 200 from elsewhere while the runner
       # was getting 504s.
-      - name: Fetch the Gradle distribution before anything costs money
+      - name: Fetch every external download before anything costs money
         run: |
-          for attempt in 1 2 3; do
-            if ./gradlew --version > /dev/null 2>&1; then
-              echo "✅ Gradle wrapper ready (attempt $attempt)."
-              exit 0
-            fi
-            echo "⚠️  Gradle wrapper fetch failed (attempt $attempt/3)."
-            [ "$attempt" -lt 3 ] && sleep 15
-          done
+          # The wrapper distribution *and* the shared OSGi modules. The first
+          # version of this step warmed only the distribution, and the next run
+          # died on the modules instead - same 504, same wasted wake. Phase 2
+          # needs no node at all, so every byte it fetches belongs here.
+          warm() {
+            local what="$1"
+            shift
 
-          echo "::error::Could not fetch the Gradle distribution after 3 attempts. Nothing was woken, so this run costs nothing to retry."
-          ./gradlew --version || true
-          exit 1
+            for attempt in 1 2 3; do
+              if "$@" > /dev/null 2>&1; then
+                echo "✅ ${what} ready (attempt ${attempt})."
+                return 0
+              fi
+              echo "⚠️  ${what} fetch failed (attempt ${attempt}/3)."
+              [ "$attempt" -lt 3 ] && sleep 15
+            done
+
+            echo "::error::Could not fetch ${what} after 3 attempts. Nothing was woken, so this run costs nothing to retry."
+            "$@" || true
+            return 1
+          }
+
+          warm "the Gradle distribution" ./gradlew --version
+          warm "the shared OSGi modules" ./gradlew downloadSharedOsgiModules
 
       - name: Wake remote target node (if requested)
         # A failure here is fatal rather than advisory. The run that prompted
