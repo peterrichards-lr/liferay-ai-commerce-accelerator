@@ -204,6 +204,10 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+          # The wrapper fetches gradle-8.5-bin.zip from an external host on
+          # every run, with a 10s timeout and no retry. Two consecutive runs
+          # died there - one read timeout, one HTTP 504 - having built nothing.
+          cache: 'gradle'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -307,6 +311,29 @@ jobs:
           fi
         env:
           SSH_KEY_DATA: ${{ secrets.EC2_SSH_KEY || secrets.LDM_SSH_KEY || secrets.AWS_SSH_KEY }}
+
+      # Before the wake, deliberately. The build runs inside the E2E step,
+      # which is after the node is powered on - so a failed download costs a
+      # billable instance that is woken, does nothing, and is put back to
+      # sleep. That is what the two runs above each cost.
+      #
+      # Retried because the failure is a remote host having a bad minute, not
+      # a broken build: the same URL served 200 from elsewhere while the runner
+      # was getting 504s.
+      - name: Fetch the Gradle distribution before anything costs money
+        run: |
+          for attempt in 1 2 3; do
+            if ./gradlew --version > /dev/null 2>&1; then
+              echo "✅ Gradle wrapper ready (attempt $attempt)."
+              exit 0
+            fi
+            echo "⚠️  Gradle wrapper fetch failed (attempt $attempt/3)."
+            [ "$attempt" -lt 3 ] && sleep 15
+          done
+
+          echo "::error::Could not fetch the Gradle distribution after 3 attempts. Nothing was woken, so this run costs nothing to retry."
+          ./gradlew --version || true
+          exit 1
 
       - name: Wake remote target node (if requested)
         # A failure here is fatal rather than advisory. The run that prompted
