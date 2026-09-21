@@ -212,6 +212,11 @@ DEFAULT_HOST="${PROJECT_NAME}.demo"
 
 # LDM 2.7.14+ automatically forwards OPENAI_*, GEMINI_*, etc.
 # We explicitly add AI_ prefix to the passthrough list for AICA-specific keys.
+#
+# COM_LIFERAY_LXC_ is deliberately absent: LDM forwards it by default, along
+# with LXC_ and the AI providers, and LDM_FORWARD_PREFIXES extends that list
+# rather than replacing it. Adding it here would read as a fix for the
+# microservice's missing Liferay URL and change nothing.
 export LDM_FORWARD_PREFIXES="AI_,LIFERAY_"
 TARGET_HOST="${LIFERAY_HOST:-$DEFAULT_HOST}"
 GRADLE_PROPS="gradle.properties"
@@ -1127,6 +1132,19 @@ fi
 export LDM_FRAGMENT_PATCH_TIMEOUT="${LDM_FRAGMENT_PATCH_TIMEOUT:-900}"
 
 # Finally wait for deployables to be processed (Custom Objects, OAuth apps, Site Initializer, etc)
+# What the container actually received, not what we exported. The two have
+# disagreed once already, and the SDK's failure names a variable rather than
+# reporting which of its four sources it tried - so without this the next
+# question costs another run.
+if [ -n "${MICROSERVICE_CONTAINER:-}" ] || MICROSERVICE_CONTAINER="${PROJECT_NAME}-ai-commerce-accelerator-microservice"; then
+    echo "🔎 Liferay-related environment inside $MICROSERVICE_CONTAINER:"
+    docker exec "$MICROSERVICE_CONTAINER" env 2>/dev/null \
+        | grep -E "^(LIFERAY_API_URL|LIFERAY_URL|COM_LIFERAY_LXC_)" \
+        | sed 's/^/     /' \
+        | sort \
+        || echo "     (could not read the container's environment)"
+fi
+
 echo "⏳ Waiting for Liferay Client Extensions (deployables) to be processed..."
 DEPLOYABLES_READY=1
 if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 180 "${PROBE_URL_ARGS[@]}"; then
