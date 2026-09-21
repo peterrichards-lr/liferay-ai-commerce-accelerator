@@ -170,8 +170,13 @@ ldm_cmd() {
     ldm "$@" "${node_args[@]}"
 }
 
+# Routed through ldm_cmd, not bare `ldm`. The concurrency check below asks
+# what else is running; asking this host answers about the wrong machine, and
+# on a remote target the answer is always "nothing" because nothing runs here.
+# The check then passes by construction - no cover at all, from a guard that
+# reads as though it provides some.
 other_running_ldm_projects() {
-    ldm list --json 2>/dev/null | node -e '
+    ldm_cmd list --json 2>/dev/null | node -e '
       try {
         const input = JSON.parse(require("fs").readFileSync(0, "utf-8"));
         const currentProject = process.env.PROJECT_NAME || "";
@@ -264,9 +269,13 @@ if ! route_docker_to_node; then
 fi
 
 # --- Logging Helpers ---
+# stderr, not stdout: two callers capture ldm_cmd's output - `$(ldm_cmd info
+# --json)` and `ldm_cmd list --json | node` - and a [CMD] line inside either
+# makes the JSON unparseable. Both then fall back silently, to a default login
+# and to "nothing else is running" respectively.
 log_command() {
    if [ "$VERBOSE" -eq 1 ]; then
-      echo -e "\033[0;34m[CMD]\033[0m $*"
+      echo -e "\033[0;34m[CMD]\033[0m $*" >&2
    fi
 }
 
@@ -1301,7 +1310,11 @@ export AICA_MICROSERVICE_URL="http://localhost:${RESOLVED_SIDECAR_PORT}"
 
 # Attempt to fetch dynamic credentials from LDM
 echo "🔑 Attempting to extract dynamic LDM credentials..."
-LDM_CREDS=$(ldm info "$PROJECT_NAME" --credentials --json 2>/dev/null || echo "")
+# Also ldm_cmd: asking this host for a remote project's credentials returns
+# nothing, and the fallback below is a *default* login. Playwright would then
+# fail every spec at the login form - which reads as an application defect
+# rather than a configuration one.
+LDM_CREDS=$(ldm_cmd info "$PROJECT_NAME" --credentials --json 2>/dev/null || echo "")
 
 if [ -n "$LDM_CREDS" ] && [ "$LDM_CREDS" != "[]" ]; then
     # Use Node.js to safely parse the JSON array and extract the 'admin' credential
