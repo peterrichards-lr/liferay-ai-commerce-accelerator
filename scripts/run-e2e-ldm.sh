@@ -878,6 +878,129 @@ if ! host_is_resolvable && docker port "$PROJECT_NAME" 8080 &>/dev/null; then
     export_target_urls "the container's mapped port became readable"
 fi
 
+# --- Remote node tunnel ---
+#
+# Playwright runs here; the stack runs on the compute node. The browser has to
+# reach Liferay, and the certificate LDM issues names $TARGET_HOST - so reaching
+# the stack by the node's address can never validate, whatever the security
+# group allows.
+#
+# Forwarding the node's ports onto this host's loopback makes the hosts entry
+# ($TARGET_HOST -> 127.0.0.1) true rather than wrong: the name the browser asks
+# for is the name on the certificate, and TARGET_URL needs no special case for
+# remote. It also means nothing is exposed publicly - the traffic rides the SSH
+# connection LDM already authenticates for (#1085).
+NODE_TUNNEL_PID=""
+NODE_TUNNEL_SUDO=0
+
+# The wake step resolves the node's current address and records it in both of
+# these. Read it rather than re-resolving, so the tunnel can never point
+# somewhere other than the node LDM is driving.
+node_ssh_endpoint() {
+    python3 - "$LDM_NODE_TARGET" <<'PY'
+import json, sys
+from pathlib import Path
+
+node = sys.argv[1]
+for path, key in ((Path.home() / ".ldmrc", "targets"),
+                  (Path(".node-power-config.json"), "nodes")):
+    try:
+        entry = json.loads(path.read_text()).get(key, {}).get(node, {})
+    except Exception:
+        continue
+    if entry.get("host"):
+        print(f"{entry.get('user') or 'ldm-automation'}@{entry['host']}")
+        break
+PY
+}
+
+tunnel_is_listening() {
+    (exec 3<>/dev/tcp/127.0.0.1/443) 2>/dev/null && exec 3<&- 3>&-
+}
+
+open_node_tunnel() {
+    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
+
+    local endpoint key waited=0
+    local ssh_args=() sudo_prefix=()
+
+    endpoint="$(node_ssh_endpoint)"
+    if [ -z "$endpoint" ]; then
+        echo "❌ ERROR: No SSH endpoint recorded for node '$LDM_NODE_TARGET'."
+        echo "   The wake step writes it to ~/.ldmrc and .node-power-config.json; neither had a host."
+        return 1
+    fi
+
+    # Explicit -i here, unlike the callers #1085 was about: this caller knows
+    # the key, and under sudo it runs as root, whose ~/.ssh is not the one CI
+    # configured.
+    key="${LDM_SSH_KEY:-$HOME/.ssh/aws-key.pem}"
+    ssh_args=(-N
+        -o StrictHostKeyChecking=no
+        -o UserKnownHostsFile=/dev/null
+        -o ExitOnForwardFailure=yes
+        -o ServerAliveInterval=30
+        -o BatchMode=yes
+        -L "443:localhost:443"
+        -L "80:localhost:80")
+    [ -f "$key" ] && ssh_args=(-i "$key" "${ssh_args[@]}")
+
+    # 443 and 80 specifically: the certificate names $TARGET_HOST with no port,
+    # and Liferay builds absolute URLs from the same host name.
+    if [ "$(id -u)" -ne 0 ]; then
+        sudo_prefix=(sudo)
+        NODE_TUNNEL_SUDO=1
+    fi
+
+    echo "🔌 Forwarding ${endpoint#*@}:443 and :80 onto this host so '$TARGET_HOST' reaches the stack..."
+    "${sudo_prefix[@]}" ssh "${ssh_args[@]}" "$endpoint" &
+    NODE_TUNNEL_PID=$!
+
+    until tunnel_is_listening; do
+        if ! kill -0 "$NODE_TUNNEL_PID" 2>/dev/null; then
+            NODE_TUNNEL_PID=""
+            echo "❌ ERROR: The tunnel to $endpoint exited immediately."
+            echo "   ExitOnForwardFailure is set, so this is a bind or authentication failure, not a slow start."
+            return 1
+        fi
+        if [ "$waited" -ge "${TUNNEL_READY_TIMEOUT:-30}" ]; then
+            echo "❌ ERROR: Tunnel opened but nothing is listening on 127.0.0.1:443 after ${waited}s."
+            return 1
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+
+    echo "✅ Tunnel up; '$TARGET_HOST' now reaches the stack on '$LDM_NODE_TARGET'."
+}
+
+close_node_tunnel() {
+    [ -n "$NODE_TUNNEL_PID" ] || return 0
+    echo "🔌 Closing the tunnel to '$LDM_NODE_TARGET'..."
+    if [ "$NODE_TUNNEL_SUDO" -eq 1 ]; then
+        sudo kill "$NODE_TUNNEL_PID" 2>/dev/null || true
+    else
+        kill "$NODE_TUNNEL_PID" 2>/dev/null || true
+    fi
+    NODE_TUNNEL_PID=""
+}
+
+# LDM gained --probe-url in 2.25.0-pre.2 (LDM-#1891). Without it, LDM derives
+# the URL from the target and probes the node's address, which the tunnel makes
+# both unnecessary and wrong. Detect it rather than pinning a version, so an
+# older LDM still runs - it just probes as it always did.
+PROBE_URL_ARGS=()
+if ldm wait --help 2>&1 | grep -q -- '--probe-url'; then
+    PROBE_URL_ARGS=(--probe-url "$TARGET_URL")
+else
+    echo "⚠️  This LDM has no --probe-url; readiness will probe the address it derives, not $TARGET_URL."
+fi
+
+if ! open_node_tunnel; then
+    write_signal "UNHEALTHY"
+    exit 1
+fi
+
 # --- Phase 4: Sync & Wait ---
 
 write_signal "WAITING_HEALTHY"
@@ -888,7 +1011,7 @@ ldm_cmd logs -f "$PROJECT_NAME" &
 LOG_PID=$!
 
 # Wait for Liferay HTTP layer to become healthy FIRST
-if ! ldm_cmd wait "$PROJECT_NAME" --timeout 1800; then
+if ! ldm_cmd wait "$PROJECT_NAME" --timeout 1800 "${PROBE_URL_ARGS[@]}"; then
     write_signal "UNHEALTHY"
     echo -e "\n❌ ERROR: Liferay failed to become ready within 30 minutes."
     kill $LOG_PID 2>/dev/null || true
@@ -982,7 +1105,7 @@ export LDM_FRAGMENT_PATCH_TIMEOUT="${LDM_FRAGMENT_PATCH_TIMEOUT:-900}"
 # Finally wait for deployables to be processed (Custom Objects, OAuth apps, Site Initializer, etc)
 echo "⏳ Waiting for Liferay Client Extensions (deployables) to be processed..."
 DEPLOYABLES_READY=1
-if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 180; then
+if ! ldm_cmd wait "$PROJECT_NAME" -d --timeout 180 "${PROBE_URL_ARGS[@]}"; then
     DEPLOYABLES_READY=0
     echo -e "\n⚠️  WARNING: Liferay deployables probe did not complete within 3 minutes; continuing to test execution."
 fi
@@ -1023,6 +1146,10 @@ echo "🎭 Phase 5: Running Playwright E2E tests..."
 
 cleanup() {
     local exit_code=$?
+
+    # Before anything that talks to the node, so a hung tunnel cannot delay
+    # teardown of a billable instance.
+    close_node_tunnel
     if [ $exit_code -eq 0 ]; then
         write_signal "SUCCESS"
     else
