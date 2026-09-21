@@ -47,6 +47,15 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Redefine ldm command to run with python3.13 if present (prevents python3.14 conflicts on macOS host)
+ldm() {
+    if [ -x "/opt/homebrew/bin/python3.13" ]; then
+        /opt/homebrew/bin/python3.13 /usr/local/bin/ldm "$@"
+    else
+        command ldm "$@"
+    fi
+}
+
 # If verbose mode is enabled, let the user know
 if [ $VERBOSE -eq 1 ]; then
   echo "🛠️  Verbose mode enabled. Realized commands will be displayed with [CMD]."
@@ -202,14 +211,57 @@ export LDM_FORWARD_PREFIXES="AI_,LIFERAY_"
 TARGET_HOST="${LIFERAY_HOST:-$DEFAULT_HOST}"
 GRADLE_PROPS="gradle.properties"
 
-# Redefine ldm command to run with python3.13 if present (prevents python3.14 conflicts on macOS host)
-ldm() {
-    if [ -x "/opt/homebrew/bin/python3.13" ]; then
-        /opt/homebrew/bin/python3.13 /usr/local/bin/ldm "$@"
-    else
-        command ldm "$@"
-    fi
+# The wake step resolves the node's current address and records it in both of
+# these. Read it rather than re-resolving, so the tunnel can never point
+# somewhere other than the node LDM is driving.
+node_ssh_endpoint() {
+    python3 - "$LDM_NODE_TARGET" <<'PY'
+import json, sys
+from pathlib import Path
+
+node = sys.argv[1]
+for path, key in ((Path.home() / ".ldmrc", "targets"),
+                  (Path(".node-power-config.json"), "nodes")):
+    try:
+        entry = json.loads(path.read_text()).get(key, {}).get(node, {})
+    except Exception:
+        continue
+    if entry.get("host"):
+        print(f"{entry.get('user') or 'ldm-automation'}@{entry['host']}")
+        break
+PY
 }
+
+# Every raw `docker` call in this script addresses a container by name. LDM's
+# own invocations follow the target because ldm_cmd appends --node; these did
+# not, so on a remote target they addressed this host's daemon, where the
+# containers do not exist. Each is written to tolerate failure, so all nine
+# failed silently (#1089).
+#
+# Setting DOCKER_HOST once routes them all rather than annotating nine call
+# sites, and it is the same transport LDM uses (docker system dial-stdio over
+# SSH). The proxy removals at the infra-setup and run steps are included
+# deliberately: on a remote target the proxy runs on the node, so the node is
+# what a stale proxy has to be cleared from.
+route_docker_to_node() {
+    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
+    [ -z "${DOCKER_HOST:-}" ] || return 0
+
+    local endpoint
+    endpoint="$(node_ssh_endpoint)"
+    if [ -z "$endpoint" ]; then
+        echo "❌ ERROR: No SSH endpoint recorded for node '$LDM_NODE_TARGET'."
+        echo "   Every docker call in this script would address this host instead."
+        return 1
+    fi
+
+    export DOCKER_HOST="ssh://$endpoint"
+    echo "🐳 Routing docker to '$LDM_NODE_TARGET' ($DOCKER_HOST)."
+}
+
+if ! route_docker_to_node; then
+    exit 1
+fi
 
 # --- Logging Helpers ---
 log_command() {
@@ -893,27 +945,6 @@ fi
 NODE_TUNNEL_PID=""
 NODE_TUNNEL_SUDO=0
 
-# The wake step resolves the node's current address and records it in both of
-# these. Read it rather than re-resolving, so the tunnel can never point
-# somewhere other than the node LDM is driving.
-node_ssh_endpoint() {
-    python3 - "$LDM_NODE_TARGET" <<'PY'
-import json, sys
-from pathlib import Path
-
-node = sys.argv[1]
-for path, key in ((Path.home() / ".ldmrc", "targets"),
-                  (Path(".node-power-config.json"), "nodes")):
-    try:
-        entry = json.loads(path.read_text()).get(key, {}).get(node, {})
-    except Exception:
-        continue
-    if entry.get("host"):
-        print(f"{entry.get('user') or 'ldm-automation'}@{entry['host']}")
-        break
-PY
-}
-
 tunnel_is_listening() {
     (exec 3<>/dev/tcp/127.0.0.1/443) 2>/dev/null && exec 3<&- 3>&-
 }
@@ -972,6 +1003,60 @@ open_node_tunnel() {
     done
 
     echo "✅ Tunnel up; '$TARGET_HOST' now reaches the stack on '$LDM_NODE_TARGET'."
+}
+
+NODE_PORT_FORWARD_PID=""
+
+# The main tunnel forwards 443 and 80 because that is what the browser needs
+# and those are known up front. The sidecar's mapped port is not known until
+# its container exists, so it gets its own forward.
+forward_node_port() {
+    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
+
+    local port="$1" endpoint key waited=0
+    local ssh_args=()
+
+    endpoint="$(node_ssh_endpoint)"
+    if [ -z "$endpoint" ]; then
+        echo "❌ ERROR: No SSH endpoint recorded for node '$LDM_NODE_TARGET'."
+        return 1
+    fi
+
+    key="${LDM_SSH_KEY:-$HOME/.ssh/aws-key.pem}"
+    ssh_args=(-N
+        -o StrictHostKeyChecking=no
+        -o UserKnownHostsFile=/dev/null
+        -o ExitOnForwardFailure=yes
+        -o ServerAliveInterval=30
+        -o BatchMode=yes
+        -L "${port}:localhost:${port}")
+    [ -f "$key" ] && ssh_args=(-i "$key" "${ssh_args[@]}")
+
+    echo "🔌 Forwarding sidecar port ${port} from '$LDM_NODE_TARGET'..."
+    ssh "${ssh_args[@]}" "$endpoint" &
+    NODE_PORT_FORWARD_PID=$!
+
+    until (exec 3<>/dev/tcp/127.0.0.1/"$port") 2>/dev/null && exec 3<&- 3>&-; do
+        if ! kill -0 "$NODE_PORT_FORWARD_PID" 2>/dev/null; then
+            NODE_PORT_FORWARD_PID=""
+            echo "❌ ERROR: The forward for port ${port} exited immediately."
+            return 1
+        fi
+        if [ "$waited" -ge "${TUNNEL_READY_TIMEOUT:-30}" ]; then
+            echo "❌ ERROR: Nothing is listening on 127.0.0.1:${port} after ${waited}s."
+            return 1
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+
+    echo "✅ Sidecar reachable on localhost:${port}."
+}
+
+close_node_port_forward() {
+    [ -n "$NODE_PORT_FORWARD_PID" ] || return 0
+    kill "$NODE_PORT_FORWARD_PID" 2>/dev/null || true
+    NODE_PORT_FORWARD_PID=""
 }
 
 close_node_tunnel() {
@@ -1150,6 +1235,7 @@ cleanup() {
     # Before anything that talks to the node, so a hung tunnel cannot delay
     # teardown of a billable instance.
     close_node_tunnel
+    close_node_port_forward
     if [ $exit_code -eq 0 ]; then
         write_signal "SUCCESS"
     else
@@ -1189,10 +1275,23 @@ trap cleanup EXIT
 SIDECAR_PORT_BINDING=$(docker port "${PROJECT_NAME}-sidecar" 3001 2>/dev/null || echo "")
 if [ -n "$SIDECAR_PORT_BINDING" ]; then
     RESOLVED_SIDECAR_PORT=$(echo "$SIDECAR_PORT_BINDING" | head -n 1 | cut -d':' -f2)
+elif [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ]; then
+    # find_free_port cannot stand in here. It returns a port *because* nothing
+    # is listening on it, so the run would carry on with an address guaranteed
+    # to be dead and announce it as resolved (#1089).
+    echo "❌ ERROR: Sidecar '${PROJECT_NAME}-sidecar' published no port for 3001 on '$LDM_NODE_TARGET'."
+    echo "   Refusing to invent one: every URL built from it would point at nothing."
+    write_signal "UNHEALTHY"
+    exit 1
 else
     RESOLVED_SIDECAR_PORT=$(find_free_port 3001)
 fi
 echo "ℹ  Resolved sidecar port: $RESOLVED_SIDECAR_PORT"
+
+if ! forward_node_port "$RESOLVED_SIDECAR_PORT"; then
+    write_signal "UNHEALTHY"
+    exit 1
+fi
 
 # Set the environment variables for Playwright and the Microservice
 export_target_urls "the environment became ready"
