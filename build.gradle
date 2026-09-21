@@ -214,7 +214,10 @@ downloadSharedOsgiModules {
 		// every deploy and build in the workspace (#726).
 		def fetchBytes = {
 			String url ->
-			def attempts = 3
+			// Five, with exponential backoff. Three attempts at 1s and 2s put
+			// every try inside a three-second window, which a 504 outlasts
+			// comfortably - that is how a run died with "retrying" logged twice.
+			def attempts = 5
 			def lastFailure = null
 
 			for (int attempt = 1; attempt <= attempts; attempt++) {
@@ -227,7 +230,7 @@ downloadSharedOsgiModules {
 					if (attempt < attempts) {
 						logger.lifecycle(
 							"Fetch of ${url} failed (${e.message}); retrying")
-						Thread.sleep(1000L * attempt)
+						Thread.sleep(2000L * (1L << (attempt - 1)))
 					}
 				}
 			}
