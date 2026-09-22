@@ -45,13 +45,19 @@ function functionSource(...names) {
   return out.join('\n\n');
 }
 
-function harness({ node, ldmrc, sshBehaviour = 'sleep 10' }) {
+function harness({ node, ldmrc, sshBehaviour = 'sleep 5' }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tunnel-'));
   const bin = path.join(dir, 'bin');
 
   fs.mkdirSync(bin);
   // A recording stand-in for ssh: argv goes to a file, and the process either
-  // lingers (a tunnel that stayed up) or exits (one that could not bind).
+  // lingers briefly (a tunnel that stayed up) or exits (one that could not
+  // bind).
+  //
+  // `sleep 5`, not 10: long enough to outlive the readiness poll so a tunnel
+  // that stayed up is distinguishable from one that could not bind, short
+  // enough that a stand-in named `ssh` holding a `-L` port-forward command
+  // line does not linger on a monitored machine.
   fs.writeFileSync(
     path.join(bin, 'ssh'),
     [
@@ -98,14 +104,33 @@ function harness({ node, ldmrc, sshBehaviour = 'sleep 10' }) {
         LDM_NODE_TARGET: node,
         TARGET_HOST: 'aica-e2e.demo',
         LDM_SSH_KEY: '/nonexistent-key',
-        TUNNEL_READY_TIMEOUT: '1',
+        // Long enough that a stand-in which exits has actually been scheduled
+        // and reaped by the time the loop checks. At 1s on a loaded runner,
+        // `kill -0` still saw an unscheduled process as alive, so the
+        // bind-failure case took the timeout path and reported the wrong
+        // message. Shorter than the lingering stand-in's sleep, so the two
+        // outcomes stay distinguishable.
+        TUNNEL_READY_TIMEOUT: '3',
       },
     });
   } catch (e) {
     stdout = `${e.stdout || ''}${e.stderr || ''}`;
   }
 
+  // Polled, not assumed. The stand-in is backgrounded by open_node_tunnel, so
+  // bash can return before it has been scheduled - which read as "ssh was
+  // invoked with no arguments" and made three cases flaky under CI load
+  // rather than on this machine.
   const argvFile = path.join(dir, 'ssh-argv');
+  // Only the cases that actually reach ssh: a local target returns before
+  // invoking it, and so does a missing endpoint. Waiting on those would add
+  // three seconds each to prove nothing.
+  const sshExpected = node !== 'local' && ldmrc !== undefined;
+  const deadline = Date.now() + 3000;
+
+  while (sshExpected && !fs.existsSync(argvFile) && Date.now() < deadline) {
+    execFileSync('sleep', ['0.05']);
+  }
 
   return {
     stdout,
