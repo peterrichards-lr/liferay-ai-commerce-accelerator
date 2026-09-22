@@ -1,3 +1,5 @@
+const fs = require('fs/promises');
+
 const HealthService = require('../services/healthService.cjs');
 const { ENV } = require('../utils/constants.cjs');
 
@@ -54,10 +56,47 @@ describe('HealthService', () => {
   });
 
   it('should run all health checks and return a healthy status', async () => {
-    const report = await healthService.runAllHealthChecks();
+    // Memory and disk read the real process heap and the real root
+    // filesystem, so the aggregate depended on whatever the machine happened
+    // to be doing. Under vitest's own heap this asserted 'healthy' and got
+    // 'degraded', failing locally while passing in CI - not because CI is
+    // right, but because its runners happened to sit under the thresholds.
+    //
+    // Pinned to known-good values so the case tests the roll-up, which is what
+    // it is for, rather than the host it runs on. The unhealthy paths are
+    // covered separately, and `process.memoryUsage` is stubbed there the same
+    // way.
+    const originalMemoryUsage = process.memoryUsage;
+
+    process.memoryUsage = vi.fn().mockReturnValue({
+      heapUsed: 64 * 1024 * 1024, // 12.5% of the 512MB ceiling
+      heapTotal: 128 * 1024 * 1024,
+      external: 0,
+      rss: 128 * 1024 * 1024,
+    });
+
+    const statfs = vi.spyOn(fs, 'statfs').mockResolvedValue({
+      blocks: 1000,
+      bsize: 4096,
+      bfree: 500, // 50% free
+    });
+
+    let report;
+
+    try {
+      report = await healthService.runAllHealthChecks();
+    } finally {
+      process.memoryUsage = originalMemoryUsage;
+      statfs.mockRestore();
+    }
+
     expect(report.status).toBe('healthy');
     expect(report.checks.database.status).toBe('healthy');
     expect(report.checks.ai.status).toBe('healthy');
+    // The two that made this environmental, asserted explicitly so a future
+    // change to either threshold fails here rather than intermittently.
+    expect(report.checks.memory.status).toBe('healthy');
+    expect(report.checks.disk.status).toBe('healthy');
   });
 
   // The credentials half of this fallback read LIFERAY_CLIENT_ID and
