@@ -1141,26 +1141,31 @@ export LDM_FRAGMENT_PATCH_TIMEOUT="${LDM_FRAGMENT_PATCH_TIMEOUT:-900}"
 # Finally wait for deployables to be processed (Custom Objects, OAuth apps, Site Initializer, etc)
 # What the container actually received, not what we exported.
 #
-# The first version of this printed a header and nothing else, which reads the
-# same whether the variables are absent or `docker exec` failed - the `|| echo`
-# bound to `sort`, which exits 0 on empty input. So report the exec separately
-# from its result: a total count proves the exec worked, and "(none)" states
-# absence rather than implying it (#1106).
+# Printed whole, with values masked. Two earlier versions were each one step
+# short: the first printed a header and nothing else, which read the same
+# whether the variables were absent or `docker exec` failed; the second
+# filtered on ^(LIFERAY_|COM_LIFERAY_LXC_|LXC_) and so could not tell "absent"
+# from "arrived under another name".
+#
+# That distinction matters here. LDM forwards some prefixes as-is and strips
+# others - LDM_COMPANY_ID arrives as COMPANY_ID, and a service-targeted
+# variable loses its service prefix too. A filter keyed on the name we exported
+# cannot see a variable that was renamed on the way in, and would report it
+# missing (#1106).
+#
+# The container holds around a dozen variables, so there is no reason to
+# filter. Values are masked because LIFERAY_* can carry credentials, and the
+# question is which names arrived, not what they hold.
 MICROSERVICE_CONTAINER="${PROJECT_NAME}-ai-commerce-accelerator-microservice"
 
 if container_env=$(docker exec "$MICROSERVICE_CONTAINER" env 2>&1); then
     env_total=$(printf '%s\n' "$container_env" | grep -c .)
-    liferay_env=$(printf '%s\n' "$container_env" \
-        | grep -E "^(LIFERAY_|COM_LIFERAY_LXC_|LXC_)" \
-        | sort)
 
-    echo "🔎 $MICROSERVICE_CONTAINER holds $env_total environment variable(s). Liferay-related:"
-
-    if [ -n "$liferay_env" ]; then
-        printf '%s\n' "$liferay_env" | sed 's/^/     /'
-    else
-        echo "     (none - the SDK has no LIFERAY_API_URL and cannot build a colocated URL)"
-    fi
+    echo "🔎 $MICROSERVICE_CONTAINER holds $env_total environment variable(s):"
+    printf '%s\n' "$container_env" \
+        | sed 's/=.*/=<set>/' \
+        | sort \
+        | sed 's/^/     /'
 else
     echo "⚠️  Could not read $MICROSERVICE_CONTAINER's environment; this says nothing about forwarding:"
     printf '%s\n' "$container_env" | sed 's/^/     /' | head -5
