@@ -46,6 +46,11 @@ function harness({ exitCode = 1, existing = 0, keep = 0 } = {}) {
     'write_signal() { echo "[signal] $1"; }',
     'ldm_cmd() { echo "[ldm_cmd] $*"; }',
     'ldm() { echo "[ldm] $*"; }',
+    // Declared like the others: cleanup captures the container's logs before
+    // removing it, and this harness enumerates cleanup's dependencies. The
+    // real one is defined above cleanup - staleProjectRemoval asserts that
+    // ordering - so this stands in for it rather than excusing its absence.
+    'capture_microservice_diagnostics() { echo "[capture] $*"; }',
     lines.slice(start, end + 1).join('\n'),
     'echo "[body] running"',
     `exit ${exitCode}`,
