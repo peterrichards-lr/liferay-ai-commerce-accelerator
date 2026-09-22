@@ -65,6 +65,19 @@ function inject({
 
   fs.mkdirSync(stage);
   fs.writeFileSync(path.join(stage, 'other.txt'), 'x');
+  // Shaped like the real extension: 290 entries, 24 of them directories, and
+  // executable bits on some files. A flat two-file archive cannot catch a
+  // rewrite that discards permissions, which is exactly what shipped.
+  fs.mkdirSync(path.join(stage, 'bin'));
+  fs.writeFileSync(path.join(stage, 'bin', 'run.sh'), '#!/bin/sh\necho hi\n', {
+    mode: 0o755,
+  });
+  fs.mkdirSync(path.join(stage, 'middleware'));
+  fs.writeFileSync(
+    path.join(stage, 'middleware', 'x.cjs'),
+    'module.exports={};',
+    { mode: 0o644 }
+  );
   if (withManifest) {
     fs.writeFileSync(
       path.join(stage, 'LCP.json'),
@@ -137,7 +150,9 @@ describe('the microservice is handed its Liferay URL', () => {
     // A second source for the same fact is how the plan and the target came to
     // disagree in #1081. export_target_urls derives LIFERAY_API_URL from
     // TARGET_URL, and this must read it rather than restate the value.
-    expect(source).toMatch(/python3 - "\$staged" "\$LIFERAY_API_URL"/);
+    expect(source).toMatch(
+      /python3 - "\$workdir\/LCP\.json" "\$LIFERAY_API_URL"/
+    );
   });
 
   it('is actually called, before the container is started', () => {
@@ -164,6 +179,76 @@ describe('the microservice is handed its Liferay URL', () => {
     expect(Object.keys(env)).not.toContain(
       'COM_LIFERAY_LXC_DXP_SERVER_PROTOCOL'
     );
+  });
+});
+
+describe('the archive is updated, not rebuilt', () => {
+  // Mode and name per entry, nothing else. Comparing whole listings drags in
+  // the archive's total size, which legitimately changes when LCP.json grows.
+  function entryModes(zip) {
+    return execFileSync('unzip', ['-Z', '-l', zip], { encoding: 'utf8' })
+      .split('\n')
+      .map((line) => line.match(/^([drwx-]{10})\s.*\s(\S+)$/))
+      .filter(Boolean)
+      .map(([, mode, name]) => `${mode} ${name}`)
+      .filter((entry) => !entry.endsWith('LCP.json'))
+      .sort();
+  }
+
+  it('preserves permissions and directory entries', () => {
+    // The shipped version read every entry and wrote a fresh archive with
+    // writestr(filename, data). Passing a name rather than the original
+    // ZipInfo resets the mode: measured against the real extension, every
+    // file went from 0o100644/0o100755 to 0o600 and directories to 0o40775.
+    //
+    // Inside the container `liferay` could then read none of it, Liferay
+    // failed to process the client extension, and the run died with 34
+    // company-lookup failures having never reached readiness (#1109).
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lcp-modes-'));
+    const cxDir = path.join(dir, 'proj', 'osgi', 'client-extensions');
+    const stage = path.join(dir, 'stage');
+
+    fs.mkdirSync(cxDir, { recursive: true });
+    fs.mkdirSync(path.join(stage, 'bin'), { recursive: true });
+    fs.writeFileSync(
+      path.join(stage, 'LCP.json'),
+      JSON.stringify({ env: { PORT: '3001' } })
+    );
+    fs.writeFileSync(path.join(stage, 'bin', 'run.sh'), '#!/bin/sh\n', {
+      mode: 0o755,
+    });
+
+    const zip = path.join(cxDir, 'ai-commerce-accelerator-microservice.zip');
+
+    execFileSync('zip', ['-q', '-r', zip, '.'], { cwd: stage });
+
+    const before = entryModes(zip);
+
+    execFileSync(
+      'bash',
+      [
+        '-c',
+        `${functionSource('inject_liferay_url_into_microservice')}\ninject_liferay_url_into_microservice`,
+      ],
+      {
+        cwd: dir,
+        encoding: 'utf8',
+        env: {
+          PATH: process.env.PATH,
+          PROJECT_NAME: 'proj',
+          LIFERAY_API_URL: 'https://aica-e2e.demo',
+        },
+      }
+    );
+
+    expect(entryModes(zip)).toEqual(before);
+    expect(entryModes(zip)).toContain('-rwxr-xr-x bin/run.sh');
+    expect(entryModes(zip)).toContain('drwxr-xr-x bin/');
+  });
+
+  it('uses zip to replace one entry rather than rewriting', () => {
+    expect(source).toMatch(/cd "\$workdir" && zip -q "\$archive" LCP\.json/);
+    expect(source).not.toMatch(/out\.writestr/);
   });
 });
 

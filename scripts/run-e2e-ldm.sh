@@ -907,30 +907,44 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
             return 0
         fi
 
-        python3 - "$staged" "$LIFERAY_API_URL" <<'PY'
-import json, shutil, sys, tempfile, zipfile
+        # Updated in place with `zip`, never rebuilt.
+        #
+        # The first version read every entry and wrote a fresh archive with
+        # `writestr(filename, data)`. Passing a filename rather than the
+        # original ZipInfo discards its metadata: the extension has 290
+        # entries, 24 of them directories, and executable bits on some files.
+        # The rebuilt archive lost all three, Liferay could not process the
+        # client extension, and the run died with 34 company-lookup failures
+        # having never reached readiness - where the run before it had none.
+        #
+        # `zip` replaces the single named entry and leaves every other byte
+        # alone, which is the only property that matters here.
+        local workdir
+        workdir=$(mktemp -d)
+
+        if ! unzip -q -o "$staged" LCP.json -d "$workdir" 2>/dev/null; then
+            echo "     $(basename "$staged") has no LCP.json; nothing to inject"
+            rm -rf "$workdir"
+            return 0
+        fi
+
+        python3 - "$workdir/LCP.json" "$LIFERAY_API_URL" <<'PY'
+import json, sys
 from pathlib import Path
 
-archive, liferay_url = Path(sys.argv[1]), sys.argv[2]
-name = "LCP.json"
-
-with zipfile.ZipFile(archive) as z:
-    if name not in z.namelist():
-        print(f"     {archive.name} has no {name}; nothing to inject")
-        raise SystemExit(0)
-    entries = {i.filename: z.read(i.filename) for i in z.infolist()}
-
-manifest = json.loads(entries[name])
+manifest_path, liferay_url = Path(sys.argv[1]), sys.argv[2]
+manifest = json.loads(manifest_path.read_text())
 manifest.setdefault("env", {})["LIFERAY_API_URL"] = liferay_url
-entries[name] = (json.dumps(manifest, indent=2) + "\n").encode()
-
-with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
-    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as out:
-        for filename, data in entries.items():
-            out.writestr(filename, data)
-shutil.move(tmp.name, archive)
-print(f"     {archive.name}: env.LIFERAY_API_URL = {liferay_url}")
+manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
 PY
+
+        local archive
+        archive=$(cd "$(dirname "$staged")" && pwd)/$(basename "$staged")
+
+        (cd "$workdir" && zip -q "$archive" LCP.json)
+        rm -rf "$workdir"
+
+        echo "     $(basename "$staged"): env.LIFERAY_API_URL = $LIFERAY_API_URL"
     }
 
     echo "🔧 Declaring LIFERAY_API_URL in the microservice's LCP.json..."
