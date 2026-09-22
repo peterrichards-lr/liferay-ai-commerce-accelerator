@@ -122,13 +122,6 @@ if [ -z "$PROJECT_NAME" ]; then
     fi
 
 
-    # HARDENING: Proactively remove any existing project folder to prevent
-    # Yarn workspace name collisions during Phase 2 (Building).
-    if [ $EXISTING_PROJECT -eq 0 ] && [ -d "$PROJECT_NAME" ]; then
-        echo "🧹 Removing stale project directory '$PROJECT_NAME' before build..."
-        ldm rm "$PROJECT_NAME" --delete -y 2>/dev/null || true
-        rm -rf "$PROJECT_NAME"
-    fi
 else
     echo "🏗️  Using existing LDM project: $PROJECT_NAME"
 fi
@@ -154,6 +147,17 @@ version_ge() {
 # [<the node's>]" - then logged "License registered" at INFO on the next line
 # and served the Activation page anyway.
 #
+# --- Logging Helpers ---
+# stderr, not stdout: two callers capture ldm_cmd's output - `$(ldm_cmd info
+# --json)` and `ldm_cmd list --json | node` - and a [CMD] line inside either
+# makes the JSON unparseable. Both then fall back silently, to a default login
+# and to "nothing else is running" respectively.
+log_command() {
+   if [ "$VERBOSE" -eq 1 ]; then
+      echo -e "\033[0;34m[CMD]\033[0m $*" >&2
+   fi
+}
+
 # Injected here rather than at each call site because LDM's own design notes
 # record that as the recurring defect: a target threaded through call sites
 # individually, where each one has to remember. All the subcommands this script
@@ -273,16 +277,28 @@ if ! route_docker_to_node; then
     exit 1
 fi
 
-# --- Logging Helpers ---
-# stderr, not stdout: two callers capture ldm_cmd's output - `$(ldm_cmd info
-# --json)` and `ldm_cmd list --json | node` - and a [CMD] line inside either
-# makes the JSON unparseable. Both then fall back silently, to a default login
-# and to "nothing else is running" respectively.
-log_command() {
-   if [ "$VERBOSE" -eq 1 ]; then
-      echo -e "\033[0;34m[CMD]\033[0m $*" >&2
-   fi
-}
+# HARDENING: Proactively remove any existing project before we build.
+#
+# This used to be guarded by `[ -d "$PROJECT_NAME" ]` - a *local*
+# directory. A CI runner is ephemeral, so on a remote target there is never
+# a local directory and the removal never ran, while the project itself sat
+# on the node. A previous run's leftovers were therefore adopted rather
+# than replaced: Liferay attached to a half-initialised database, booted in
+# 40s instead of 231s, and failed with NoSuchCompanyException (#1122).
+#
+# It also called `ldm` rather than `ldm_cmd`, so even when it did run it
+# removed a project on the wrong machine. `--node` is parsed ~80 lines
+# above this, so the target is known; #1093 exempted this call from the
+# ldm_cmd sweep on the stated grounds that it was not, which was wrong.
+#
+# Unconditional now, because "does a project exist over there" costs a
+# round trip to answer and `rm --delete` on an absent project is a no-op.
+if [ $EXISTING_PROJECT -eq 0 ]; then
+    echo "🧹 Removing any stale '$PROJECT_NAME' before build..."
+    ldm_cmd rm "$PROJECT_NAME" --delete -y 2>/dev/null || true
+    rm -rf "$PROJECT_NAME"
+fi
+
 
 
 
@@ -304,6 +320,63 @@ elif [[ "$ACTIVE_MODE_LINE" == *"isolated"* ]]; then
 else
     ORIGINAL_DB_MODE=""
 fi
+
+# Installed here, immediately after ORIGINAL_DB_MODE is known, because that is
+# the last thing cleanup reads. It used to sit 200 lines further down, after
+# the readiness wait - so any failure before that point exited with no
+# teardown at all: the project, its containers and its database volume were
+# left on the node.
+#
+# That made failures contagious. A run that died at readiness left a
+# half-initialised aica-e2e behind, and the next run attached to it instead of
+# building its own: Liferay booted in 40s rather than 231s, found no company
+# row, and failed the same way for a different reason (#1122).
+#
+# Everything cleanup calls - write_signal, ldm_cmd, ldm - is defined above.
+
+cleanup() {
+    local exit_code=$?
+
+    # Before anything that talks to the node, so a hung tunnel cannot delay
+    # teardown of a billable instance.
+    # Defined with the tunnel, far below this point. An exit before then
+    # has no tunnel to close, and calling an undefined function inside the
+    # trap would replace the run's real failure with "command not found".
+    command -v close_node_tunnel >/dev/null 2>&1 && close_node_tunnel
+    if [ $exit_code -eq 0 ]; then
+        write_signal "SUCCESS"
+    else
+        write_signal "FAILED"
+    fi
+
+    if [ $EXISTING_PROJECT -eq 1 ]; then
+        echo -e "\n🛑 Skipping cleanup for existing project '$PROJECT_NAME'."
+    elif [ $KEEP_PROJECT -eq 1 ]; then
+        echo -e "\n🛡️  Skipping cleanup: --keep flag was provided for '$PROJECT_NAME'."
+    else
+        echo -e "\n🧹 Cleaning up environment..."
+        # shellcheck disable=SC2086
+        ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true
+        echo "✨ Done."
+    fi
+    if [ -n "$ORIGINAL_DB_MODE" ]; then
+        echo -e "\n🔄 Restoring global database mode to '$ORIGINAL_DB_MODE'..."
+        ldm config database-mode "$ORIGINAL_DB_MODE" --global &>/dev/null || true
+    fi
+
+    if [ -n "$LDM_NODE_TARGET" ] && [ "$LDM_NODE_TARGET" != "local" ] && [ -f "./scripts/node_power.sh" ]; then
+        echo -e "\n💤 Returning remote target node '$LDM_NODE_TARGET' to sleep..."
+        # Not fatal - this runs from the EXIT trap, and exiting non-zero here
+        # would replace the run's own exit code - but never silent either: a
+        # node that will not power off keeps costing money until something
+        # notices. In CI the workflow's mandatory sleep step is the backstop.
+        if ! ./scripts/node_power.sh sleep "$LDM_NODE_TARGET"; then
+            echo "⚠️  WARNING: Could not power off target node '$LDM_NODE_TARGET'. It may still be running and billable."
+        fi
+    fi
+}
+
+trap cleanup EXIT
 
 
 # Force JDK 21 on macOS to ensure Liferay Docker Manager (LDM) compatibility
@@ -1317,48 +1390,6 @@ if [ $INIT_ONLY -eq 1 ]; then
 fi
 
 echo "🎭 Phase 5: Running Playwright E2E tests..."
-
-cleanup() {
-    local exit_code=$?
-
-    # Before anything that talks to the node, so a hung tunnel cannot delay
-    # teardown of a billable instance.
-    close_node_tunnel
-    if [ $exit_code -eq 0 ]; then
-        write_signal "SUCCESS"
-    else
-        write_signal "FAILED"
-    fi
-
-    if [ $EXISTING_PROJECT -eq 1 ]; then
-        echo -e "\n🛑 Skipping cleanup for existing project '$PROJECT_NAME'."
-    elif [ $KEEP_PROJECT -eq 1 ]; then
-        echo -e "\n🛡️  Skipping cleanup: --keep flag was provided for '$PROJECT_NAME'."
-    else
-        echo -e "\n🧹 Cleaning up environment..."
-        # shellcheck disable=SC2086
-        ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true
-        echo "✨ Done."
-    fi
-    if [ -n "$ORIGINAL_DB_MODE" ]; then
-        echo -e "\n🔄 Restoring global database mode to '$ORIGINAL_DB_MODE'..."
-        ldm config database-mode "$ORIGINAL_DB_MODE" --global &>/dev/null || true
-    fi
-
-    if [ -n "$LDM_NODE_TARGET" ] && [ "$LDM_NODE_TARGET" != "local" ] && [ -f "./scripts/node_power.sh" ]; then
-        echo -e "\n💤 Returning remote target node '$LDM_NODE_TARGET' to sleep..."
-        # Not fatal - this runs from the EXIT trap, and exiting non-zero here
-        # would replace the run's own exit code - but never silent either: a
-        # node that will not power off keeps costing money until something
-        # notices. In CI the workflow's mandatory sleep step is the backstop.
-        if ! ./scripts/node_power.sh sleep "$LDM_NODE_TARGET"; then
-            echo "⚠️  WARNING: Could not power off target node '$LDM_NODE_TARGET'. It may still be running and billable."
-        fi
-    fi
-}
-
-trap cleanup EXIT
-
 # The microservice is reached through the proxy, not a published port.
 #
 # Nothing publishes to the host except the shared proxy. A run against a node
