@@ -39,7 +39,10 @@ function functionSource(name) {
 
 // A stub docker standing in for the node's daemon. `logs` writes to stderr, as
 // the real one does for a Node process, so the capture has to redirect it.
-function stubDocker(dir, { container = 'aica-e2e-microservice' } = {}) {
+function stubDocker(
+  dir,
+  { container = 'aica-e2e-microservice', logsFail = false } = {}
+) {
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin, { recursive: true });
   fs.writeFileSync(
@@ -47,7 +50,7 @@ function stubDocker(dir, { container = 'aica-e2e-microservice' } = {}) {
     `#!/bin/bash
 case "$1" in
   ps) ${container ? `echo "${container}"` : 'true'} ;;
-  logs) echo "microservice boot line" >&2; echo "ENOTFOUND aica-e2e.demo" >&2 ;;
+  logs) ${logsFail ? 'exit 1' : 'echo "microservice boot line" >&2; echo "ENOTFOUND aica-e2e.demo" >&2'} ;;
   inspect)
      if [[ "$*" == *ExtraHosts* ]]; then echo 'null'
      else
@@ -64,8 +67,15 @@ exit 0
   return bin;
 }
 
-function runCapture(dir, { container = 'aica-e2e-microservice' } = {}) {
-  const bin = stubDocker(dir, { container });
+function runCapture(
+  dir,
+  {
+    container = 'aica-e2e-microservice',
+    stage = 'pre-tests',
+    logsFail = false,
+  } = {}
+) {
+  const bin = stubDocker(dir, { container, logsFail });
   const harness = path.join(dir, 'capture.sh');
   fs.writeFileSync(
     harness,
@@ -73,7 +83,7 @@ function runCapture(dir, { container = 'aica-e2e-microservice' } = {}) {
       'set -e',
       'TARGET_HOST=aica-e2e.demo',
       functionSource('capture_microservice_diagnostics'),
-      'capture_microservice_diagnostics',
+      `capture_microservice_diagnostics ${stage}`,
     ].join('\n')
   );
 
@@ -92,7 +102,7 @@ function runCapture(dir, { container = 'aica-e2e-microservice' } = {}) {
     status: result.status,
     stderr: result.stderr,
     log: read('logs/e2e-microservice.log'),
-    facts: read('logs/e2e-microservice-container.txt'),
+    facts: read(`logs/e2e-microservice-container-${stage}.txt`),
   };
 }
 
@@ -156,6 +166,45 @@ describe('microservice container diagnostics', () => {
       // It runs inside the EXIT trap. A non-zero return there would replace
       // the run's real failure with this one.
       expect(runCapture(dir).status).toBe(0);
+    });
+  });
+
+  test('captures while the node is still reachable, not only at teardown', () => {
+    // Run 35786135201 failed and every docker call in cleanup then timed out
+    // after ~62s, so a teardown-only capture recorded "no container found"
+    // against a stack that had been up for forty minutes. The moment the run
+    // fails is the moment the node is least likely to answer.
+    const body = fs.readFileSync(SCRIPT, 'utf8');
+    const preTests = body.indexOf('capture_microservice_diagnostics pre-tests');
+    const phase5 = body.indexOf('Phase 5: Running Playwright');
+    expect(preTests).toBeGreaterThan(-1);
+    expect(preTests).toBeLessThan(phase5);
+  });
+
+  test('a dead daemon at teardown cannot blank an earlier capture', () => {
+    sandbox((dir) => {
+      runCapture(dir, { stage: 'pre-tests' });
+      const collected = fs.readFileSync(
+        path.join(dir, 'logs', 'e2e-microservice.log'),
+        'utf8'
+      );
+      expect(collected).toMatch(/ENOTFOUND/);
+
+      // The real shape: cleanup still names the container, but every docker
+      // call against the dead daemon fails. An unconditional redirect
+      // truncates the file before that failure is known.
+      runCapture(dir, { stage: 'teardown', logsFail: true });
+      expect(
+        fs.readFileSync(path.join(dir, 'logs', 'e2e-microservice.log'), 'utf8')
+      ).toBe(collected);
+    });
+  });
+
+  test('records the stage, so two captures are tellable apart', () => {
+    sandbox((dir) => {
+      expect(runCapture(dir, { stage: 'pre-tests' }).facts).toMatch(
+        /stage: pre-tests/
+      );
     });
   });
 

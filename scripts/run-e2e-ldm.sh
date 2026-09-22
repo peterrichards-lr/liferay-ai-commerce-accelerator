@@ -352,21 +352,37 @@ fi
 # Nothing here is fatal. A diagnostic that can fail the run it is diagnosing is
 # worse than no diagnostic.
 capture_microservice_diagnostics() {
-    local container facts
-    facts="logs/e2e-microservice-container.txt"
+    local container facts stage tmp
+    stage="${1:-teardown}"
+    facts="logs/e2e-microservice-container-${stage}.txt"
     mkdir -p logs
 
     container=$(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -i "microservice" | head -1)
 
     if [ -z "$container" ]; then
-        echo "No microservice container found on the target; nothing to capture." > "$facts"
+        # Also what a dead daemon looks like: `docker ps` fails, the name list
+        # is empty, and nothing distinguishes that from "not deployed yet".
+        {
+            echo "stage: $stage"
+            echo "No microservice container found on the target; nothing to capture."
+            echo "docker ps exit status: $(docker ps -a >/dev/null 2>&1; echo $?)"
+        } > "$facts"
         return 0
     fi
 
-    docker logs "$container" > logs/e2e-microservice.log 2>&1 || true
+    # Written via a temp file and only promoted when it has content, so a
+    # teardown capture that reaches a dead daemon cannot blank the log an
+    # earlier capture already collected.
+    tmp=$(mktemp)
+    if docker logs "$container" > "$tmp" 2>&1 && [ -s "$tmp" ]; then
+        mv "$tmp" logs/e2e-microservice.log
+    else
+        rm -f "$tmp"
+    fi
 
     {
         echo "container: $container"
+        echo "stage: $stage"
         echo
         echo "=== ExtraHosts ==="
         docker inspect -f '{{json .HostConfig.ExtraHosts}}' "$container" 2>&1
@@ -392,7 +408,7 @@ capture_microservice_diagnostics() {
             || echo "(no routes tree readable)"
     } > "$facts" 2>&1
 
-    echo "🔎 Captured microservice container diagnostics -> $facts"
+    echo "🔎 Captured microservice container diagnostics ($stage) -> $facts"
 }
 
 cleanup() {
@@ -415,7 +431,7 @@ cleanup() {
     elif [ $KEEP_PROJECT -eq 1 ]; then
         echo -e "\n🛡️  Skipping cleanup: --keep flag was provided for '$PROJECT_NAME'."
     else
-        capture_microservice_diagnostics || true
+        capture_microservice_diagnostics teardown || true
         echo -e "\n🧹 Cleaning up environment..."
         # shellcheck disable=SC2086
         ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true
@@ -1465,6 +1481,15 @@ if [ $INIT_ONLY -eq 1 ]; then
     echo "⏭️  Stopping early due to --init flag."
     exit 0
 fi
+
+# Captured here as well as at teardown. A teardown-only capture asks the node
+# for diagnostics at the one moment it is least likely to answer: run
+# 35786135201 failed, and every docker call in cleanup then timed out after
+# ~62s, so the capture recorded "no container found" against a stack that had
+# been running for forty minutes. Here the stack is up and docker is known
+# good, so the environment the microservice actually received is on record
+# before anything can go wrong.
+capture_microservice_diagnostics pre-tests || true
 
 echo "🎭 Phase 5: Running Playwright E2E tests..."
 # The microservice is reached through the proxy, not a published port.
