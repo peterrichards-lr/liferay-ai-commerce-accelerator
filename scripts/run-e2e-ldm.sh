@@ -944,8 +944,15 @@ fi
 NODE_TUNNEL_PID=""
 NODE_TUNNEL_SUDO=0
 
+# The ports the tunnel binds locally, and the one its readiness is judged by.
+# One definition, because a probe that checks a different port than the forward
+# binds is answering a question nobody asked - on a local run the real proxy
+# already holds 443, so probing it reported a tunnel up that had not started.
+TUNNEL_HTTPS_PORT="${TUNNEL_HTTPS_PORT:-443}"
+TUNNEL_HTTP_PORT="${TUNNEL_HTTP_PORT:-80}"
+
 tunnel_is_listening() {
-    (exec 3<>/dev/tcp/127.0.0.1/443) 2>/dev/null && exec 3<&- 3>&-
+    (exec 3<>/dev/tcp/127.0.0.1/"$TUNNEL_HTTPS_PORT") 2>/dev/null && exec 3<&- 3>&-
 }
 
 open_node_tunnel() {
@@ -971,8 +978,8 @@ open_node_tunnel() {
         -o ExitOnForwardFailure=yes
         -o ServerAliveInterval=30
         -o BatchMode=yes
-        -L "443:localhost:443"
-        -L "80:localhost:80")
+        -L "${TUNNEL_HTTPS_PORT}:localhost:443"
+        -L "${TUNNEL_HTTP_PORT}:localhost:80")
     [ -f "$key" ] && ssh_args=(-i "$key" "${ssh_args[@]}")
 
     # 443 and 80 specifically: the certificate names $TARGET_HOST with no port,

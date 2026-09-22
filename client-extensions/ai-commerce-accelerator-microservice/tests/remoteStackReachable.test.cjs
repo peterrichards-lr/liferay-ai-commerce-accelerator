@@ -28,9 +28,10 @@ const SCRIPT = path.resolve(
   'scripts',
   'run-e2e-ldm.sh'
 );
+const source = fs.readFileSync(SCRIPT, 'utf8');
 
 function functionSource(...names) {
-  const lines = fs.readFileSync(SCRIPT, 'utf8').split('\n');
+  const lines = source.split('\n');
   const out = [];
 
   for (const name of names) {
@@ -45,7 +46,26 @@ function functionSource(...names) {
   return out.join('\n\n');
 }
 
+// A port the kernel says is free, asked for at the moment it is needed.
+//
+// The suite runs on the same host as a local E2E stack, where the real proxy
+// publishes 443. The readiness probe checked that port, found the proxy, and
+// reported a tunnel up before the stand-in had started - so every case read an
+// argv file nothing had written. A fixed high port would only move the
+// collision somewhere less obvious.
+function freePort() {
+  const script =
+    "const s = require('net').createServer();" +
+    "s.listen(0, '127.0.0.1', () => { console.log(s.address().port); s.close(); });";
+
+  return Number(
+    execFileSync('node', ['-e', script], { encoding: 'utf8' }).trim()
+  );
+}
+
 function harness({ node, ldmrc, sshBehaviour = 'sleep 5' }) {
+  const httpsPort = freePort();
+  const httpPort = freePort();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tunnel-'));
   const bin = path.join(dir, 'bin');
 
@@ -82,6 +102,10 @@ function harness({ node, ldmrc, sshBehaviour = 'sleep 5' }) {
 
   const script = [
     'set -u',
+    // The port variables live outside the functions, so they are declared
+    // here at the values the harness chose.
+    `TUNNEL_HTTPS_PORT=${httpsPort}`,
+    `TUNNEL_HTTP_PORT=${httpPort}`,
     functionSource(
       'node_ssh_endpoint',
       'tunnel_is_listening',
@@ -133,6 +157,8 @@ function harness({ node, ldmrc, sshBehaviour = 'sleep 5' }) {
   }
 
   return {
+    httpsPort,
+    httpPort,
     stdout,
     sshRan: fs.existsSync(argvFile),
     argv: fs.existsSync(argvFile)
@@ -148,19 +174,31 @@ const LDMRC = {
 // Binding 443 needs privilege, so these assert what the tunnel is asked to do,
 // not a live socket. The request is the part that was wrong.
 describe('a remote stack is reached through the tunnel, not the open internet', () => {
-  it('forwards 443 so the certificate hostname still matches', () => {
+  it('binds 443 locally in production, so the certificate still matches', () => {
     // The whole point: the browser asks for aica-e2e.demo and gets the node.
     // A forward on any other port would need the URL, and the certificate, to
-    // change with it.
-    const { argv } = harness({ node: 'aws-2', ldmrc: LDMRC });
-
-    expect(argv).toContain('443:localhost:443');
+    // change with it. Asserted against the default in the script, because the
+    // cases below deliberately run on ports nothing else holds.
+    expect(source).toContain('TUNNEL_HTTPS_PORT="${TUNNEL_HTTPS_PORT:-443}"');
+    expect(source).toContain('TUNNEL_HTTP_PORT="${TUNNEL_HTTP_PORT:-80}"');
   });
 
-  it('forwards 80, because Liferay redirects there before it redirects back', () => {
-    expect(harness({ node: 'aws-2', ldmrc: LDMRC }).argv).toContain(
-      '80:localhost:80'
-    );
+  it("forwards the HTTPS port to the node's 443", () => {
+    const { argv, httpsPort } = harness({ node: 'aws-2', ldmrc: LDMRC });
+
+    expect(argv).toContain(`${httpsPort}:localhost:443`);
+  });
+
+  it('forwards the HTTP port too, because Liferay redirects through it', () => {
+    const { argv, httpPort } = harness({ node: 'aws-2', ldmrc: LDMRC });
+
+    expect(argv).toContain(`${httpPort}:localhost:80`);
+  });
+
+  it('judges readiness by the port it actually bound', () => {
+    // The defect: the probe hardcoded 443 while a local E2E run's real proxy
+    // already published it, so readiness passed before the tunnel existed.
+    expect(source).toContain('/dev/tcp/127.0.0.1/"$TUNNEL_HTTPS_PORT"');
   });
 
   it('connects to the address the wake step recorded', () => {
