@@ -955,10 +955,42 @@ tunnel_is_listening() {
     (exec 3<>/dev/tcp/127.0.0.1/"$TUNNEL_HTTPS_PORT") 2>/dev/null && exec 3<&- 3>&-
 }
 
+# The command the tunnel would run, one argument per line.
+#
+# Separated so its guard can assert the command without executing anything.
+# Testing it by shimming a `chmod +x` stub named `ssh` onto PATH means every
+# run spawns a process called `ssh` holding a `-L` port-forward to a remote
+# host with host key checking off - which is a lateral-movement signature to
+# endpoint protection, whatever the binary really is. LDM hit the same thing
+# twice (LDM-#1898, LDM-#1899) with `lfr-tunnel` and `ldm`.
+#
+# `ssh_probe_command()` in manage_target_nodes.py is the same idea; this
+# brings the shell side into line with it.
+node_tunnel_command() {
+    local key="${LDM_SSH_KEY:-$HOME/.ssh/aws-key.pem}"
+
+    # Explicit -i, unlike the callers #1085 was about: this caller knows the
+    # key, and under sudo it runs as root, whose ~/.ssh is not the one CI
+    # configured.
+    [ -f "$key" ] && printf '%s\n' -i "$key"
+
+    # 443 and 80 by default: the certificate names $TARGET_HOST with no port,
+    # and Liferay builds absolute URLs from the same host name.
+    printf '%s\n' \
+        -N \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -o ExitOnForwardFailure=yes \
+        -o ServerAliveInterval=30 \
+        -o BatchMode=yes \
+        -L "${TUNNEL_HTTPS_PORT}:localhost:443" \
+        -L "${TUNNEL_HTTP_PORT}:localhost:80"
+}
+
 open_node_tunnel() {
     [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
 
-    local endpoint key waited=0
+    local endpoint waited=0 tunnel_arg
     local ssh_args=() sudo_prefix=()
 
     endpoint="$(node_ssh_endpoint)"
@@ -968,19 +1000,13 @@ open_node_tunnel() {
         return 1
     fi
 
-    # Explicit -i here, unlike the callers #1085 was about: this caller knows
-    # the key, and under sudo it runs as root, whose ~/.ssh is not the one CI
-    # configured.
-    key="${LDM_SSH_KEY:-$HOME/.ssh/aws-key.pem}"
-    ssh_args=(-N
-        -o StrictHostKeyChecking=no
-        -o UserKnownHostsFile=/dev/null
-        -o ExitOnForwardFailure=yes
-        -o ServerAliveInterval=30
-        -o BatchMode=yes
-        -L "${TUNNEL_HTTPS_PORT}:localhost:443"
-        -L "${TUNNEL_HTTP_PORT}:localhost:80")
-    [ -f "$key" ] && ssh_args=(-i "$key" "${ssh_args[@]}")
+    # Read loop rather than mapfile: this script runs under /bin/bash, which
+    # on macOS is 3.2 and has no mapfile. It would have failed for every
+    # developer and passed in CI.
+    ssh_args=()
+    while IFS= read -r tunnel_arg; do
+        ssh_args+=("$tunnel_arg")
+    done < <(node_tunnel_command)
 
     # 443 and 80 specifically: the certificate names $TARGET_HOST with no port,
     # and Liferay builds absolute URLs from the same host name.
@@ -990,7 +1016,7 @@ open_node_tunnel() {
     fi
 
     echo "🔌 Forwarding ${endpoint#*@}:443 and :80 onto this host so '$TARGET_HOST' reaches the stack..."
-    "${sudo_prefix[@]}" ssh "${ssh_args[@]}" "$endpoint" &
+    "${sudo_prefix[@]}" "${TUNNEL_SSH_BIN:-ssh}" "${ssh_args[@]}" "$endpoint" &
     NODE_TUNNEL_PID=$!
 
     until tunnel_is_listening; do
