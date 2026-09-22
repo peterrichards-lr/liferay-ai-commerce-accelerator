@@ -305,6 +305,63 @@ else
     ORIGINAL_DB_MODE=""
 fi
 
+# Installed here, immediately after ORIGINAL_DB_MODE is known, because that is
+# the last thing cleanup reads. It used to sit 200 lines further down, after
+# the readiness wait - so any failure before that point exited with no
+# teardown at all: the project, its containers and its database volume were
+# left on the node.
+#
+# That made failures contagious. A run that died at readiness left a
+# half-initialised aica-e2e behind, and the next run attached to it instead of
+# building its own: Liferay booted in 40s rather than 231s, found no company
+# row, and failed the same way for a different reason (#1122).
+#
+# Everything cleanup calls - write_signal, ldm_cmd, ldm - is defined above.
+
+cleanup() {
+    local exit_code=$?
+
+    # Before anything that talks to the node, so a hung tunnel cannot delay
+    # teardown of a billable instance.
+    # Defined with the tunnel, far below this point. An exit before then
+    # has no tunnel to close, and calling an undefined function inside the
+    # trap would replace the run's real failure with "command not found".
+    command -v close_node_tunnel >/dev/null 2>&1 && close_node_tunnel
+    if [ $exit_code -eq 0 ]; then
+        write_signal "SUCCESS"
+    else
+        write_signal "FAILED"
+    fi
+
+    if [ $EXISTING_PROJECT -eq 1 ]; then
+        echo -e "\n🛑 Skipping cleanup for existing project '$PROJECT_NAME'."
+    elif [ $KEEP_PROJECT -eq 1 ]; then
+        echo -e "\n🛡️  Skipping cleanup: --keep flag was provided for '$PROJECT_NAME'."
+    else
+        echo -e "\n🧹 Cleaning up environment..."
+        # shellcheck disable=SC2086
+        ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true
+        echo "✨ Done."
+    fi
+    if [ -n "$ORIGINAL_DB_MODE" ]; then
+        echo -e "\n🔄 Restoring global database mode to '$ORIGINAL_DB_MODE'..."
+        ldm config database-mode "$ORIGINAL_DB_MODE" --global &>/dev/null || true
+    fi
+
+    if [ -n "$LDM_NODE_TARGET" ] && [ "$LDM_NODE_TARGET" != "local" ] && [ -f "./scripts/node_power.sh" ]; then
+        echo -e "\n💤 Returning remote target node '$LDM_NODE_TARGET' to sleep..."
+        # Not fatal - this runs from the EXIT trap, and exiting non-zero here
+        # would replace the run's own exit code - but never silent either: a
+        # node that will not power off keeps costing money until something
+        # notices. In CI the workflow's mandatory sleep step is the backstop.
+        if ! ./scripts/node_power.sh sleep "$LDM_NODE_TARGET"; then
+            echo "⚠️  WARNING: Could not power off target node '$LDM_NODE_TARGET'. It may still be running and billable."
+        fi
+    fi
+}
+
+trap cleanup EXIT
+
 
 # Force JDK 21 on macOS to ensure Liferay Docker Manager (LDM) compatibility
 GRADLE_JAVA_21=""
@@ -1317,48 +1374,6 @@ if [ $INIT_ONLY -eq 1 ]; then
 fi
 
 echo "🎭 Phase 5: Running Playwright E2E tests..."
-
-cleanup() {
-    local exit_code=$?
-
-    # Before anything that talks to the node, so a hung tunnel cannot delay
-    # teardown of a billable instance.
-    close_node_tunnel
-    if [ $exit_code -eq 0 ]; then
-        write_signal "SUCCESS"
-    else
-        write_signal "FAILED"
-    fi
-
-    if [ $EXISTING_PROJECT -eq 1 ]; then
-        echo -e "\n🛑 Skipping cleanup for existing project '$PROJECT_NAME'."
-    elif [ $KEEP_PROJECT -eq 1 ]; then
-        echo -e "\n🛡️  Skipping cleanup: --keep flag was provided for '$PROJECT_NAME'."
-    else
-        echo -e "\n🧹 Cleaning up environment..."
-        # shellcheck disable=SC2086
-        ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true
-        echo "✨ Done."
-    fi
-    if [ -n "$ORIGINAL_DB_MODE" ]; then
-        echo -e "\n🔄 Restoring global database mode to '$ORIGINAL_DB_MODE'..."
-        ldm config database-mode "$ORIGINAL_DB_MODE" --global &>/dev/null || true
-    fi
-
-    if [ -n "$LDM_NODE_TARGET" ] && [ "$LDM_NODE_TARGET" != "local" ] && [ -f "./scripts/node_power.sh" ]; then
-        echo -e "\n💤 Returning remote target node '$LDM_NODE_TARGET' to sleep..."
-        # Not fatal - this runs from the EXIT trap, and exiting non-zero here
-        # would replace the run's own exit code - but never silent either: a
-        # node that will not power off keeps costing money until something
-        # notices. In CI the workflow's mandatory sleep step is the backstop.
-        if ! ./scripts/node_power.sh sleep "$LDM_NODE_TARGET"; then
-            echo "⚠️  WARNING: Could not power off target node '$LDM_NODE_TARGET'. It may still be running and billable."
-        fi
-    fi
-}
-
-trap cleanup EXIT
-
 # The microservice is reached through the proxy, not a published port.
 #
 # Nothing publishes to the host except the shared proxy. A run against a node
