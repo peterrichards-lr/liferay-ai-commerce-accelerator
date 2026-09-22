@@ -70,16 +70,22 @@ function harness({ node, ldmrc, sshBehaviour = 'sleep 5' }) {
   const bin = path.join(dir, 'bin');
 
   fs.mkdirSync(bin);
-  // A recording stand-in for ssh: argv goes to a file, and the process either
-  // lingers briefly (a tunnel that stayed up) or exits (one that could not
-  // bind).
+  // Deliberately not named `ssh`. A `chmod +x` stub called `ssh`, invoked with
+  // `-L <port>:localhost:443 ... StrictHostKeyChecking=no user@host`, is a
+  // lateral-movement signature to endpoint protection whatever the binary
+  // really is - LDM hit this twice with `lfr-tunnel` and `ldm`
+  // (LDM-#1898, LDM-#1899). open_node_tunnel takes its transport from
+  // TUNNEL_SSH_BIN so nothing here has to carry that name.
+  //
+  // The argv cases below do not use this at all: node_tunnel_command builds
+  // the command without running anything.
   //
   // `sleep 5`, not 10: long enough to outlive the readiness poll so a tunnel
   // that stayed up is distinguishable from one that could not bind, short
   // enough that a stand-in named `ssh` holding a `-L` port-forward command
   // line does not linger on a monitored machine.
   fs.writeFileSync(
-    path.join(bin, 'ssh'),
+    path.join(bin, STANDIN),
     [
       '#!/usr/bin/env bash',
       `printf '%s\\n' "$@" > ${dir}/ssh-argv`,
@@ -128,6 +134,7 @@ function harness({ node, ldmrc, sshBehaviour = 'sleep 5' }) {
         LDM_NODE_TARGET: node,
         TARGET_HOST: 'aica-e2e.demo',
         LDM_SSH_KEY: '/nonexistent-key',
+        TUNNEL_SSH_BIN: STANDIN,
         // Long enough that a stand-in which exits has actually been scheduled
         // and reaped by the time the loop checks. At 1s on a loaded runner,
         // `kill -0` still saw an unscheduled process as alive, so the
@@ -167,48 +174,100 @@ function harness({ node, ldmrc, sshBehaviour = 'sleep 5' }) {
   };
 }
 
+// Any name that is not a remote-access tool.
+const STANDIN = 'tunnel-standin';
+
 const LDMRC = {
   targets: { 'aws-2': { host: '203.0.113.9', user: 'ldm-automation' } },
 };
 
 // Binding 443 needs privilege, so these assert what the tunnel is asked to do,
 // not a live socket. The request is the part that was wrong.
-describe('a remote stack is reached through the tunnel, not the open internet', () => {
+// The argv cases run node_tunnel_command and read what it prints. Nothing is
+// executed, so no process named after a network tool exists at any point.
+function tunnelCommand({
+  httpsPort = 443,
+  httpPort = 80,
+  key = '/nonexistent-key',
+} = {}) {
+  const script = [
+    'set -u',
+    `TUNNEL_HTTPS_PORT=${httpsPort}`,
+    `TUNNEL_HTTP_PORT=${httpPort}`,
+    `LDM_SSH_KEY='${key}'`,
+    functionSource('node_tunnel_command'),
+    'node_tunnel_command',
+  ].join('\n');
+
+  return execFileSync('bash', ['-c', script], { encoding: 'utf8' })
+    .split('\n')
+    .filter(Boolean);
+}
+
+describe('the tunnel command is built, not guessed', () => {
   it('binds 443 locally in production, so the certificate still matches', () => {
     // The whole point: the browser asks for aica-e2e.demo and gets the node.
     // A forward on any other port would need the URL, and the certificate, to
-    // change with it. Asserted against the default in the script, because the
-    // cases below deliberately run on ports nothing else holds.
+    // change with it.
     expect(source).toContain('TUNNEL_HTTPS_PORT="${TUNNEL_HTTPS_PORT:-443}"');
     expect(source).toContain('TUNNEL_HTTP_PORT="${TUNNEL_HTTP_PORT:-80}"');
   });
 
   it("forwards the HTTPS port to the node's 443", () => {
-    const { argv, httpsPort } = harness({ node: 'aws-2', ldmrc: LDMRC });
-
-    expect(argv).toContain(`${httpsPort}:localhost:443`);
+    expect(tunnelCommand({ httpsPort: 9443 })).toContain('9443:localhost:443');
   });
 
   it('forwards the HTTP port too, because Liferay redirects through it', () => {
-    const { argv, httpPort } = harness({ node: 'aws-2', ldmrc: LDMRC });
-
-    expect(argv).toContain(`${httpPort}:localhost:80`);
+    expect(tunnelCommand({ httpPort: 9080 })).toContain('9080:localhost:80');
   });
 
-  it('judges readiness by the port it actually bound', () => {
-    // The defect: the probe hardcoded 443 while a local E2E run's real proxy
-    // already published it, so readiness passed before the tunnel existed.
-    expect(source).toContain('/dev/tcp/127.0.0.1/"$TUNNEL_HTTPS_PORT"');
+  it('never prompts, and does not stall on a rebuilt host key', () => {
+    const argv = tunnelCommand();
+
+    expect(argv).toContain('BatchMode=yes');
+    expect(argv).toContain('StrictHostKeyChecking=no');
+    expect(argv).toContain('ExitOnForwardFailure=yes');
+  });
+
+  it('omits the key flag when there is no key to name', () => {
+    // A bad -i fails in a way that reads like refused credentials (#1085).
+    expect(tunnelCommand({ key: '/definitely/not/here' })).not.toContain('-i');
   });
 
   it('connects to the address the wake step recorded', () => {
     // Re-resolving here could point the tunnel at a different address than the
-    // one LDM is driving; read what was recorded instead.
-    expect(harness({ node: 'aws-2', ldmrc: LDMRC }).argv).toContain(
-      'ldm-automation@203.0.113.9'
-    );
+    // one LDM is driving; read what was recorded instead. Asserted against
+    // node_ssh_endpoint directly, so nothing is spawned.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'endpoint-'));
+
+    fs.writeFileSync(path.join(dir, '.ldmrc'), JSON.stringify(LDMRC));
+
+    const out = execFileSync(
+      'bash',
+      [
+        '-c',
+        [
+          'set -u',
+          functionSource('node_ssh_endpoint'),
+          'node_ssh_endpoint',
+        ].join('\n'),
+      ],
+      {
+        cwd: dir,
+        encoding: 'utf8',
+        env: { PATH: process.env.PATH, HOME: dir, LDM_NODE_TARGET: 'aws-2' },
+      }
+    ).trim();
+
+    expect(out).toBe('ldm-automation@203.0.113.9');
   });
 
+  it('judges readiness by the port it actually bound', () => {
+    expect(source).toContain('/dev/tcp/127.0.0.1/"$TUNNEL_HTTPS_PORT"');
+  });
+});
+
+describe('a remote stack is reached through the tunnel, not the open internet', () => {
   it('refuses to continue if the forward cannot be bound', () => {
     // ExitOnForwardFailure means an ssh that exits at once is a bind or auth
     // failure. Continuing would run the suite against nothing, which is the
