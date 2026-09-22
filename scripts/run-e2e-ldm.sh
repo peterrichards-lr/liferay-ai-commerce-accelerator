@@ -1132,17 +1132,31 @@ fi
 export LDM_FRAGMENT_PATCH_TIMEOUT="${LDM_FRAGMENT_PATCH_TIMEOUT:-900}"
 
 # Finally wait for deployables to be processed (Custom Objects, OAuth apps, Site Initializer, etc)
-# What the container actually received, not what we exported. The two have
-# disagreed once already, and the SDK's failure names a variable rather than
-# reporting which of its four sources it tried - so without this the next
-# question costs another run.
-if [ -n "${MICROSERVICE_CONTAINER:-}" ] || MICROSERVICE_CONTAINER="${PROJECT_NAME}-ai-commerce-accelerator-microservice"; then
-    echo "🔎 Liferay-related environment inside $MICROSERVICE_CONTAINER:"
-    docker exec "$MICROSERVICE_CONTAINER" env 2>/dev/null \
-        | grep -E "^(LIFERAY_API_URL|LIFERAY_URL|COM_LIFERAY_LXC_)" \
-        | sed 's/^/     /' \
-        | sort \
-        || echo "     (could not read the container's environment)"
+# What the container actually received, not what we exported.
+#
+# The first version of this printed a header and nothing else, which reads the
+# same whether the variables are absent or `docker exec` failed - the `|| echo`
+# bound to `sort`, which exits 0 on empty input. So report the exec separately
+# from its result: a total count proves the exec worked, and "(none)" states
+# absence rather than implying it (#1106).
+MICROSERVICE_CONTAINER="${PROJECT_NAME}-ai-commerce-accelerator-microservice"
+
+if container_env=$(docker exec "$MICROSERVICE_CONTAINER" env 2>&1); then
+    env_total=$(printf '%s\n' "$container_env" | grep -c .)
+    liferay_env=$(printf '%s\n' "$container_env" \
+        | grep -E "^(LIFERAY_|COM_LIFERAY_LXC_|LXC_)" \
+        | sort)
+
+    echo "🔎 $MICROSERVICE_CONTAINER holds $env_total environment variable(s). Liferay-related:"
+
+    if [ -n "$liferay_env" ]; then
+        printf '%s\n' "$liferay_env" | sed 's/^/     /'
+    else
+        echo "     (none - the SDK has no LIFERAY_API_URL and cannot build a colocated URL)"
+    fi
+else
+    echo "⚠️  Could not read $MICROSERVICE_CONTAINER's environment; this says nothing about forwarding:"
+    printf '%s\n' "$container_env" | sed 's/^/     /' | head -5
 fi
 
 echo "⏳ Waiting for Liferay Client Extensions (deployables) to be processed..."

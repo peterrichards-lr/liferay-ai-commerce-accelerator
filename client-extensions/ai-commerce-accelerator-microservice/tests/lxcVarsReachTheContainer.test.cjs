@@ -69,25 +69,40 @@ describe('the forwarding list claims nothing it does not do', () => {
   });
 });
 
-describe('the container says what it actually received', () => {
+describe('the container diagnostic is conclusive', () => {
   const block = source.slice(
-    source.indexOf('Liferay-related environment inside'),
+    source.indexOf('MICROSERVICE_CONTAINER="${PROJECT_NAME}'),
     source.indexOf('Waiting for Liferay Client Extensions')
   );
 
   it('reads the environment from inside the container', () => {
-    // Not what the runner exported - the two have disagreed once already, and
-    // the SDK's error names a variable without saying which source it tried.
     expect(block).toMatch(/docker exec "\$MICROSERVICE_CONTAINER" env/);
   });
 
-  it('shows all three the SDK depends on', () => {
-    expect(block).toMatch(/LIFERAY_API_URL/);
-    expect(block).toMatch(/COM_LIFERAY_LXC_/);
+  it('separates a failed exec from absent variables', () => {
+    // The first version printed a header and nothing else, which reads the
+    // same either way - the `|| echo` bound to `sort`, which exits 0 on empty
+    // input. A run then cost a full node wake and answered nothing.
+    expect(block).toMatch(/says nothing about forwarding/);
+    expect(block).toMatch(/if container_env=\$\(docker exec/);
   });
 
-  it('does not fail the run if it cannot read them', () => {
+  it('proves the exec worked by counting what came back', () => {
+    // A total makes "none matched" mean absence rather than silence.
+    expect(block).toMatch(/env_total=/);
+    expect(block).toMatch(/holds \$env_total environment variable\(s\)/);
+  });
+
+  it('states absence rather than implying it', () => {
+    expect(block).toMatch(/\(none - the SDK has no LIFERAY_API_URL/);
+  });
+
+  it('covers every prefix the SDK can build a URL from', () => {
+    expect(block).toMatch(/\^\(LIFERAY_\|COM_LIFERAY_LXC_\|LXC_\)/);
+  });
+
+  it('never fails the run', () => {
     // A diagnostic that breaks the thing it is diagnosing is worse than none.
-    expect(block).toMatch(/could not read the container's environment/);
+    expect(block).not.toMatch(/\bexit 1\b/);
   });
 });
