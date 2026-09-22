@@ -122,13 +122,6 @@ if [ -z "$PROJECT_NAME" ]; then
     fi
 
 
-    # HARDENING: Proactively remove any existing project folder to prevent
-    # Yarn workspace name collisions during Phase 2 (Building).
-    if [ $EXISTING_PROJECT -eq 0 ] && [ -d "$PROJECT_NAME" ]; then
-        echo "🧹 Removing stale project directory '$PROJECT_NAME' before build..."
-        ldm rm "$PROJECT_NAME" --delete -y 2>/dev/null || true
-        rm -rf "$PROJECT_NAME"
-    fi
 else
     echo "🏗️  Using existing LDM project: $PROJECT_NAME"
 fi
@@ -154,6 +147,17 @@ version_ge() {
 # [<the node's>]" - then logged "License registered" at INFO on the next line
 # and served the Activation page anyway.
 #
+# --- Logging Helpers ---
+# stderr, not stdout: two callers capture ldm_cmd's output - `$(ldm_cmd info
+# --json)` and `ldm_cmd list --json | node` - and a [CMD] line inside either
+# makes the JSON unparseable. Both then fall back silently, to a default login
+# and to "nothing else is running" respectively.
+log_command() {
+   if [ "$VERBOSE" -eq 1 ]; then
+      echo -e "\033[0;34m[CMD]\033[0m $*" >&2
+   fi
+}
+
 # Injected here rather than at each call site because LDM's own design notes
 # record that as the recurring defect: a target threaded through call sites
 # individually, where each one has to remember. All the subcommands this script
@@ -273,16 +277,28 @@ if ! route_docker_to_node; then
     exit 1
 fi
 
-# --- Logging Helpers ---
-# stderr, not stdout: two callers capture ldm_cmd's output - `$(ldm_cmd info
-# --json)` and `ldm_cmd list --json | node` - and a [CMD] line inside either
-# makes the JSON unparseable. Both then fall back silently, to a default login
-# and to "nothing else is running" respectively.
-log_command() {
-   if [ "$VERBOSE" -eq 1 ]; then
-      echo -e "\033[0;34m[CMD]\033[0m $*" >&2
-   fi
-}
+# HARDENING: Proactively remove any existing project before we build.
+#
+# This used to be guarded by `[ -d "$PROJECT_NAME" ]` - a *local*
+# directory. A CI runner is ephemeral, so on a remote target there is never
+# a local directory and the removal never ran, while the project itself sat
+# on the node. A previous run's leftovers were therefore adopted rather
+# than replaced: Liferay attached to a half-initialised database, booted in
+# 40s instead of 231s, and failed with NoSuchCompanyException (#1122).
+#
+# It also called `ldm` rather than `ldm_cmd`, so even when it did run it
+# removed a project on the wrong machine. `--node` is parsed ~80 lines
+# above this, so the target is known; #1093 exempted this call from the
+# ldm_cmd sweep on the stated grounds that it was not, which was wrong.
+#
+# Unconditional now, because "does a project exist over there" costs a
+# round trip to answer and `rm --delete` on an absent project is a no-op.
+if [ $EXISTING_PROJECT -eq 0 ]; then
+    echo "🧹 Removing any stale '$PROJECT_NAME' before build..."
+    ldm_cmd rm "$PROJECT_NAME" --delete -y 2>/dev/null || true
+    rm -rf "$PROJECT_NAME"
+fi
+
 
 
 
