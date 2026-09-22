@@ -334,6 +334,67 @@ fi
 #
 # Everything cleanup calls - write_signal, ldm_cmd, ldm - is defined above.
 
+# logs/e2e-microservice.log was created, truncated and never written to. It
+# was written by a locally-run microservice; once the extension became a
+# container its output went to the node's docker daemon and the artifact has
+# been uploaded empty ever since - 166 bytes, on every run.
+#
+# That is not cosmetic. Diagnosing the Phase 5 401s meant reading the
+# microservice's own errors, and the artifact that exists to carry them could
+# not: the evidence was on the node and the file was on the runner. Reaching
+# for it from a workstation instead contended with the run's own SSH.
+#
+# Captured in cleanup, before `ldm rm` destroys the container, and defined
+# immediately above its caller: a helper used before its definition aborts an
+# unguarded ldm_cmd at 127, and inside a trap that would replace the run's real
+# failure with "command not found".
+#
+# Nothing here is fatal. A diagnostic that can fail the run it is diagnosing is
+# worse than no diagnostic.
+capture_microservice_diagnostics() {
+    local container facts
+    facts="logs/e2e-microservice-container.txt"
+    mkdir -p logs
+
+    container=$(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -i "microservice" | head -1)
+
+    if [ -z "$container" ]; then
+        echo "No microservice container found on the target; nothing to capture." > "$facts"
+        return 0
+    fi
+
+    docker logs "$container" > logs/e2e-microservice.log 2>&1 || true
+
+    {
+        echo "container: $container"
+        echo
+        echo "=== ExtraHosts ==="
+        docker inspect -f '{{json .HostConfig.ExtraHosts}}' "$container" 2>&1
+        echo
+        # The Liferay URL the SDK resolves comes from these. Values are printed
+        # for the LXC and URL variables because they are hostnames, and names
+        # only for anything credential-shaped.
+        echo "=== environment ==="
+        docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container" 2>&1 \
+            | sed -E 's/^([A-Z_]*(SECRET|PASSWORD|TOKEN|KEY|PAT)[A-Z_]*)=.*/\1=<redacted>/'
+        echo
+        echo "=== /etc/hosts ==="
+        docker exec "$container" cat /etc/hosts 2>&1 || echo "(container not running)"
+        echo
+        echo "=== does the project host resolve from inside? ==="
+        # Defaulted: cleanup runs on every exit, including before host
+        # resolution has set TARGET_HOST.
+        local host="${TARGET_HOST:-<unresolved>}"
+        docker exec "$container" getent hosts "$host" 2>&1 || echo "(no resolution for $host)"
+        echo
+        echo "=== routes tree ==="
+        docker exec "$container" sh -c 'ls -R /opt/liferay/routes /workspace/routes 2>&1' 2>&1 \
+            || echo "(no routes tree readable)"
+    } > "$facts" 2>&1
+
+    echo "🔎 Captured microservice container diagnostics -> $facts"
+}
+
 cleanup() {
     local exit_code=$?
 
@@ -354,6 +415,7 @@ cleanup() {
     elif [ $KEEP_PROJECT -eq 1 ]; then
         echo -e "\n🛡️  Skipping cleanup: --keep flag was provided for '$PROJECT_NAME'."
     else
+        capture_microservice_diagnostics || true
         echo -e "\n🧹 Cleaning up environment..."
         # shellcheck disable=SC2086
         ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true
@@ -949,11 +1011,21 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # colocated URL built from the COM_LIFERAY_LXC_DXP_* pair, LIFERAY_API_URL,
     # then a persisted setting. Inside an LDM-run container all four are empty:
     #
-    #   - the LXC config trees the colocated builder reads are declared but
-    #     never mounted, so dxpMainDomain() returns nothing
-    #     (liferay-docker-manager#1911)
-    #   - host environment forwarding does not reach a client-extension
-    #     container at all (liferay-docker-manager#1903)
+    # Both causes are regressions, not missing features. LDM's stack.py ->
+    # composer.py refactor dropped six things from the client-extension path
+    # and shipped without them for ~25 releases (liferay-docker-manager#1918):
+    #
+    #   - LIFERAY_LXC_DXP_MAIN_DOMAIN and _DOMAINS were set on every
+    #     client-extension container until 2026-04-10. dxpMainDomain()
+    #     resolves from exactly those, so it now returns nothing
+    #     (liferay-docker-manager#1903)
+    #   - Liferay populates the config trees itself, writing
+    #     com.liferay.lxc.dxp.main.domain and three siblings into
+    #     /opt/liferay/routes. LDM mounts the shared directory at
+    #     /workspace/routes - a path Liferay never writes to - so the values
+    #     reach nobody (liferay-docker-manager#1911)
+    #
+    # The restoration is not in v2.25.0, which is what this run pins.
     #
     # Without a URL the microservice cannot verify the bearer token Liferay's
     # /o/<cx>/ proxy forwards, so req.user is never set, every request falls
@@ -969,8 +1041,13 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # its blacklist says so explicitly - and this needs no argument with that.
     #
     # Written from TARGET_URL rather than a literal, so it cannot disagree with
-    # what the rest of the run uses. Remove once forwarding reaches client
-    # extensions; this duplicates what it should do.
+    # what the rest of the run uses.
+    #
+    # Remove once the pinned LDM restores the LXC variables: this duplicates
+    # what dxpMainDomain() will resolve on its own. Retargeting it to
+    # AI_COMMERCE_ACCELERATOR_MICROSERVICE_LIFERAY_API_URL is not needed -
+    # that form works, but it addresses the forwarding path this deliberately
+    # avoids.
     inject_liferay_url_into_microservice() {
         local staged
         staged=$(find "$PROJECT_NAME/osgi/client-extensions" -name "*microservice*.zip" 2>/dev/null | head -1)
