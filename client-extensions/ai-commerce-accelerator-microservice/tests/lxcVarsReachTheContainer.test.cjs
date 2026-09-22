@@ -80,29 +80,32 @@ describe('the container diagnostic is conclusive', () => {
   });
 
   it('separates a failed exec from absent variables', () => {
-    // The first version printed a header and nothing else, which reads the
-    // same either way - the `|| echo` bound to `sort`, which exits 0 on empty
-    // input. A run then cost a full node wake and answered nothing.
+    // An earlier version printed a header and nothing else, which reads the
+    // same either way, and cost a node wake to learn nothing.
     expect(block).toMatch(/says nothing about forwarding/);
     expect(block).toMatch(/if container_env=\$\(docker exec/);
   });
 
   it('proves the exec worked by counting what came back', () => {
-    // A total makes "none matched" mean absence rather than silence.
     expect(block).toMatch(/env_total=/);
     expect(block).toMatch(/holds \$env_total environment variable\(s\)/);
   });
 
-  it('states absence rather than implying it', () => {
-    expect(block).toMatch(/\(none - the SDK has no LIFERAY_API_URL/);
+  it('prints every variable, not a filtered subset', () => {
+    // The filtered version could not tell "absent" from "arrived under another
+    // name" - and LDM strips prefixes in two documented cases, so a rename is
+    // plausible. A filter keyed on the name we exported cannot see one.
+    expect(block).not.toMatch(/grep -E "\^\(LIFERAY_/);
+    expect(block).toMatch(/sort/);
   });
 
-  it('covers every prefix the SDK can build a URL from', () => {
-    expect(block).toMatch(/\^\(LIFERAY_\|COM_LIFERAY_LXC_\|LXC_\)/);
+  it('masks the values', () => {
+    // LIFERAY_* can carry credentials, and the question is which names
+    // arrived, not what they hold.
+    expect(block).toMatch(/sed 's\/=\.\*\/=<set>\/'/);
   });
 
   it('never fails the run', () => {
-    // A diagnostic that breaks the thing it is diagnosing is worse than none.
     expect(block).not.toMatch(/\bexit 1\b/);
   });
 });
