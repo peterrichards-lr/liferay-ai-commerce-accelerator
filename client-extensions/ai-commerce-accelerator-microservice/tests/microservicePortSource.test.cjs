@@ -106,7 +106,13 @@ describe('the machinery that chased a published port is gone', () => {
 
   it('still forwards 443, which is how the proxy is reached', () => {
     // Removing the wrong forward must not take the right one with it.
-    expect(source).toContain('-L "443:localhost:443"');
+    //
+    // Expressed through TUNNEL_HTTPS_PORT since #1112, so that the readiness
+    // probe and the forward cannot name different ports. The default is what
+    // production binds; the tests override it onto a free port because a local
+    // E2E run's proxy already holds 443.
+    expect(source).toContain('-L "${TUNNEL_HTTPS_PORT}:localhost:443"');
+    expect(source).toContain('TUNNEL_HTTPS_PORT="${TUNNEL_HTTPS_PORT:-443}"');
   });
 
   it('leaves no orphaned helpers behind', () => {
