@@ -55,7 +55,7 @@ function prefixThroughRemoval() {
 // and the lookup that asks a real node for its SSH endpoint. Everything
 // between them - argument parsing, ldm_cmd, the routing gate, the guard - is
 // the script's own code, run as written.
-function run({ args = [], cwd }) {
+function run({ args = [], cwd, envOverrides = {} }) {
   const log = path.join(cwd, 'ldm-calls.log');
   const body = prefixThroughRemoval()
     .join('\n')
@@ -75,10 +75,19 @@ function run({ args = [], cwd }) {
   // "command not found" that bash writes to stderr, and execFileSync returns
   // stdout alone. An earlier version of this file missed that and the case
   // passed against a script it could not see the failure of.
+  // The script never writes LDM_NODE_TARGET except from `--node`, but reads it
+  // from the ambient environment everywhere (`${LDM_NODE_TARGET:-}`). CI sets
+  // it to the run's node, so inheriting the environment made the "local run"
+  // case address aws-1 and assert against it. Targeting here comes from `args`
+  // alone; CI-shape flags are pinned so the cases read the same everywhere.
+  const env = { ...process.env, ...envOverrides };
+  delete env.LDM_NODE_TARGET;
+  delete env.DOCKER_HOST;
+
   const result = spawnSync('bash', [harness, ...args], {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, DOCKER_HOST: '' },
+    env: { ...env, CI: 'true', GITHUB_ACTIONS: 'true' },
   });
 
   return {
@@ -158,6 +167,20 @@ describe('stale project removal', () => {
       const removed = stdout.indexOf('Removing any stale');
       expect(routed).toBeGreaterThan(-1);
       expect(removed).toBeGreaterThan(routed);
+    });
+  });
+
+  test('targeting comes from the arguments, not the ambient environment', () => {
+    sandbox((dir) => {
+      // CI exports LDM_NODE_TARGET for the run in progress. A harness that
+      // inherits it tests whatever machine it happens to run on - which is how
+      // the local-run case above passed here and failed in CI.
+      const { calls } = run({
+        args: [],
+        cwd: dir,
+        envOverrides: { LDM_NODE_TARGET: 'aws-1' },
+      });
+      expect(removals(calls)[0]).not.toMatch(/--node/);
     });
   });
 
