@@ -870,6 +870,72 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # Fallback to source dist/build folders if standalone build was used
     find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) ! -name "*site-initializer*" -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
 
+    # Give the microservice the Liferay URL it cannot otherwise obtain.
+    #
+    # The SDK resolves its Liferay URL from four sources: an OAuth default, a
+    # colocated URL built from the COM_LIFERAY_LXC_DXP_* pair, LIFERAY_API_URL,
+    # then a persisted setting. Inside an LDM-run container all four are empty:
+    #
+    #   - the LXC config trees the colocated builder reads are declared but
+    #     never mounted, so dxpMainDomain() returns nothing
+    #     (liferay-docker-manager#1911)
+    #   - host environment forwarding does not reach a client-extension
+    #     container at all (liferay-docker-manager#1903)
+    #
+    # Without a URL the microservice cannot verify the bearer token Liferay's
+    # /o/<cx>/ proxy forwards, so req.user is never set, every request falls
+    # through to the signing requirement it was meant to be exempt from, and
+    # the suite sees "Missing required request-signing headers" (#1109).
+    #
+    # An extension's own LCP.json `env` block is read directly by LDM's compose
+    # builder - `env_vars = ext.get("env", {})` - so it is not subject to the
+    # forwarding path or its blacklist. It is the documented way an extension
+    # declares its own environment.
+    #
+    # Only LIFERAY_API_URL. The COM_LIFERAY_LXC_DXP_* pair is LDM's to own -
+    # its blacklist says so explicitly - and this needs no argument with that.
+    #
+    # Written from TARGET_URL rather than a literal, so it cannot disagree with
+    # what the rest of the run uses. Remove once forwarding reaches client
+    # extensions; this duplicates what it should do.
+    inject_liferay_url_into_microservice() {
+        local staged
+        staged=$(find "$PROJECT_NAME/osgi/client-extensions" -name "*microservice*.zip" 2>/dev/null | head -1)
+
+        if [ -z "$staged" ]; then
+            echo "⚠️  No staged microservice client extension; skipping the LIFERAY_API_URL injection."
+            return 0
+        fi
+
+        python3 - "$staged" "$LIFERAY_API_URL" <<'PY'
+import json, shutil, sys, tempfile, zipfile
+from pathlib import Path
+
+archive, liferay_url = Path(sys.argv[1]), sys.argv[2]
+name = "LCP.json"
+
+with zipfile.ZipFile(archive) as z:
+    if name not in z.namelist():
+        print(f"     {archive.name} has no {name}; nothing to inject")
+        raise SystemExit(0)
+    entries = {i.filename: z.read(i.filename) for i in z.infolist()}
+
+manifest = json.loads(entries[name])
+manifest.setdefault("env", {})["LIFERAY_API_URL"] = liferay_url
+entries[name] = (json.dumps(manifest, indent=2) + "\n").encode()
+
+with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as out:
+        for filename, data in entries.items():
+            out.writestr(filename, data)
+shutil.move(tmp.name, archive)
+print(f"     {archive.name}: env.LIFERAY_API_URL = {liferay_url}")
+PY
+    }
+
+    echo "🔧 Declaring LIFERAY_API_URL in the microservice's LCP.json..."
+    inject_liferay_url_into_microservice
+
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
     write_signal "STARTING"
