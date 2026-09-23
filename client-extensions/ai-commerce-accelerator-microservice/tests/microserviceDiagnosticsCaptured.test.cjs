@@ -41,7 +41,11 @@ function functionSource(name) {
 // the real one does for a Node process, so the capture has to redirect it.
 function stubDocker(
   dir,
-  { container = 'aica-e2e-microservice', logsFail = false } = {}
+  {
+    container = 'aica-e2e-microservice',
+    logsFail = false,
+    treesPopulated = false,
+  } = {}
 ) {
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin, { recursive: true });
@@ -58,7 +62,15 @@ case "$1" in
        echo "LIFERAY_OAUTH_CLIENT_SECRET=super-secret-value"
        echo "OPENAI_API_KEY=sk-live-aaaaaaaa"
      fi ;;
-  exec) echo "stub-exec-output" ;;
+  exec)
+     if [[ "$*" == *LIFERAY_ROUTES_DXP* ]]; then
+       ${
+         treesPopulated
+           ? 'echo "--- /etc/liferay/lxc/dxp-metadata ---"; echo "com.liferay.lxc.dxp.main.domain"; echo "--- /etc/liferay/lxc/ext-init-metadata ---"; echo "com.liferay.lxc.ext.oauth.application.external.reference.codes"'
+           : 'echo "--- /etc/liferay/lxc/dxp-metadata ---"; echo "  (path does not exist - nothing mounted here)"'
+       }
+     elif [[ "$*" == *"ls -A /opt/liferay/routes"* ]]; then echo "16"
+     else echo "stub-exec-output"; fi ;;
 esac
 exit 0
 `,
@@ -73,9 +85,10 @@ function runCapture(
     container = 'aica-e2e-microservice',
     stage = 'pre-tests',
     logsFail = false,
+    treesPopulated = false,
   } = {}
 ) {
-  const bin = stubDocker(dir, { container, logsFail });
+  const bin = stubDocker(dir, { container, logsFail, treesPopulated });
   const harness = path.join(dir, 'capture.sh');
   fs.writeFileSync(
     harness,
@@ -205,6 +218,44 @@ describe('microservice container diagnostics', () => {
       expect(runCapture(dir, { stage: 'pre-tests' }).facts).toMatch(
         /stage: pre-tests/
       );
+    });
+  });
+
+  test('records the LXC config trees, which is what answers LDM-#1915', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir, { treesPopulated: true });
+      expect(facts).toMatch(/LXC config trees/);
+      expect(facts).toMatch(/dxp-metadata/);
+      expect(facts).toMatch(/ext-init-metadata/);
+    });
+  });
+
+  test('distinguishes an unmounted path from a mounted empty one', () => {
+    sandbox((dir) => {
+      // Before LDM-#1928 nothing was mounted at ext-init-metadata at all.
+      // "empty" and "absent" are different answers to #1915 and the report
+      // has to tell them apart.
+      const probe = fs.readFileSync(SCRIPT, 'utf8');
+      expect(probe).toMatch(/path does not exist - nothing mounted here/);
+      expect(probe).toMatch(/\(mounted, empty\)/);
+    });
+  });
+
+  test('lists credential file names, never their contents', () => {
+    const body = functionSource('capture_microservice_diagnostics');
+    const treeProbe = body.slice(body.indexOf('LXC config trees'));
+    // `cat`/`head` in this block would put generated OAuth2 credentials into
+    // a CI artifact.
+    expect(treeProbe).not.toMatch(/\b(cat|head|tail)\b/);
+    expect(treeProbe).toMatch(/ls -A/);
+  });
+
+  test('counts the app route handlers as a shadowing canary', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // If a bind mount ever shadows /opt/liferay/routes the container will
+      // not start (LDM-#1911). A count of 0 says so immediately.
+      expect(facts).toMatch(/app code - must NOT be empty/);
     });
   });
 

@@ -403,9 +403,40 @@ capture_microservice_diagnostics() {
         local host="${TARGET_HOST:-<unresolved>}"
         docker exec "$container" getent hosts "$host" 2>&1 || echo "(no resolution for $host)"
         echo
-        echo "=== routes tree ==="
-        docker exec "$container" sh -c 'ls -R /opt/liferay/routes /workspace/routes 2>&1' 2>&1 \
-            || echo "(no routes tree readable)"
+        # The LXC config trees, at the paths the image itself declares.
+        #
+        # Derived from the container's own environment rather than hardcoded,
+        # for the same reason LDM derives the mount target rather than
+        # assuming it: an extension may name a non-standard path. The
+        # fallbacks are the LXC convention.
+        #
+        # This is what answers liferay-docker-manager#1915 - whether Liferay's
+        # generated OAuth2 client id and secret reach the container through
+        # ext-init-metadata. Until LDM-#1928 nothing was mounted there at all.
+        #
+        # Names only, never contents: the files published here are
+        # credentials.
+        echo "=== LXC config trees ==="
+        docker exec "$container" sh -c '
+            dxp="${LIFERAY_ROUTES_DXP:-/etc/liferay/lxc/dxp-metadata}"
+            ext="${LIFERAY_ROUTES_CLIENT_EXTENSION:-/etc/liferay/lxc/ext-init-metadata}"
+            for d in "$dxp" "$ext"; do
+                echo "--- $d ---"
+                if [ -d "$d" ]; then
+                    ls -A "$d" 2>&1 || echo "  (unreadable)"
+                    [ -z "$(ls -A "$d" 2>/dev/null)" ] && echo "  (mounted, empty)"
+                else
+                    echo "  (path does not exist - nothing mounted here)"
+                fi
+            done' 2>&1 || echo "(config trees unreadable)"
+        echo
+        # /opt/liferay/routes is the application's own code, not a config
+        # tree. Listed as a canary: if it is ever empty, a bind mount has
+        # shadowed the route handlers and the container will not start
+        # (liferay-docker-manager#1911).
+        echo "=== /opt/liferay/routes (app code - must NOT be empty) ==="
+        docker exec "$container" sh -c 'ls -A /opt/liferay/routes 2>&1 | wc -l' 2>&1 \
+            || echo "(unreadable)"
     } > "$facts" 2>&1
 
     echo "🔎 Captured microservice container diagnostics ($stage) -> $facts"
