@@ -1021,100 +1021,31 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # Fallback to source dist/build folders if standalone build was used
     find client-extensions -name "*.zip" \( -path "*/dist/*" -o -path "*/build/*" \) ! -name "*site-initializer*" -exec cp {} "$PROJECT_NAME/osgi/client-extensions/" \; 2>/dev/null || true
 
-    # Give the microservice the Liferay URL it cannot otherwise obtain.
+    # There is deliberately no LIFERAY_API_URL injection here.
     #
-    # The SDK resolves its Liferay URL from four sources: an OAuth default, a
-    # colocated URL built from the COM_LIFERAY_LXC_DXP_* pair, LIFERAY_API_URL,
-    # then a persisted setting. Inside an LDM-run container all four are empty:
+    # One used to write env.LIFERAY_API_URL into the staged extension's
+    # LCP.json. It never reached the container. It ran, and reported success:
     #
-    # Both causes are regressions, not missing features. LDM's stack.py ->
-    # composer.py refactor dropped six things from the client-extension path
-    # and shipped without them for ~25 releases (liferay-docker-manager#1918):
+    #     ai-commerce-accelerator-microservice.zip: env.LIFERAY_API_URL = https://...
     #
-    #   - LIFERAY_LXC_DXP_MAIN_DOMAIN and _DOMAINS were set on every
-    #     client-extension container until 2026-04-10. dxpMainDomain()
-    #     resolves from exactly those, so it now returns nothing
-    #     (liferay-docker-manager#1903)
-    #   - Liferay populates the config trees itself, writing
-    #     com.liferay.lxc.dxp.main.domain and three siblings into
-    #     /opt/liferay/routes. LDM mounts the shared directory at
-    #     /workspace/routes - a path Liferay never writes to - so the values
-    #     reach nobody (liferay-docker-manager#1911)
+    # while the container's own environment showed the variable absent
+    # (measured, run 35816192072). LDM parses an extension's LCP.json from
+    # `ce_dir` - <project>/client-extensions - and the injection targeted
+    # `cx` - <project>/osgi/client-extensions. Two directories:
     #
-    # The restoration is not in v2.25.0, which is what this run pins.
+    #     "cx":     root / "osgi" / "client-extensions"
+    #     "ce_dir": root / "client-extensions"
     #
-    # Without a URL the microservice cannot verify the bearer token Liferay's
-    # /o/<cx>/ proxy forwards, so req.user is never set, every request falls
-    # through to the signing requirement it was meant to be exempt from, and
-    # the suite sees "Missing required request-signing headers" (#1109).
+    # The microservice has no Liferay URL because LDM's stack.py ->
+    # composer.py refactor dropped LIFERAY_LXC_DXP_MAIN_DOMAIN and _DOMAINS
+    # from every client-extension container, and lxcConfig.dxpMainDomain()
+    # resolves from exactly those (liferay-docker-manager#1918). That is fixed
+    # upstream on master and is not in v2.25.0, which this run pins.
     #
-    # An extension's own LCP.json `env` block is read directly by LDM's compose
-    # builder - `env_vars = ext.get("env", {})` - so it is not subject to the
-    # forwarding path or its blacklist. It is the documented way an extension
-    # declares its own environment.
-    #
-    # Only LIFERAY_API_URL. The COM_LIFERAY_LXC_DXP_* pair is LDM's to own -
-    # its blacklist says so explicitly - and this needs no argument with that.
-    #
-    # Written from TARGET_URL rather than a literal, so it cannot disagree with
-    # what the rest of the run uses.
-    #
-    # Remove once the pinned LDM restores the LXC variables: this duplicates
-    # what dxpMainDomain() will resolve on its own. Retargeting it to
-    # AI_COMMERCE_ACCELERATOR_MICROSERVICE_LIFERAY_API_URL is not needed -
-    # that form works, but it addresses the forwarding path this deliberately
-    # avoids.
-    inject_liferay_url_into_microservice() {
-        local staged
-        staged=$(find "$PROJECT_NAME/osgi/client-extensions" -name "*microservice*.zip" 2>/dev/null | head -1)
-
-        if [ -z "$staged" ]; then
-            echo "⚠️  No staged microservice client extension; skipping the LIFERAY_API_URL injection."
-            return 0
-        fi
-
-        # Updated in place with `zip`, never rebuilt.
-        #
-        # The first version read every entry and wrote a fresh archive with
-        # `writestr(filename, data)`. Passing a filename rather than the
-        # original ZipInfo discards its metadata: the extension has 290
-        # entries, 24 of them directories, and executable bits on some files.
-        # The rebuilt archive lost all three, Liferay could not process the
-        # client extension, and the run died with 34 company-lookup failures
-        # having never reached readiness - where the run before it had none.
-        #
-        # `zip` replaces the single named entry and leaves every other byte
-        # alone, which is the only property that matters here.
-        local workdir
-        workdir=$(mktemp -d)
-
-        if ! unzip -q -o "$staged" LCP.json -d "$workdir" 2>/dev/null; then
-            echo "     $(basename "$staged") has no LCP.json; nothing to inject"
-            rm -rf "$workdir"
-            return 0
-        fi
-
-        python3 - "$workdir/LCP.json" "$LIFERAY_API_URL" <<'PY'
-import json, sys
-from pathlib import Path
-
-manifest_path, liferay_url = Path(sys.argv[1]), sys.argv[2]
-manifest = json.loads(manifest_path.read_text())
-manifest.setdefault("env", {})["LIFERAY_API_URL"] = liferay_url
-manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-PY
-
-        local archive
-        archive=$(cd "$(dirname "$staged")" && pwd)/$(basename "$staged")
-
-        (cd "$workdir" && zip -q "$archive" LCP.json)
-        rm -rf "$workdir"
-
-        echo "     $(basename "$staged"): env.LIFERAY_API_URL = $LIFERAY_API_URL"
-    }
-
-    echo "🔧 Declaring LIFERAY_API_URL in the microservice's LCP.json..."
-    inject_liferay_url_into_microservice
+    # Repairing the injection to target ce_dir was considered and rejected:
+    # the upstream fix removes the need for it entirely, so it would be
+    # thrown away. If you are here because the 401s are back, check the LDM
+    # version before writing any of this again.
 
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
