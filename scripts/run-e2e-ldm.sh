@@ -358,6 +358,8 @@ capture_microservice_diagnostics() {
     mkdir -p logs
 
     container=$(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -i "microservice" | head -1)
+    # LDM names the Liferay service after the project itself.
+    LIFERAY_CONTAINER="${PROJECT_NAME:-aica-e2e}"
 
     if [ -z "$container" ]; then
         # Also what a dead daemon looks like: `docker ps` fails, the name list
@@ -434,6 +436,29 @@ capture_microservice_diagnostics() {
         # tree. Listed as a canary: if it is ever empty, a bind mount has
         # shadowed the route handlers and the container will not start
         # (liferay-docker-manager#1911).
+        # Asked for by LDM to settle two questions outright.
+        #
+        # 1. `ls routes/default/` on the host. A directory that is not the one
+        #    mounted means an ext-id mismatch - a one-line fix. Only `dxp`
+        #    means Liferay never registered the extension, which is a
+        #    different problem upstream of the mount.
+        #
+        #    Read through the Liferay container, which mounts the same host
+        #    tree at /opt/liferay/routes. That is also the side that writes,
+        #    so its view is the one that matters - and `-l` shows the
+        #    ownership, which is what `(Permission denied)` turns on.
+        echo "=== routes/default, as the Liferay container sees it ==="
+        docker exec "$LIFERAY_CONTAINER" sh -c \
+            'ls -la /opt/liferay/routes/default/ 2>&1; echo "--- whoami ---"; id' 2>&1 \
+            || echo "(Liferay container '"'"'$LIFERAY_CONTAINER'"'"' not reachable)"
+        echo
+        # 2. Whether compose actually gated this service on Liferay. The
+        #    generated depends_on is recorded as a label, so the running
+        #    container is the authority rather than a file on the node.
+        echo "=== compose depends_on for this service ==="
+        docker inspect -f '{{index .Config.Labels "com.docker.compose.depends_on"}}' \
+            "$container" 2>&1 || echo "(label unreadable)"
+        echo
         echo "=== /opt/liferay/routes (app code - must NOT be empty) ==="
         docker exec "$container" sh -c 'ls -A /opt/liferay/routes 2>&1 | wc -l' 2>&1 \
             || echo "(unreadable)"

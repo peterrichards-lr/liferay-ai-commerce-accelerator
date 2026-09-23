@@ -56,7 +56,8 @@ case "$1" in
   ps) ${container ? `echo "${container}"` : 'true'} ;;
   logs) ${logsFail ? 'exit 1' : 'echo "microservice boot line" >&2; echo "ENOTFOUND aica-e2e.demo" >&2'} ;;
   inspect)
-     if [[ "$*" == *ExtraHosts* ]]; then echo 'null'
+     if [[ "$*" == *depends_on* ]]; then echo 'liferay:service_healthy'
+     elif [[ "$*" == *ExtraHosts* ]]; then echo 'null'
      else
        echo "LIFERAY_API_URL=https://aica-e2e.demo"
        echo "LIFERAY_OAUTH_CLIENT_SECRET=super-secret-value"
@@ -69,6 +70,10 @@ case "$1" in
            ? 'echo "--- /etc/liferay/lxc/dxp-metadata ---"; echo "com.liferay.lxc.dxp.main.domain"; echo "--- /etc/liferay/lxc/ext-init-metadata ---"; echo "com.liferay.lxc.ext.oauth.application.external.reference.codes"'
            : 'echo "--- /etc/liferay/lxc/dxp-metadata ---"; echo "  (path does not exist - nothing mounted here)"'
        }
+     elif [[ "$*" == *"ls -la /opt/liferay/routes/default"* ]]; then
+       echo "drwxr-xr-x 2 root    root    4096 dxp"
+       echo "drwxr-xr-x 2 root    root    4096 ai-commerce-accelerator-microservice"
+       echo "--- whoami ---"; echo "uid=1000(liferay) gid=1000(liferay)"
      elif [[ "$*" == *"ls -A /opt/liferay/routes"* ]]; then echo "16"
      else echo "stub-exec-output"; fi ;;
 esac
@@ -256,6 +261,47 @@ describe('microservice container diagnostics', () => {
       // If a bind mount ever shadows /opt/liferay/routes the container will
       // not start (LDM-#1911). A count of 0 says so immediately.
       expect(facts).toMatch(/app code - must NOT be empty/);
+    });
+  });
+
+  test('records routes/default with ownership, as Liferay sees it', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // LDM asked for this to settle two questions: a directory that is not
+      // the mounted ext-id means an id mismatch; only `dxp` means Liferay
+      // never registered the extension. Ownership is what `(Permission
+      // denied)` turns on, so `-l` is not optional.
+      expect(facts).toMatch(
+        /routes\/default, as the Liferay container sees it/
+      );
+      expect(facts).toMatch(/ai-commerce-accelerator-microservice/);
+      expect(facts).toMatch(/uid=1000\(liferay\)/);
+    });
+  });
+
+  test('reads routes/default from the writing side, not the extension', () => {
+    const body = functionSource('capture_microservice_diagnostics');
+    const block = body.slice(body.indexOf('routes/default, as the Liferay'));
+    // The extension mounts a subtree; Liferay mounts the parent and is the
+    // side that writes. Probing the extension would show neither the sibling
+    // directories nor the ownership.
+    //
+    // Asserted on the `docker exec` line itself. An earlier version matched
+    // anywhere in the block and was satisfied by the fallback error message,
+    // which names the variable without using it - it passed against a version
+    // that probed the wrong container.
+    const execLine = block.split('\n').find((l) => l.includes('docker exec'));
+    expect(execLine).toBeDefined();
+    expect(execLine).toMatch(/docker exec "\$LIFERAY_CONTAINER"/);
+  });
+
+  test('records the compose depends_on for this service', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // Settles the ordering question outright rather than inferring it from
+      // timestamps, which is how it was got wrong once already.
+      expect(facts).toMatch(/compose depends_on/);
+      expect(facts).toMatch(/liferay:service_healthy/);
     });
   });
 
