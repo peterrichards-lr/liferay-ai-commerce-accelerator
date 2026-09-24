@@ -70,16 +70,34 @@ class MediaGenerator {
     this.mockPdf = null;
   }
 
+  // Named, because a bare require of an unassembled asset throws
+  // MODULE_NOT_FOUND from inside a getter, which names the resolver rather
+  // than the thing that is missing. See #1131.
+  _loadMockAsset(relativePath) {
+    try {
+      return require(relativePath);
+    } catch (error) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        throw new Error(
+          `Mock media asset ${relativePath} is missing. The client extension ` +
+            'was assembled without it, so demo mode cannot generate media.',
+          { cause: error }
+        );
+      }
+      throw error;
+    }
+  }
+
   getMockBase64Image = () => {
     if (!this.mockImage) {
-      this.mockImage = require('../data/mock-image.json');
+      this.mockImage = this._loadMockAsset('../data/mock-image.json');
     }
     return this.mockImage;
   };
 
   getMockBase64Pdf = () => {
     if (!this.mockPdf) {
-      this.mockPdf = require('../data/mock-pdf.json');
+      this.mockPdf = this._loadMockAsset('../data/mock-pdf.json');
     }
     return this.mockPdf;
   };

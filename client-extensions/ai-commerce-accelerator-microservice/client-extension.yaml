@@ -2,6 +2,23 @@ assemble:
   - include:
       - '**/*.cjs'
       - package.json
+      # Everything below is read at runtime and was not assembled, so none of
+      # it reached the container. Each failed differently and none said so:
+      # the schemas ENOENT'd into a swallowed catch, leaving every response
+      # unvalidated; the mock media threw MODULE_NOT_FOUND from a bare
+      # require; the seed packs answered HTTP 400 "not found" for every pack;
+      # and application.json's allow.list and OAuth application references
+      # simply were not there. See #1131.
+      #
+      # Listed per directory rather than as '**/*.json', which would sweep in
+      # tests/ fixtures, test.db and vitest-report-*.xml. `data/*.json` rather
+      # than `data/**` for the same reason - the running service writes
+      # workflows.db into that directory.
+      - application.json
+      - generation-schemas/*.json
+      - data/*.json
+      - resources/seed-packs/*.json
+      - public/**
 ai-commerce-accelerator-microservice:
   .serviceAddress: localhost:3001
   .serviceScheme: http
