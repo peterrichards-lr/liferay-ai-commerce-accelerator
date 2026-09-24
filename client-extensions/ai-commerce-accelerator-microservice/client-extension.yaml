@@ -89,6 +89,23 @@ ai-commerce-accelerator-microservice:
 # Granting is separate from existing: the client id must also be named in
 # AICA_ADMIN_CLIENTS on the service before this application can do anything.
 ai-commerce-accelerator-cli-automation:
+  # The address exists only to make `baseURL` absolute. Nothing binds a
+  # listener here - this is a client_credentials application and has no
+  # callback - but Liferay validates a home page URL it derives from the
+  # address, and rejected this application outright without one.
+  #
+  # `homePageURL` is @Deprecated and unset, so
+  # BaseConfigurationFactory.getHomePageURL falls back to `baseURL`, and
+  # OAuth2ApplicationLocalServiceImpl._validate then requires a http:// or
+  # https:// prefix on a value we never set. Blank would be legal; schemeless
+  # is not. The application was therefore never created, and no routes were
+  # written for it - three runs of
+  # `OAuth2ApplicationHomePageURLSchemeException: null` with nothing else said.
+  #
+  # The value mirrors cli-user-agent, where the same address *is* load-bearing
+  # as the loopback redirect listener. See #1136.
+  .serviceAddress: 127.0.0.1:38017
+  .serviceScheme: http
   name: Liferay AI Commerce Accelerator CLI Automation
   scopes:
     - Liferay.Headless.Admin.User.everything.read
