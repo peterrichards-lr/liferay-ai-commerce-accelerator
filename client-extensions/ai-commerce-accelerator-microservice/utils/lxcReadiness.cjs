@@ -114,8 +114,26 @@ function startDxpConfigTreeWatcher({
   };
 }
 
+/**
+ * Whether Liferay is a separate container that mounts config trees into this
+ * one, as opposed to a local run where the microservice is a host process.
+ *
+ * The distinction matters because a loopback Liferay URL is correct in the
+ * second case and impossible in the first: `localhost` inside this container
+ * is this container. Same test #1132 uses to decide whether to watch at all,
+ * named once rather than spelled out twice. See #1137.
+ */
+function isColocatedDeployment(dir = ENV.LIFERAY_ROUTES_DXP) {
+  try {
+    return fs.existsSync(dir);
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
   DXP_MAIN_DOMAIN_KEY,
+  isColocatedDeployment,
   isDxpConfigTreeReady,
   startDxpConfigTreeWatcher,
 };

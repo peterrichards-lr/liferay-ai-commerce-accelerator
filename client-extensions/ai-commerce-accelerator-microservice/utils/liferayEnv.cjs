@@ -1,4 +1,5 @@
 const { lxcConfig, lookupConfig } = require('@rotty3000/config-node');
+const { isColocatedDeployment } = require('./lxcReadiness.cjs');
 const { createERC } = require('./misc.cjs');
 const { ERC_PREFIX, ENV } = require('./constants.cjs');
 const { logger } = require('./logger.cjs');
@@ -10,6 +11,7 @@ const TARGET_SOURCE = {
   REQUEST: 'request',
   OAUTH_DEFAULT: 'oauth-service-default',
   COLOCATED_ROUTES: 'colocated-lxc-routes',
+  LXC_ENV: 'env:LIFERAY_LXC_DXP_MAIN_DOMAIN',
   ENV: 'env:LIFERAY_API_URL',
   PERSISTED: 'persisted:active_liferay_url',
 };
@@ -36,12 +38,54 @@ function isSameLiferayHost(one, other) {
   return new URL(one).host === new URL(other).host;
 }
 
+const LOOPBACK_HOSTNAMES = new Set(['localhost', '::1', '[::1]']);
+
+function isLoopbackHost(hostname) {
+  if (!hostname) return false;
+  const host = hostname.toLowerCase();
+  return LOOPBACK_HOSTNAMES.has(host) || /^127\./.test(host);
+}
+
+/**
+ * Whether a candidate URL can actually reach Liferay from here.
+ *
+ * A colocated client extension can never reach Liferay on its own loopback:
+ * Liferay is a different container, and `localhost` inside this one is this
+ * one. Run 36014266810 measured the config tree holding
+ * `com.liferay.lxc.dxp.main.domain = localhost`, and the process spent forty
+ * minutes on `connect ECONNREFUSED 127.0.0.1:8080` calling itself.
+ *
+ * The same value is correct in local development, where the microservice is a
+ * host process and Liferay really is on localhost - so the rule is conditional
+ * on being colocated, never on the value alone. See #1137.
+ */
+function isUsableLiferayUrl(maybeUrl) {
+  if (!isValidAbsoluteUrl(maybeUrl)) return false;
+  if (!isColocatedDeployment()) return true;
+  return !isLoopbackHost(new URL(maybeUrl).hostname);
+}
+
+function tryBuildLxcEnvLiferayUrl() {
+  const domain = ENV.LIFERAY_LXC_DXP_MAIN_DOMAIN;
+  if (!domain) return null;
+  const built = `${ENV.LIFERAY_LXC_DXP_SERVER_PROTOCOL}://${domain}`;
+  return isValidAbsoluteUrl(built) ? built : null;
+}
+
 function tryBuildColocatedLiferayUrl() {
   try {
     const liferayServerProtocol = lookupConfig(
       'com.liferay.lxc.dxp.server.protocol'
     );
     const liferayServerDomain = lxcConfig.dxpMainDomain();
+
+    // Both, before interpolating. A missing domain produced the string
+    // "http://undefined", which `isValidAbsoluteUrl` accepts - "undefined" is
+    // a syntactically valid host - so an absent value became a confident
+    // answer that then short-circuited the rest of the chain. Found by a test
+    // for #1137 that expected this to return nothing.
+    if (!liferayServerProtocol || !liferayServerDomain) return null;
+
     const built = `${liferayServerProtocol}://${liferayServerDomain}`;
     if (isValidAbsoluteUrl(built)) return built;
   } catch {
@@ -91,6 +135,7 @@ function resolveEffectiveLiferayConnection(
             : null,
       ],
       [TARGET_SOURCE.COLOCATED_ROUTES, () => tryBuildColocatedLiferayUrl()],
+      [TARGET_SOURCE.LXC_ENV, () => tryBuildLxcEnvLiferayUrl()],
       [TARGET_SOURCE.ENV, () => ENV.LIFERAY_API_URL],
       [
         TARGET_SOURCE.PERSISTED,
@@ -101,14 +146,38 @@ function resolveEffectiveLiferayConnection(
     liferayUrl = null;
     liferayUrlSource = null;
 
+    // Both derived sources read the config tree, directly or through the SDK,
+    // so both can carry Liferay's local listener rather than the host this
+    // container can reach. An unusable candidate is refused and the chain
+    // continues, rather than short-circuiting on it - which is what #1132
+    // started doing once the tree became readable at all.
+    const derivedSources = new Set([
+      TARGET_SOURCE.OAUTH_DEFAULT,
+      TARGET_SOURCE.COLOCATED_ROUTES,
+    ]);
+
     for (const [source, read] of fallbacks) {
       const candidate = read();
 
-      if (candidate) {
-        liferayUrl = candidate;
-        liferayUrlSource = source;
-        break;
+      if (!candidate) continue;
+
+      if (derivedSources.has(source) && !isUsableLiferayUrl(candidate)) {
+        logger.warn(
+          'Ignoring a Liferay URL that cannot be reached from this container',
+          {
+            candidate,
+            correlationId: config.correlationId,
+            operation: 'liferay-url-resolution',
+            reason: 'loopback host in a colocated deployment',
+            source,
+          }
+        );
+        continue;
       }
+
+      liferayUrl = candidate;
+      liferayUrlSource = source;
+      break;
     }
   }
 
@@ -326,6 +395,7 @@ async function verifyBasicCredentialAtStartup(
 }
 
 module.exports = {
+  isUsableLiferayUrl,
   isValidAbsoluteUrl,
   tryBuildColocatedLiferayUrl,
   resolveEffectiveLiferayConnection,

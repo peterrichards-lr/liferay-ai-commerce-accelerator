@@ -359,6 +359,17 @@ const ENV = {
   // bring-up event rather than a fixed delay.
   LXC_CONFIG_WAIT_MS: num('LXC_CONFIG_WAIT_MS', 300000, 0),
   LXC_CONFIG_POLL_MS: num('LXC_CONFIG_POLL_MS', 1000, 100),
+  // Read directly rather than through config-node's `lookupConfig`, which is
+  // the whole point: its provider order puts config trees (6000) ahead of
+  // individual environment variables (7000), so a tree recording Liferay's
+  // local listener buries the correct host that LDM sets here. Measured in run
+  // 36014266810 - the tree said `localhost`, this said `aica-e2e.demo`, and
+  // the tree won. See #1137.
+  LIFERAY_LXC_DXP_MAIN_DOMAIN: str('LIFERAY_LXC_DXP_MAIN_DOMAIN', ''),
+  LIFERAY_LXC_DXP_SERVER_PROTOCOL: str(
+    'LIFERAY_LXC_DXP_SERVER_PROTOCOL',
+    'https'
+  ),
 };
 
 // External Reference Code Prefixes
