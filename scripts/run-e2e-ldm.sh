@@ -382,6 +382,53 @@ capture_microservice_diagnostics() {
         rm -f "$tmp"
     fi
 
+    # Liferay's own log, which the E2E has never captured.
+    #
+    # Three separate diagnoses in one week rested on what Liferay said at
+    # boot, and none could be settled from an artifact: the run collected the
+    # microservice's log and nothing else, so the evidence existed only in a
+    # manual `docker logs` that nothing retained. One of those diagnoses was
+    # sent upstream and had to be withdrawn. See #1130.
+    #
+    # Bounded, because Liferay's boot log dwarfs the microservice's and this
+    # runs at two stages. Promoted through a temp file for the same reason as
+    # above - a teardown capture reaching a dead daemon must not blank what
+    # pre-tests already collected.
+    #
+    # Redacted with perl rather than `sed -E ... /I`, which is GNU-only: this
+    # script runs on the CI runner and on a developer's macOS.
+    tmp=$(mktemp)
+    if docker logs --tail "${LIFERAY_LOG_TAIL:-20000}" "$LIFERAY_CONTAINER" > "$tmp" 2>&1 \
+        && [ -s "$tmp" ]; then
+        perl -pe 's/((?:client[._]secret|password|api[._]?key|bearer|authorization)\W{0,3}).*/$1<redacted>/gi' \
+            < "$tmp" > logs/e2e-liferay.log
+        echo "🔎 Captured Liferay container log ($stage) -> logs/e2e-liferay.log"
+
+        # The full log answers an argument; this answers the question. Each
+        # pattern distinguishes one of the three candidate causes for an empty
+        # ext-init tree, so a reader does not have to know what to grep for.
+        #
+        # Matches message text, never values - the files under routes hold
+        # generated OAuth2 client secrets and this lands in a public artifact.
+        {
+            echo "=== unresolved modules (ours: the OSGi pin vs the DXP line) ==="
+            grep -F "Could not resolve module" logs/e2e-liferay.log || echo "(none)"
+            echo
+            echo "=== routes writer (LDM-#1944: did it write, and did it fail?) ==="
+            grep -E "PortalK8sConfigMapModifier" logs/e2e-liferay.log || echo "(none)"
+            echo
+            echo "=== client-extension bootstrap failures (one bad OAuth app takes the shared map) ==="
+            # Two greps rather than one alternation: Liferay writes the
+            # severity first ("ERROR [category] message"), so a pattern
+            # requiring ERROR *after* the keyword silently matches nothing.
+            grep -E "ClientExtension|OAuth2" logs/e2e-liferay.log \
+                | grep -E "ERROR|Exception" || echo "(none)"
+        } > logs/e2e-liferay-signals.txt 2>&1
+    else
+        rm -f "$tmp"
+        echo "🔎 Liferay container log unavailable ($stage); leaving any earlier capture intact."
+    fi
+
     {
         echo "container: $container"
         echo "stage: $stage"
