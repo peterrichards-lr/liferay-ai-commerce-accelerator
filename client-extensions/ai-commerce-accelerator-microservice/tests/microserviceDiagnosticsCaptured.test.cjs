@@ -56,6 +56,7 @@ function stubDocker(
     container = 'aica-e2e-microservice',
     logsFail = false,
     treesPopulated = false,
+    mainDomain = 'aica-e2e.demo',
   } = {}
 ) {
   const bin = path.join(dir, 'bin');
@@ -69,13 +70,20 @@ case "$1" in
   inspect)
      if [[ "$*" == *depends_on* ]]; then echo 'liferay:service_healthy'
      elif [[ "$*" == *ExtraHosts* ]]; then echo 'null'
+     elif [[ "$*" == *Mounts* ]]; then echo '[{"Type":"bind","Source":"/opt/ldm/aica-e2e/routes/default/ai-commerce-accelerator-microservice","Destination":"/etc/liferay/lxc/ext-init-metadata"}]'
      else
        echo "LIFERAY_API_URL=https://aica-e2e.demo"
        echo "LIFERAY_OAUTH_CLIENT_SECRET=super-secret-value"
        echo "OPENAI_API_KEY=sk-live-aaaaaaaa"
      fi ;;
   exec)
-     if [[ "$*" == *LIFERAY_ROUTES_DXP* ]]; then
+     # Must precede the listing branch below: both mention LIFERAY_ROUTES_DXP,
+     # and only this one reads the files.
+     if [[ "$*" == *basename* ]]; then
+       echo "com.liferay.lxc.dxp.main.domain = ${mainDomain}"
+       echo "com.liferay.lxc.dxp.server.protocol = https"
+       echo "com.liferay.lxc.dxp.client.secret = should-not-appear"
+     elif [[ "$*" == *LIFERAY_ROUTES_DXP* ]]; then
        ${
          treesPopulated
            ? 'echo "--- /etc/liferay/lxc/dxp-metadata ---"; echo "com.liferay.lxc.dxp.main.domain"; echo "--- /etc/liferay/lxc/ext-init-metadata ---"; echo "com.liferay.lxc.ext.oauth.application.external.reference.codes"'
@@ -102,9 +110,15 @@ function runCapture(
     stage = 'pre-tests',
     logsFail = false,
     treesPopulated = false,
+    mainDomain = 'aica-e2e.demo',
   } = {}
 ) {
-  const bin = stubDocker(dir, { container, logsFail, treesPopulated });
+  const bin = stubDocker(dir, {
+    container,
+    logsFail,
+    treesPopulated,
+    mainDomain,
+  });
   const harness = path.join(dir, 'capture.sh');
   fs.writeFileSync(
     harness,
@@ -257,13 +271,39 @@ describe('microservice container diagnostics', () => {
     });
   });
 
-  test('lists credential file names, never their contents', () => {
+  // The rule is "never read ext-init contents", not "never use cat". This
+  // used to slice to the end of the function and forbid `cat` outright, which
+  // caught the #1137 change that reads the DXP tree's values - domains and a
+  // protocol, deliberately printed. Scoped to what it actually means, and
+  // still able to fail: point the values probe at ext-init and it does.
+  test('lists the credential tree by name, never by content', () => {
     const body = functionSource('capture_microservice_diagnostics');
-    const treeProbe = body.slice(body.indexOf('LXC config trees'));
-    // `cat`/`head` in this block would put generated OAuth2 credentials into
-    // a CI artifact.
-    expect(treeProbe).not.toMatch(/\b(cat|head|tail)\b/);
-    expect(treeProbe).toMatch(/ls -A/);
+    const listing = body.slice(
+      body.indexOf('LXC config trees'),
+      body.indexOf('DXP config tree values')
+    );
+    expect(listing).not.toMatch(/\b(cat|head|tail)\b/);
+    expect(listing).toMatch(/ls -A/);
+  });
+
+  test('the value probe reads the DXP tree only, never ext-init', () => {
+    const body = functionSource('capture_microservice_diagnostics');
+    // Comments only, stripped: the block explains *why* it avoids
+    // ext-init-metadata, and matching that prose would make this pass or fail
+    // on the wording rather than the command. #1073 is the same lesson - a
+    // guard that counted comments as reads.
+    const values = body
+      .slice(
+        body.indexOf('DXP config tree values'),
+        body.indexOf('mounts, as Docker records them')
+      )
+      .split('\n')
+      .filter((l) => !/^\s*#/.test(l))
+      .join('\n');
+    // It reads file contents, so the directory it reads is the whole safety
+    // argument. ext-init-metadata holds generated OAuth2 client secrets.
+    expect(values).toMatch(/LIFERAY_ROUTES_DXP/);
+    expect(values).not.toMatch(/LIFERAY_ROUTES_CLIENT_EXTENSION|ext-init/);
   });
 
   test('counts the app route handlers as a shadowing canary', () => {
@@ -332,5 +372,51 @@ describe('microservice container diagnostics', () => {
     const cleanupDef = lines.findIndex((l) => l.startsWith('cleanup() {'));
     expect(def).toBeGreaterThan(-1);
     expect(def).toBeLessThan(cleanupDef);
+  });
+
+  // Run 35992670909 resolved Liferay as https://localhost:8080 and spent the
+  // run calling itself. Whether the config tree holds the project host or the
+  // portal's local listener is the whole question, and a listing of file names
+  // cannot answer it. See #1137.
+  test('prints the DXP tree values, not just the file names', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir, { mainDomain: 'aica-e2e.demo' });
+      expect(facts).toMatch(/DXP config tree values/);
+      expect(facts).toMatch(
+        /com\.liferay\.lxc\.dxp\.main\.domain = aica-e2e\.demo/
+      );
+      expect(facts).toMatch(/com\.liferay\.lxc\.dxp\.server\.protocol = https/);
+    });
+  });
+
+  test('shows a wrong main domain rather than hiding it behind a file name', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir, { mainDomain: 'localhost:8080' });
+      expect(facts).toMatch(
+        /com\.liferay\.lxc\.dxp\.main\.domain = localhost:8080/
+      );
+    });
+  });
+
+  // The DXP tree is domains and a protocol today. A key added later might not
+  // be, and this lands in a public CI artifact.
+  test('redacts a credential-shaped key among the tree values', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      expect(facts).not.toMatch(/should-not-appear/);
+      expect(facts).toMatch(/client\.secret = <redacted>/);
+    });
+  });
+
+  // The half liferay-docker-manager#1944 is missing: Liferay writes
+  // routes/default/<ext_id> and the container reads an empty directory, so the
+  // remaining explanation is that the two are not the same path.
+  test('records where Docker actually binds the ext-init mount', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      expect(facts).toMatch(/mounts, as Docker records them/);
+      expect(facts).toMatch(/ext-init-metadata/);
+      expect(facts).toMatch(/"Source":/);
+    });
   });
 });
