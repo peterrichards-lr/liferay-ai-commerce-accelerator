@@ -3,6 +3,17 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+// These cases spawn bash, the capture function and a stub docker several times
+// over. Under full-suite parallelism - 180+ files, a worker each - that
+// routinely exceeds vitest's 5s default, and the failure reads as a broken
+// assertion rather than a busy machine. Measured on an unmodified master:
+// two of these fail intermittently with "Test timed out in 5000ms".
+//
+// The timeout is raised rather than the work reduced, because the subprocess
+// tree is the point: these assert what lands on disk when the real function
+// runs, which is what #1125 and #1127 were about.
+vi.setConfig({ testTimeout: 30000, hookTimeout: 120000 });
+
 /**
  * A remote target's stack must be reachable at the URL the suite drives.
  *
