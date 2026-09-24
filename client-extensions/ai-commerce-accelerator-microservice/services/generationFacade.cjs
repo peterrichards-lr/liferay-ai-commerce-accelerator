@@ -73,6 +73,23 @@ class GenerationFacade {
     } catch (error) {
       this.logger.error(`Failed to load generation schemas: ${error.message}`);
     }
+
+    // Everything in `validateAndNormalize` sits inside `if (validator)`. With
+    // no validators loaded it returns the payload untouched - no schema check,
+    // no removeAdditional, no useDefaults, and neither the count truncation
+    // nor the zero-item guard can fire. That is not a degraded service, it is
+    // a different one, and it ran in every deployed container for as long as
+    // the schemas went unassembled (#1131), reporting nothing but one ENOENT
+    // at boot.
+    //
+    // Fails the boot for the same reason `BaseGenerator.verifySteps()` does:
+    // a packaging defect is always wrong, and is knowable at startup.
+    if (Object.keys(this.validators).length === 0) {
+      throw new Error(
+        `No generation schemas loaded from ${schemaDir}. The client extension ` +
+          'was assembled without them, so no generated data would be validated.'
+      );
+    }
   }
 
   /**
