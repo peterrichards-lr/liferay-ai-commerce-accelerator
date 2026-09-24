@@ -479,6 +479,39 @@ capture_microservice_diagnostics() {
                 fi
             done' 2>&1 || echo "(config trees unreadable)"
         echo
+        # The DXP tree's *values*, not just its names.
+        #
+        # Run 35992670909 resolved Liferay as https://localhost:8080 and spent
+        # the run calling itself - 3673 x ECONNREFUSED 127.0.0.1:8080 - with
+        # `source: oauth-service-default`, which is built from
+        # lxcConfig.dxpMainDomain(). Whether that key holds the project host or
+        # the portal's local listener is the whole question, and a listing of
+        # file names cannot answer it. See #1137.
+        #
+        # Values are printed for this tree only. It holds domains and a
+        # protocol; ext-init-metadata holds generated OAuth2 client secrets and
+        # stays names-only for the reason #1128 records. Redacted anyway, on
+        # the same principle as the Liferay log: a key added later might not be
+        # a hostname.
+        echo "=== DXP config tree values (domains and protocol; not credentials) ==="
+        docker exec "$container" sh -c '
+            dxp="${LIFERAY_ROUTES_DXP:-/etc/liferay/lxc/dxp-metadata}"
+            for f in "$dxp"/*; do
+                [ -f "$f" ] || continue
+                printf "%s = %s\n" "$(basename "$f")" "$(cat "$f" 2>&1)"
+            done' 2>&1 \
+            | perl -pe 's/((?:secret|password|api[._]?key|token)\W{0,3}).*/$1<redacted>/gi' \
+            || echo "(DXP tree values unreadable)"
+        echo
+        # Where LDM actually binds ext-init-metadata.
+        #
+        # Liferay writes routes/default/<ext_id> and the container reads an
+        # empty directory, so the remaining explanation is that the two are not
+        # the same path. This names the source outright and is the half
+        # liferay-docker-manager#1944 is missing.
+        echo "=== mounts, as Docker records them ==="
+        docker inspect -f '{{json .Mounts}}' "$container" 2>&1 || echo "(mounts unreadable)"
+        echo
         # /opt/liferay/routes is the application's own code, not a config
         # tree. Listed as a canary: if it is ever empty, a bind mount has
         # shadowed the route handlers and the container will not start
