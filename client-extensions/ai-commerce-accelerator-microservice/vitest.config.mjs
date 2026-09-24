@@ -49,6 +49,22 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Several suites spawn bash, a stub docker, git or detect-secrets - whole
+    // subprocess trees, two seconds or more apiece - because they assert what
+    // lands on disk when the real function runs. With 184 files and a worker
+    // each, those contend for CPU and exceed vitest's 5s default, and the
+    // failure reads as a broken assertion rather than a busy machine.
+    //
+    // Measured on an unmodified master: two such files failed together, so it
+    // predates the changes that surfaced it and the pre-push gate has been
+    // intermittently unreliable. Patched per file three times before this.
+    //
+    // The trade-off is deliberate: a global timeout is weaker protection
+    // against a genuinely hung test. The failure mode being guarded here is a
+    // busy machine, which affects any spawn-heavy test; a hang still fails,
+    // just later. See #1140.
+    testTimeout: 30000,
+    hookTimeout: 120000,
     include: ['tests/**/*.test.{cjs,mjs}'],
     setupFiles: ['./tests/setup.mjs'],
     reporters: ['default', 'junit', new CompleteRunReporter()],

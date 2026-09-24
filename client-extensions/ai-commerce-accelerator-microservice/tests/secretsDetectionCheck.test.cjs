@@ -1,11 +1,5 @@
 const { createSandbox } = require('./fixtures/rootScriptSandbox.cjs');
 
-// Each case shells out to git and detect-secrets, ~2s apiece. Under
-// full-suite parallelism that exceeds vitest's 5s default and reads as a
-// broken assertion rather than a busy machine - the same class #1134 fixed in
-// microserviceDiagnosticsCaptured and remoteStackReachable.
-vi.setConfig({ testTimeout: 30000, hookTimeout: 120000 });
-
 /**
  * `detect-secrets.mjs` is the last thing between a pasted credential and the
  * history of a public repository, and it runs in the pre-commit hook where
