@@ -345,6 +345,20 @@ const ENV = {
   ALLOW_LARGE_PROMPTS: bool('ALLOW_LARGE_PROMPTS', false),
   // New delay for Liferay inter-service sync
   LIFERAY_SYNC_DELAY_MS: num('LIFERAY_SYNC_DELAY_MS', 3000, 0), // 3 seconds
+  // Where Liferay mounts the DXP config tree. Set by the liferay/node-runner
+  // base image rather than by our LCP.json, and consumed by config-node
+  // through `config.node.config.trees` in application.json - declared here so
+  // the readiness watcher can read the same directory rather than assume the
+  // LXC convention. See #1103.
+  LIFERAY_ROUTES_DXP: str(
+    'LIFERAY_ROUTES_DXP',
+    '/etc/liferay/lxc/dxp-metadata'
+  ),
+  // How long to keep watching for that tree. Generous by default: it is
+  // written when Liferay's main servlet is first hit, which is a stack
+  // bring-up event rather than a fixed delay.
+  LXC_CONFIG_WAIT_MS: num('LXC_CONFIG_WAIT_MS', 300000, 0),
+  LXC_CONFIG_POLL_MS: num('LXC_CONFIG_POLL_MS', 1000, 100),
 };
 
 // External Reference Code Prefixes
