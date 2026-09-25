@@ -6,6 +6,12 @@ import { expect } from '@playwright/test';
  *
  * @param {import('@playwright/test').Page} page
  */
+// Exported so a second suite cannot drift from it. `full-journey.spec.js` used
+// a hardcoded `/web/guest/ai-generator`, which was wrong on both counts - the
+// pages are on the AICA site, not Guest - and stayed wrong after #1103 fixed
+// the path here. See #1150.
+export const AICA_SITE_PATHS = ['/web/ai-commerce-accelerator', '/web/aica'];
+
 export async function injectAndConnectApp(page) {
   console.log(
     '>>> Navigating to standard Guest page to inject React application...'
@@ -68,7 +74,7 @@ export async function injectAndConnectApp(page) {
   // through the UI or the API, and a suite that only knows one of them fails
   // the way this one did - 404 on the site, silent fallback to Guest, then a
   // run of /web/undefined that points at the frontend rather than the site.
-  const SITE_PATHS = ['/web/ai-commerce-accelerator', '/web/aica'];
+  const SITE_PATHS = AICA_SITE_PATHS;
   let landedOn = null;
 
   for (const path of SITE_PATHS) {

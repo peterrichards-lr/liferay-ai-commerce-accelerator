@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { AICA_SITE_PATHS } from '../e2e/test-helper.js';
 
 /**
  * AI Commerce Accelerator - Full Journey Smoke Test
@@ -35,7 +36,31 @@ test.describe('AI Commerce Accelerator Foundations', () => {
 
   test('frontend extension renders generator status', async ({ page }) => {
     // Direct navigation to the page containing the Frontend CX fragment
-    await page.goto('/web/guest/ai-generator');
+    // The generator page is on the AICA site, not Guest, and it is called
+    // data-generator - the site initializer declares
+    // `friendlyURL: /data-generator`. `/web/guest/ai-generator` was wrong on
+    // both counts and would have failed against a perfectly healthy instance.
+    //
+    // The site paths come from test-helper so there is one list. #1103 fixed
+    // the path there and this spec kept its own copy, which is how it stayed
+    // wrong. See #1150.
+    let landed = false;
+
+    for (const sitePath of AICA_SITE_PATHS) {
+      const res = await page
+        .goto(`${sitePath}/data-generator`)
+        .catch(() => null);
+
+      if (res && res.status() < 400) {
+        landed = true;
+        break;
+      }
+    }
+
+    expect(
+      landed,
+      `no AICA data-generator page reachable (tried ${AICA_SITE_PATHS.map((p) => `${p}/data-generator`).join(', ')})`
+    ).toBe(true);
 
     // Verify generator status component is visible on page
     await expect(page.locator('.generator-status-card')).toBeVisible({
