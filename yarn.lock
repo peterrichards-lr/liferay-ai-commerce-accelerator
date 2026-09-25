@@ -1059,9 +1059,9 @@
   resolved "https://registry.yarnpkg.com/@keyv/serialize/-/serialize-1.1.1.tgz#0c01dd3a3483882af7cf3878d4e71d505c81fc4a"
   integrity sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==
 
-"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.12.0":
-  version "0.12.0"
-  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#70154b728317c00f6a01bfb40ff7b93c13a31c1d"
+"@liferay/accelerator-sdk@git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.12.1":
+  version "0.12.1"
+  resolved "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#c6cd34247346ffc2a0c6a0bb19e003f1d4da21d4"
   dependencies:
     "@modelcontextprotocol/sdk" "^1.30.0"
     "@rotty3000/config-node" "^0.4.1"
@@ -1070,7 +1070,7 @@
     axios "^1.20.0"
     better-sqlite3 "13.0.3"
     csv-parse "^7.0.2"
-    fast-uri "^4.1.4"
+    fast-uri "^4.2.1"
     form-data "^4.0.6"
     lodash "^4.18.1"
     memory-cache "^0.2.0"
@@ -3286,10 +3286,10 @@ fast-uri@^3.0.1:
   resolved "https://registry.yarnpkg.com/fast-uri/-/fast-uri-3.1.7.tgz#743157d957f3cbb4c65310e033dc2ad4ad7dc60a"
   integrity sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg==
 
-fast-uri@^4.1.4:
-  version "4.1.4"
-  resolved "https://registry.yarnpkg.com/fast-uri/-/fast-uri-4.1.4.tgz#2076a9d7bce86a86aa31ac40650b935fd5b1cd60"
-  integrity sha512-dODXrIxlS9JSdgAnhIUKOosKV1oMtU2VtVw87QRaHzyl5jxO290Ii5tEZfCfzfWNHi3jKWwBSdQj0qIyshdZdQ==
+fast-uri@^4.2.1:
+  version "4.2.1"
+  resolved "https://registry.yarnpkg.com/fast-uri/-/fast-uri-4.2.1.tgz#816fb0fd61f511adcc35aadbbc1bcbf656d9e72a"
+  integrity sha512-TmHQgewjHtMq1E5QKA0tOE0yeYGQs25KZC/ziJpubRtWI15W92e6vPFydWOeZBVROSHBYw/QhD9d5OefdD6LDg==
 
 fast-wrap-ansi@^0.2.0:
   version "0.2.2"
