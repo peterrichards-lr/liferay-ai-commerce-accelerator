@@ -48,6 +48,8 @@ function startDxpConfigTreeWatcher({
   intervalMs = ENV.LXC_CONFIG_POLL_MS,
   onReady,
 } = {}) {
+  warnIfPathIsAGuess(logger);
+
   if (!fs.existsSync(dir)) {
     logger?.debug?.(
       `No LXC config tree mounted at ${dir}; not a colocated deployment.`,
@@ -123,6 +125,39 @@ function startDxpConfigTreeWatcher({
  * is this container. Same test #1132 uses to decide whether to watch at all,
  * named once rather than spelled out twice. See #1137.
  */
+/**
+ * Whether the DXP tree path came from the environment or from our guess.
+ *
+ * `LIFERAY_ROUTES_DXP` is set by the `liferay/node-runner` base image, and LDM
+ * is moving where it points: the mount is being raised to `routes` and the
+ * variable lowered to `routes/default/dxp`, so the extension resolves the leaf
+ * on each read instead of the mount pinning it at container-create time.
+ *
+ * That makes our default dangerous rather than merely unused. If the variable
+ * were ever missing or misspelled we would silently fall back to the old
+ * convention, find nothing there, and it would look exactly like the upstream
+ * change not working - a wrong answer wearing the clothes of a right one.
+ *
+ * So the fallback stays, because a local run legitimately has no such
+ * variable, but it says so once. See #1137, liferay-docker-manager#1944.
+ */
+let announcedGuess = false;
+
+function warnIfPathIsAGuess(logger) {
+  if (announcedGuess) return;
+  if (process.env.LIFERAY_ROUTES_DXP) return;
+
+  announcedGuess = true;
+
+  logger?.warn?.(
+    `LIFERAY_ROUTES_DXP is not set; assuming ${ENV.LIFERAY_ROUTES_DXP} by the ` +
+      'LXC convention. Expected on a local run. In a container it means the ' +
+      'path is a guess, and a tree that never appears there is this, not a ' +
+      'missing tree.',
+    { operation: 'lxc-config-tree-watch' }
+  );
+}
+
 function isColocatedDeployment(dir = ENV.LIFERAY_ROUTES_DXP) {
   try {
     return fs.existsSync(dir);
@@ -133,6 +168,7 @@ function isColocatedDeployment(dir = ENV.LIFERAY_ROUTES_DXP) {
 
 module.exports = {
   DXP_MAIN_DOMAIN_KEY,
+  warnIfPathIsAGuess,
   isColocatedDeployment,
   isDxpConfigTreeReady,
   startDxpConfigTreeWatcher,

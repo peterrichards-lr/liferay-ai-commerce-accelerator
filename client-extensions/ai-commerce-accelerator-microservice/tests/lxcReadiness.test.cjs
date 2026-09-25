@@ -99,4 +99,52 @@ describe('LXC config tree readiness (#1103)', () => {
       expect(outcome.elapsedMs).toBeGreaterThanOrEqual(60);
     });
   });
+
+  // LDM is moving where LIFERAY_ROUTES_DXP points - the mount rises to
+  // `routes`, the variable drops to `routes/default/dxp`. That turns our
+  // default from unused into dangerous: unset, we would quietly assume the old
+  // convention, find nothing, and it would look like the upstream change
+  // failing. See liferay-docker-manager#1944.
+  describe('the path fallback announces itself', () => {
+    const warnings = [];
+    const logger = { warn: (m) => warnings.push(m), debug: () => {} };
+
+    beforeEach(() => {
+      warnings.length = 0;
+      delete require.cache[require.resolve('../utils/lxcReadiness.cjs')];
+    });
+
+    test('warns once when the variable is unset', () => {
+      const saved = process.env.LIFERAY_ROUTES_DXP;
+      delete process.env.LIFERAY_ROUTES_DXP;
+
+      try {
+        const { warnIfPathIsAGuess } = require('../utils/lxcReadiness.cjs');
+        warnIfPathIsAGuess(logger);
+        warnIfPathIsAGuess(logger);
+
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0]).toMatch(/LIFERAY_ROUTES_DXP is not set/);
+        // Names the consequence, not just the condition.
+        expect(warnings[0]).toMatch(/this, not a missing tree/);
+      } finally {
+        if (saved === undefined) delete process.env.LIFERAY_ROUTES_DXP;
+        else process.env.LIFERAY_ROUTES_DXP = saved;
+      }
+    });
+
+    test('stays quiet when the environment supplies the path', () => {
+      const saved = process.env.LIFERAY_ROUTES_DXP;
+      process.env.LIFERAY_ROUTES_DXP = '/etc/liferay/lxc/routes/default/dxp';
+
+      try {
+        const { warnIfPathIsAGuess } = require('../utils/lxcReadiness.cjs');
+        warnIfPathIsAGuess(logger);
+        expect(warnings).toHaveLength(0);
+      } finally {
+        if (saved === undefined) delete process.env.LIFERAY_ROUTES_DXP;
+        else process.env.LIFERAY_ROUTES_DXP = saved;
+      }
+    });
+  });
 });
