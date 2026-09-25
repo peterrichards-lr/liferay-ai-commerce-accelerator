@@ -351,6 +351,101 @@ fi
 #
 # Nothing here is fatal. A diagnostic that can fail the run it is diagnosing is
 # worse than no diagnostic.
+# The proxy's routing table, with a control beside it.
+#
+# #1149 has stood open across four runs on inference alone, and the analysis
+# written on it described code that no longer exists. Nothing in this script
+# has ever captured the proxy: not a router, not a label, not a network. Every
+# explanation offered for its 404 - mine included - has been reasoning about
+# the outside of a box nobody opened.
+#
+# Traefik with the Docker provider builds routers from container labels, so
+# the two sides are the labels each container declares and the routers the
+# proxy ended up with. A container with correct labels on a network the proxy
+# cannot see is invisible to it and 404s exactly like a missing route, so
+# network membership is part of the evidence rather than a follow-up.
+#
+# The control sits in the same artifact: Liferay is served by this same proxy,
+# on the same network, at the same moment. If one host answers and the other
+# 404s, the only variable is which extension. That comparison is what settled
+# liferay-docker-manager#1944, and guessing is what preceded it. See #1168.
+capture_proxy_diagnostics() {
+    local facts proxy stage host
+    stage="${1:-pre-tests}"
+    facts="logs/e2e-proxy-routing-${stage}.txt"
+    host="${TARGET_HOST:-<unresolved>}"
+    mkdir -p logs
+
+    proxy=$(docker ps --format '{{.Names}}' 2>/dev/null \
+        | grep -E 'liferay-proxy|traefik' | head -1)
+
+    {
+        echo "stage: $stage"
+        echo "target host: $host"
+        echo "proxy container: ${proxy:-(none found)}"
+        echo
+
+        if [ -z "$proxy" ]; then
+            # Indistinguishable from a dead daemon unless we say so.
+            echo "No proxy container on the target."
+            echo "docker ps exit status: $(docker ps >/dev/null 2>&1; echo $?)"
+        else
+            # Whether the API is even enabled is a fact worth recording: a
+            # missing routers dump below means one of two different things.
+            echo "=== proxy command (is --api on, which providers?) ==="
+            docker inspect -f '{{json .Config.Cmd}}' "$proxy" 2>&1
+            echo
+            echo "=== proxy published ports ==="
+            docker port "$proxy" 2>&1 || echo "(none)"
+            echo
+            echo "=== proxy networks ==="
+            docker inspect \
+                -f '{{range $n, $v := .NetworkSettings.Networks}}{{println $n}}{{end}}' \
+                "$proxy" 2>&1
+            echo
+        fi
+
+        echo "=== every container: networks, and its traefik labels ==="
+        # Labels and networks together, per container, because the failure we
+        # are chasing looks the same whichever of the two is wrong.
+        for c in $(docker ps --format '{{.Names}}' 2>/dev/null); do
+            local info
+            echo "--- $c ---"
+            # One inspect per container. Two calls read it at two moments and
+            # cost a process each for the same two facts.
+            info=$(docker inspect -f \
+'  networks: {{range $n, $v := .NetworkSettings.Networks}}{{$n}} {{end}}
+{{range $k, $v := .Config.Labels}}  {{$k}}={{$v}}
+{{end}}' "$c" 2>&1)
+            echo "$info" | grep -E '^  networks:' || echo "  networks: (unreadable)"
+            echo "$info" | grep -E '^  traefik' || echo "  (no traefik labels)"
+        done
+        echo
+
+        echo "=== the request, against a host that works and one that does not ==="
+        # Same proxy, same network, same moment - the only variable is which
+        # extension. A status line for each, and enough body to tell Traefik's
+        # 404 from Liferay's.
+        for probe in \
+            "liferay:${host}" \
+            "microservice:ai-commerce-accelerator-microservice.${host}" \
+            "frontend:ai-commerce-accelerator-frontend.${host}"
+        do
+            local label target status body
+            label="${probe%%:*}"
+            target="${probe#*:}"
+            echo "--- $label -> https://$target/ ---"
+            status=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 20 \
+                "https://${target}/" 2>&1 || echo "000")
+            echo "  status: $status"
+            body=$(curl -sk --max-time 20 "https://${target}/" 2>&1 | head -c 200 || true)
+            echo "  body[0:200]: $body"
+        done
+    } > "$facts" 2>&1
+
+    echo "🔎 Captured proxy routing diagnostics ($stage) -> $facts"
+}
+
 capture_microservice_diagnostics() {
     local container facts stage tmp
     stage="${1:-teardown}"
@@ -1635,6 +1730,7 @@ fi
 # good, so the environment the microservice actually received is on record
 # before anything can go wrong.
 capture_microservice_diagnostics pre-tests || true
+capture_proxy_diagnostics pre-tests || true
 
 echo "🎭 Phase 5: Running Playwright E2E tests..."
 # The microservice is reached through the proxy, not a published port.
