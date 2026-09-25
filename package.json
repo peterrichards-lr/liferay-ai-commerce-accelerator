@@ -14,16 +14,16 @@
     ]
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.2.2",
+    "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.0.2",
     "@playwright/test": "^1.63.0",
     "@testing-library/dom": "^10.4.2",
-    "baseline-browser-mapping": "^2.11.23",
+    "baseline-browser-mapping": "^2.11.25",
     "happy-dom": "^20.14.5",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
     "markdownlint-cli": "^0.49.1",
-    "prettier": "^3.9.6",
+    "prettier": "^3.9.8",
     "yaml": "^2.9.1"
   },
   "resolutions": {
@@ -35,11 +35,11 @@
     "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.12.0"
   },
   "optionalDependencies": {
-    "@rolldown/binding-darwin-arm64": "^1.2.8",
-    "@rolldown/binding-darwin-x64": "^1.2.8",
-    "@rollup/rollup-darwin-arm64": "4.63.3",
-    "@rollup/rollup-darwin-x64": "4.63.3",
-    "@rollup/rollup-linux-x64-gnu": "4.63.3"
+    "@rolldown/binding-darwin-arm64": "^1.2.9",
+    "@rolldown/binding-darwin-x64": "^1.2.9",
+    "@rollup/rollup-darwin-arm64": "4.63.4",
+    "@rollup/rollup-darwin-x64": "4.63.4",
+    "@rollup/rollup-linux-x64-gnu": "4.63.4"
   },
   "scripts": {
     "prepare": "husky || true",
@@ -115,12 +115,12 @@
     "better-sqlite3": "13.0.3",
     "codemirror": "5.65.16",
     "esbuild": "0.28.2",
-    "eslint": "10.10.0",
+    "eslint": "10.11.0",
     "immutable": "5.1.9",
-    "jsdom": "^30.0.1",
-    "openai": "7.15.0",
+    "jsdom": "^30.1.1",
+    "openai": "7.21.0",
     "react-codemirror2": "9.0.1",
-    "rollup": "4.63.3",
+    "rollup": "4.63.4",
     "vite": "8.3.0"
   },
   "version": "0.0.1"
