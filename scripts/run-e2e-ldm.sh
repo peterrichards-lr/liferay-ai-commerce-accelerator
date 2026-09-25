@@ -402,6 +402,20 @@ capture_microservice_diagnostics() {
         && [ -s "$tmp" ]; then
         perl -pe 's/((?:client[._]secret|password|api[._]?key|bearer|authorization)\W{0,3}).*/$1<redacted>/gi' \
             < "$tmp" > logs/e2e-liferay.log
+
+        # Liferay writes more than it prints. The routes writer has never
+        # appeared in `docker logs` across three runs, including runs where it
+        # demonstrably wrote the tree - so the console is not the whole story.
+        # Same redaction, same non-fatal discipline. See LDM-#1944.
+        docker exec "$LIFERAY_CONTAINER" sh -c \
+            'cat /opt/liferay/logs/*.log 2>/dev/null | tail -n 20000' 2>/dev/null \
+            | perl -pe 's/((?:client[._]secret|password|api[._]?key|bearer|authorization)\W{0,3}).*/$1<redacted>/gi' \
+            > logs/e2e-liferay-files.log || true
+        if [ -s logs/e2e-liferay-files.log ]; then
+            echo "🔎 Captured Liferay log files ($stage) -> logs/e2e-liferay-files.log"
+        else
+            rm -f logs/e2e-liferay-files.log
+        fi
         echo "🔎 Captured Liferay container log ($stage) -> logs/e2e-liferay.log"
 
         # The full log answers an argument; this answers the question. Each
@@ -559,6 +573,45 @@ capture_microservice_diagnostics() {
                 ls -la "$d" 2>&1 | tail -n +2
             done' 2>&1 \
             || echo "(Liferay container not reachable)"
+        echo
+        # The inode on both sides of the bind mount.
+        #
+        # Liferay's RoutesPortalK8sConfigMapModifier._deleteRoutes calls
+        # `_file.deltree(projectPath)` - it removes the directory outright
+        # rather than emptying it - and _writeRoutes then recreates it with
+        # Files.createDirectories. A bind mount established before that stays
+        # attached to the removed inode: same path, different inode, and the
+        # container reads the original empty directory forever.
+        #
+        # That branch only fires when the ConfigMap arrives empty and is then
+        # populated, so it may not happen at all. Comparing the two inodes
+        # settles it without depending on a log line reaching us - which the
+        # grep for "Deleting routes for" cannot, because no capture we hold has
+        # ever contained a line from that class. See LDM-#1944.
+        echo "=== ext-init inode, both sides of the bind mount ==="
+        echo "--- as the extension container sees it ---"
+        docker exec "$container" sh -c \
+            'stat -c "%i  %n" "${LIFERAY_ROUTES_CLIENT_EXTENSION:-/etc/liferay/lxc/ext-init-metadata}"' 2>&1 \
+            || echo "(unreadable from the extension container)"
+        echo "--- as the Liferay container sees the source ---"
+        docker exec "$LIFERAY_CONTAINER" sh -c \
+            'for d in /opt/liferay/routes/default/*/; do stat -c "%i  %n" "$d"; done' 2>&1 \
+            || echo "(unreadable from the Liferay container)"
+        echo
+
+        # Liferay's own log files, not just container stdout.
+        #
+        # `docker logs` gives us the console, and the routes writer has never
+        # appeared in it across three runs - including runs where it
+        # demonstrably wrote the tree. A line quoted earlier in this work came
+        # from an interactive `docker logs` and could not later be reproduced
+        # from any artifact, so there is a source we are not collecting.
+        #
+        # Names and sizes only here; the contents go to the log artifact below.
+        echo "=== Liferay log files inside the container ==="
+        docker exec "$LIFERAY_CONTAINER" sh -c \
+            'ls -la /opt/liferay/logs/ 2>&1 | tail -n +2' 2>&1 \
+            || echo "(no /opt/liferay/logs or not reachable)"
         echo
         echo "=== compose depends_on for this service ==="
         docker inspect -f '{{index .Config.Labels "com.docker.compose.depends_on"}}' \
