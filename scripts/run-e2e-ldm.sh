@@ -535,6 +535,31 @@ capture_microservice_diagnostics() {
         # 2. Whether compose actually gated this service on Liferay. The
         #    generated depends_on is recorded as a label, so the running
         #    container is the authority rather than a file on the node.
+        # The contents of each routes subdirectory, with timestamps.
+        #
+        # The listing above shows `dxp` as a directory and never its files, so
+        # a live value and a fossil look identical: directory mtime changes
+        # when entries are added or removed, not when their contents change.
+        # `Sep 23 11:40` appeared on `dxp` in two runs a day apart with
+        # `ldm rm --delete` between them, while the extension directories were
+        # recreated each time - so whether Liferay wrote
+        # com.liferay.lxc.dxp.main.domain=localhost this run or we inherited it
+        # is currently unanswerable. See #1146, #1137.
+        #
+        # Also answers whether routes/default/<ext_id> holds any files. Its
+        # size has been read as "populated", including in comments to
+        # liferay-docker-manager#1944, but directory size does not shrink.
+        #
+        # Names and timestamps only - `ls -la` prints no contents, and the
+        # per-extension tree holds generated OAuth2 credentials (#1128).
+        echo "=== routes/default/*/ contents, names and timestamps only ==="
+        docker exec "$LIFERAY_CONTAINER" sh -c '
+            for d in /opt/liferay/routes/default/*/; do
+                echo "--- $d ---"
+                ls -la "$d" 2>&1 | tail -n +2
+            done' 2>&1 \
+            || echo "(Liferay container not reachable)"
+        echo
         echo "=== compose depends_on for this service ==="
         docker inspect -f '{{index .Config.Labels "com.docker.compose.depends_on"}}' \
             "$container" 2>&1 || echo "(label unreadable)"

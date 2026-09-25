@@ -78,6 +78,11 @@ case "$1" in
            ? 'echo "--- /etc/liferay/lxc/dxp-metadata ---"; echo "com.liferay.lxc.dxp.main.domain"; echo "--- /etc/liferay/lxc/ext-init-metadata ---"; echo "com.liferay.lxc.ext.oauth.application.external.reference.codes"'
            : 'echo "--- /etc/liferay/lxc/dxp-metadata ---"; echo "  (path does not exist - nothing mounted here)"'
        }
+     elif [[ "$*" == *"for d in /opt/liferay/routes/default"* ]]; then
+       echo "--- /opt/liferay/routes/default/dxp/ ---"
+       echo "-rw-r----- 1 liferay liferay 9 Sep 23 11:40 com.liferay.lxc.dxp.main.domain"
+       echo "--- /opt/liferay/routes/default/ai-commerce-accelerator-microservice/ ---"
+       echo "-rw-r----- 1 liferay liferay 44 Sep 24 14:57 ...oauth2.headless.server.client.id"
      elif [[ "$*" == *"ls -la /opt/liferay/routes/default"* ]]; then
        echo "drwxr-xr-x 2 root    root    4096 dxp"
        echo "drwxr-xr-x 2 root    root    4096 ai-commerce-accelerator-microservice"
@@ -407,5 +412,44 @@ describe('microservice container diagnostics', () => {
       expect(facts).toMatch(/ext-init-metadata/);
       expect(facts).toMatch(/"Source":/);
     });
+  });
+
+  // A live value and a fossil look identical in a directory listing: directory
+  // mtime tracks entries added or removed, not contents changed. `dxp` carried
+  // `Sep 23 11:40` across two runs a day apart with `ldm rm --delete` between
+  // them, so whether Liferay wrote localhost this run is unanswerable without
+  // file timestamps. See #1146, #1137.
+  // These two assert the capture reaches the artifact; the stub supplies the
+  // timestamps, so they cannot tell `ls -la` from `ls -A`. The third case
+  // pins the command itself, and is what actually fails if the -l is dropped.
+  test('lists each routes subdirectory with file timestamps', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      expect(facts).toMatch(/routes\/default\/\*\/ contents/);
+      expect(facts).toMatch(/com\.liferay\.lxc\.dxp\.main\.domain/);
+      // A timestamp, which is the entire point of the addition.
+      expect(facts).toMatch(/Sep 23 11:40/);
+    });
+  });
+
+  test('shows whether the per-extension tree holds any files', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      const block = facts.slice(facts.indexOf('routes/default/*/ contents'));
+      expect(block).toMatch(/ai-commerce-accelerator-microservice/);
+      expect(block).toMatch(/oauth2\.headless\.server\.client\.id/);
+    });
+  });
+
+  // ls -la prints names, sizes and times. The per-extension tree holds
+  // generated OAuth2 credentials, so the values must never appear (#1128).
+  test('the routes listing reads no file contents', () => {
+    const body = functionSource('capture_microservice_diagnostics');
+    const listing = body.slice(
+      body.indexOf('routes/default/*/ contents'),
+      body.indexOf('compose depends_on')
+    );
+    expect(listing).toMatch(/ls -la/);
+    expect(listing).not.toMatch(/\b(cat|head)\b/);
   });
 });
