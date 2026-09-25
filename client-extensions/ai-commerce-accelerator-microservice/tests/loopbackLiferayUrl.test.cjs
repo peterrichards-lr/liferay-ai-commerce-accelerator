@@ -15,8 +15,28 @@ const path = require('node:path');
  * host process and Liferay really is on localhost. These assert both halves.
  * See #1137.
  */
+// config-node's individual-env-vars provider mangles a dotted key into an
+// env var name: `com.liferay.lxc.dxp.main.domain` is read from
+// COM_LIFERAY_LXC_DXP_MAIN_DOMAIN. `run-e2e-ldm.sh:922` exports exactly that
+// pair, so inside an E2E run `tryBuildColocatedLiferayUrl` resolves from the
+// ambient environment and the "nothing usable" case never fires.
+//
+// These passed on a clean workstation and failed the first time they ran
+// inside the orchestrator - #1124 is the same defect, in a test harness that
+// inherited LDM_NODE_TARGET. Cleared as a family rather than by name, because
+// the mangling means any COM_LIFERAY_LXC_* variable is a config source.
+const AMBIENT_CONFIG_PREFIX = /^COM_LIFERAY_LXC_/;
+
 function withEnv(vars, fn) {
   const saved = {};
+
+  for (const key of Object.keys(process.env)) {
+    if (AMBIENT_CONFIG_PREFIX.test(key)) {
+      saved[key] = process.env[key];
+      delete process.env[key];
+    }
+  }
+
   for (const [k, v] of Object.entries(vars)) {
     saved[k] = process.env[k];
     if (v === undefined) delete process.env[k];
