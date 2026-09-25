@@ -35,7 +35,13 @@ export default defineConfig({
     {
       name: 'desktop-chrome',
       testMatch: /.*\.spec\.js/,
-      use: { ...devices['Desktop Chrome'] },
+      // `setup` writes this and nothing consumed it: the project declared the
+      // dependency but never the state, so authentication was whatever each
+      // spec remembered to ask for. Four did; `smoke/full-journey.spec.js` did
+      // not, and reached the control panel as a guest. Default it here so the
+      // next spec cannot quietly run unauthenticated. A spec that needs a
+      // different identity can still override with `test.use`. See #1150.
+      use: { ...devices['Desktop Chrome'], storageState: '.auth/user.json' },
       dependencies: ['setup'],
     },
   ],
