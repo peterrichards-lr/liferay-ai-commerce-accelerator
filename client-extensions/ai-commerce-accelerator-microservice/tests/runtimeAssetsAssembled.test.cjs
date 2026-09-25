@@ -79,3 +79,124 @@ describe('runtime assets are assembled into the client extension (#1131)', () =>
     }
   });
 });
+
+/**
+ * The read-to-assembled rule (#1164).
+ *
+ * The lists above catch a regression in an asset someone already thought
+ * about. They cannot catch the way this keeps happening: an asset added, read
+ * from the source tree by a passing test, and never named by a glob.
+ * `prompts/*.md` is the case that proves it - six months after #1131 widened
+ * `assemble` for five trees, a sixth was still missing, and a zip built from
+ * master carried nine schemas, six public files and zero prompts (#1166).
+ *
+ * So this derives the question from disk rather than from a list. `**\/*.cjs`
+ * covers the code; every other file is an asset that ships only if a glob
+ * names it. Any directory holding one, and referenced from non-test source,
+ * must be assembled in full.
+ *
+ * A new asset directory, or a new extension inside an assembled one
+ * (`generation-schemas/*.json` does not match a `.yaml`), fails here.
+ */
+const WALK_EXCLUDED = new Set([
+  'node_modules',
+  'tests',
+  'dist',
+  'build',
+  'coverage',
+  'logs',
+  '.git',
+]);
+
+function filesUnder(dir, predicate, base = dir, out = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (WALK_EXCLUDED.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) filesUnder(full, predicate, base, out);
+    else if (predicate(entry.name)) out.push(path.relative(base, full));
+  }
+  return out;
+}
+
+const isAsset = (name) => !name.endsWith('.cjs');
+
+// Assets that are deliberately not shipped, each with the reason. A list
+// rather than a pattern: `prompts/*.md` and `data/README.md` are both markdown
+// in an asset directory, and only one of them is read at runtime. Excluding
+// documentation by extension would have excluded every prompt too, which is
+// exactly the defect this file exists to catch (#1166).
+const NOT_SHIPPED = new Map([
+  ['data/README.md', 'documentation for the two fixtures beside it'],
+]);
+
+// Top-level directories that hold at least one asset.
+const assetDirectories = fs
+  .readdirSync(CX_ROOT, { withFileTypes: true })
+  .filter((e) => e.isDirectory() && !WALK_EXCLUDED.has(e.name))
+  .map((e) => e.name)
+  .filter((name) => filesUnder(path.join(CX_ROOT, name), isAsset).length > 0)
+  .sort();
+
+// Non-test source, so a failure can name the reader rather than only the file.
+const sourceFiles = filesUnder(CX_ROOT, (n) => n.endsWith('.cjs'));
+
+function readersOf(dirName) {
+  const mention = new RegExp(`['"\`/]${dirName}['"\`/]`);
+  return (
+    sourceFiles
+      .filter((relative) =>
+        mention.test(fs.readFileSync(path.join(CX_ROOT, relative), 'utf8'))
+      )
+      // `scripts/` is developer tooling and runs from a checkout, so it is the
+      // least useful name to put in the message even though the walk reaches
+      // it first. Server code answers "why does the container need this".
+      .sort(
+        (a, b) =>
+          Number(a.startsWith(`scripts${path.sep}`)) -
+            Number(b.startsWith(`scripts${path.sep}`)) || a.localeCompare(b)
+      )
+  );
+}
+
+describe('every asset directory the code reads is assembled (#1164)', () => {
+  test('the scan finds the directories it is supposed to', () => {
+    // If this list ever empties - a bad walk, a moved root - every case below
+    // would pass by finding nothing. #1073's lesson: assert the guard has
+    // something to guard.
+    expect(assetDirectories).toEqual(
+      expect.arrayContaining([
+        'data',
+        'generation-schemas',
+        'prompts',
+        'public',
+        'resources',
+      ])
+    );
+    expect(sourceFiles.length).toBeGreaterThan(20);
+  });
+
+  test.each([...NOT_SHIPPED])(
+    'the exemption for %s is still a real file (%s)',
+    (file) => {
+      // A stale exemption is a hole. If the file goes, the entry must go too.
+      expect(fs.existsSync(path.join(CX_ROOT, file))).toBe(true);
+      expect(isAssembled(file)).toBe(false);
+    }
+  );
+
+  test.each(assetDirectories)('%s', (dirName) => {
+    const readers = readersOf(dirName);
+    if (readers.length === 0) return; // Not read; shipping it is another call.
+
+    const missing = filesUnder(path.join(CX_ROOT, dirName), isAsset)
+      .map((f) => path.posix.join(dirName, f.split(path.sep).join('/')))
+      .filter((f) => !isAssembled(f) && !NOT_SHIPPED.has(f));
+
+    expect(
+      missing,
+      `${dirName}/ is read by ${readers.slice(0, 3).join(', ')} but these ` +
+        `files are not assembled, ` +
+        `so they will not exist in the container:\n  ${missing.join('\n  ')}`
+    ).toEqual([]);
+  });
+});

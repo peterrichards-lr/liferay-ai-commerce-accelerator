@@ -16,6 +16,13 @@ assemble:
       # workflows.db into that directory.
       - application.json
       - generation-schemas/*.json
+      # prompts/*.md was missed when the five above were added: no glob
+      # matched '.md', so all nine templates were absent from the image.
+      # promptService falls back to `process.cwd()/prompts` when Liferay
+      # has not seeded a prompt, and configurationAssets lists the
+      # directory to decide what the health check should look for - it
+      # returned [] and so reported nothing missing. See #1166.
+      - prompts/*.md
       - data/*.json
       - resources/seed-packs/*.json
       - public/**
