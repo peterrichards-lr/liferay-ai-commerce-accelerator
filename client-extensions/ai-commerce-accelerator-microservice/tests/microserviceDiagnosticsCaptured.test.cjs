@@ -30,6 +30,21 @@ const SCRIPT = path.resolve(
 );
 const lines = fs.readFileSync(SCRIPT, 'utf8').split('\n');
 
+/**
+ * Shell comments removed before any guard matches against the script.
+ *
+ * Every guard in this file that scans the source must go through this. The
+ * count is now four: twice on #1073, once when a comment explaining why
+ * `head` was avoided contained `head`, and once when a commit renamed the
+ * string a guard matched and left the old wording in the comment beside it -
+ * in the same commit that fixed the third. See #1172.
+ */
+const withoutComments = (text) =>
+  text
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('#'))
+    .join('\n');
+
 function functionSource(name) {
   const start = lines.findIndex((l) => l.startsWith(`${name}() {`));
   if (start === -1) throw new Error(`${name} is gone from the script`);
@@ -267,9 +282,16 @@ describe('microservice container diagnostics', () => {
       // Before LDM-#1928 nothing was mounted at ext-init-metadata at all.
       // "empty" and "absent" are different answers to #1915 and the report
       // has to tell them apart.
-      const probe = fs.readFileSync(SCRIPT, 'utf8');
+      // Comments stripped: `8ae8542f` renamed this echo to "(no entries
+      // visible here)" and left "(mounted, empty)" in a comment two lines
+      // above, so the old assertion was satisfied by prose alone and would
+      // have survived deleting the echo outright.
+      const probe = withoutComments(fs.readFileSync(SCRIPT, 'utf8'));
       expect(probe).toMatch(/path does not exist - nothing mounted here/);
-      expect(probe).toMatch(/\(mounted, empty\)/);
+      expect(probe).toMatch(/no entries visible here/);
+      // Two distinct answers, or the report cannot tell them apart - which
+      // is the whole point of the case.
+      expect(probe).not.toMatch(/\(mounted, empty\)/);
     });
   });
 
@@ -457,12 +479,6 @@ describe('microservice container diagnostics', () => {
   // explaining why `head` was avoided here contained the word `head`. A
   // guard that a comment can fail is a guard that a comment can also
   // satisfy, so the stripping is asserted below rather than assumed.
-  const withoutComments = (text) =>
-    text
-      .split('\n')
-      .filter((line) => !line.trim().startsWith('#'))
-      .join('\n');
-
   test('the routes listing reads no file contents', () => {
     const body = functionSource('capture_microservice_diagnostics');
     const listing = withoutComments(
