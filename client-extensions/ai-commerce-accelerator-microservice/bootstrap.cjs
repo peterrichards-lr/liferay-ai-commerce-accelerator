@@ -120,6 +120,10 @@ module.exports = async (ws) => {
   ctx.config = new ConfigService({
     cache: ctx.cache,
     logger,
+    // So a caller with no request still gets a reachable target rather than
+    // the config tree's loopback host. Both exist by this point. See #1175.
+    oauth: ctx.oauth,
+    persistence: ctx.persistence,
   });
   ctx.configService = ctx.config;
 
