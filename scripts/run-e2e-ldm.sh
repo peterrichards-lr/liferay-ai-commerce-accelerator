@@ -351,6 +351,34 @@ fi
 #
 # Nothing here is fatal. A diagnostic that can fail the run it is diagnosing is
 # worse than no diagnostic.
+# Redact credential-shaped values, and only the value.
+#
+# The first version of this matched a bare keyword and truncated to the end
+# of the line. On this artifact that meant one `acme` ate the whole Traefik
+# command line, and one `users` ate the services/serverStatus half of
+# /api/rawdata - the evidence the capture exists to carry. It also dropped
+# `bearer|authorization`, which the sibling filter below has, so a JWT in a
+# customrequestheaders label went through untouched. See #1180.
+#
+# Rules, in order: key-shaped values up to the end of the value; header
+# values, which may contain spaces, up to the next delimiter; and the
+# basicauth user list.
+redact_stream() {
+    perl -pe '
+        # The key boundary is quote-tolerant: `"password":"x"` and
+        # `password=x` both match. The first version required the keyword to
+        # be followed immediately by `=` or `:`, which cannot cross the
+        # closing quote of a JSON key - so every credential in the
+        # /api/rawdata body this capture newly writes went through untouched,
+        # and a basicauth label that the previous filter caught started
+        # leaking. Value classes include single quotes for the same reason.
+        s/((?:secret|password|passwd|api[._-]?key|private[._-]?key|credential|token|users|acme[._-]?email|dnschallenge[.\w-]*provider)"?\s*[=:]\s*)(?:\[?)(["'"'"']?)[^"'"'"',\s\]}]*\2/$1<redacted>/gi;
+        # Header values may contain spaces, so these run to the next
+        # delimiter rather than the next space.
+        s/((?:authorization|proxy-authorization)"?\s*[=:]\s*)(["'"'"']?)(?:Bearer\s+|Basic\s+)?[^"'"'"',\]}\n]*\2/$1<redacted>/gi;
+    '
+}
+
 # One probe, so the control and each extension are measured identically.
 # Status first: a 404 means no router matched, where an unreachable backend
 # behind a matching rule gives 502 or 504. The body distinguishes Traefik's
@@ -384,8 +412,26 @@ probe_host() {
 # 404s, the only variable is which extension. That comparison is what settled
 # liferay-docker-manager#1944, and guessing is what preceded it. See #1168.
 capture_proxy_diagnostics() {
-    local facts proxy stage host
+    local facts proxy stage host probes
     stage="${1:-pre-tests}"
+    # At teardown the tunnel is already closed - cleanup() calls
+    # close_node_tunnel thirteen lines before it calls this - so every probe
+    # returns 000. They did, on run 36258328678. The labels and the routers
+    # table are still worth having at teardown; the probes are not, and an
+    # artifact that says so beats one full of 000s that read as failures.
+    probes=1
+    [ "$stage" = "teardown" ] && probes=0
+
+    # Two selectors, because the two jobs have opposite requirements.
+    # `docker exec` needs a RUNNING container; the state dump exists to catch
+    # a STOPPED one, since Traefik withdraws a router when its container
+    # stops. A running-only selector there could only ever print
+    # `status=running`, which is the inference it was meant to replace.
+    local from_container state_container
+    from_container=$(docker ps --format '{{.Names}}' 2>/dev/null \
+        | grep -i "microservice" | head -1)
+    state_container=$(docker ps -a --format '{{.Names}}' 2>/dev/null \
+        | grep -i "microservice" | head -1)
     facts="logs/e2e-proxy-routing-${stage}.txt"
     host="${TARGET_HOST:-<unresolved>}"
     mkdir -p logs
@@ -419,6 +465,21 @@ capture_proxy_diagnostics() {
             echo
         fi
 
+        echo "=== extension container state, at this instant ==="
+        # Traefik's docker provider withdraws a router when its container
+        # stops, so a stopped container 404s exactly like a missing route.
+        # That branch was eliminated by noticing the enumeration below uses
+        # `docker ps` without `-a` - a true inference, but the artifact
+        # should say it rather than leave the next reader to derive it.
+        if [ -n "$state_container" ]; then
+            docker inspect -f \
+'  {{.Name}} status={{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}}' \
+                "$state_container" 2>&1
+        else
+            echo "  (no extension container on the target, running or stopped)"
+        fi
+        echo
+
         echo "=== every container: networks, and its traefik labels ==="
         # Labels and networks together, per container, because the failure we
         # are chasing looks the same whichever of the two is wrong.
@@ -437,30 +498,59 @@ capture_proxy_diagnostics() {
         echo
 
         echo "=== the routers the proxy actually loaded ==="
-        # The half that was missing. `149538b2` said this artifact recorded
-        # "the routers the proxy ended up with" and it never queried the API -
-        # only one of the two named sides was captured, and the comment above
-        # about a missing dump referred to a dump that did not exist (#1177).
+        # Queried from INSIDE the node, not from the runner.
         #
-        # This is also the single piece of evidence #1149 needs: a router can
-        # be declared by correct labels on the right network and still be
-        # absent from Traefik's runtime table, and only this tells them apart.
-        if [ -n "$proxy" ]; then
-            local api_port
-            api_port=$(docker port "$proxy" 8080 2>/dev/null | head -1 \
-                | sed 's/.*://')
-            if [ -n "$api_port" ]; then
-                echo "(api on published port $api_port)"
-                curl -s --max-time 20 "http://127.0.0.1:${api_port}/api/rawdata" \
-                    2>&1 | head -c 20000 \
-                    || echo "(api published but unreachable)"
-                echo
-            else
-                echo "(no published api port; --api may be off - see the command above)"
-            fi
+        # The first version read `docker port` - which reports the port
+        # published on the node, because DOCKER_HOST is ssh:// - and then
+        # curled it from the runner, where the tunnel forwards only 80 and
+        # 443. It reached nothing. Worse, `pipefail` is not set, so the
+        # `|| echo "unreachable"` bound to the pipeline and took head's
+        # status: the section printed a header and a blank line, which reads
+        # as "we did not look". That is the gap it was added to close (#1180).
+        #
+        # Queried from a container by service name, which works only if it
+        # and the proxy share a user-defined network. The captured labels say
+        # they do (`traefik.docker.network=liferay-net`, and both report
+        # `networks: liferay-net`) - but that is the artifact's own subject,
+        # so it is an assumption here rather than a fact. If it is wrong the
+        # query fails with a stated reason a few lines below, which is the
+        # answer to a different question and still better than the blank the
+        # first version produced.
+        #
+        # 8080 is Traefik's default API port. It is not derived from the
+        # command line printed three blocks above; if that ever changes this
+        # will report unreachable rather than silently read the wrong thing.
+        #
+        # This is the single piece of evidence #1149 needs: a router can be
+        # declared by correct labels on the right network and still be absent
+        # from Traefik's runtime table, and only this tells them apart.
+        if [ -n "$proxy" ] && [ -n "$from_container" ]; then
+            echo "(querying $proxy:8080 from inside $from_container)"
+            # The proxy name goes through the environment rather than being
+            # interpolated into the script, so the shell's quoting and the
+            # JS never have to agree about anything.
+            docker exec -e PROXY_HOST="$proxy" "$from_container" node -e '
+                const url =
+                    "http://" + process.env.PROXY_HOST + ":8080/api/rawdata";
+                fetch(url, { signal: AbortSignal.timeout(20000) })
+                    .then(function (r) { return r.text(); })
+                    .then(function (t) { console.log(t.slice(0, 20000)); })
+                    .catch(function (e) {
+                        console.log("(api unreachable from inside: " + e.message + ")");
+                    });
+            ' 2>&1 || echo "(could not run the query from inside the node)"
+        elif [ -z "$proxy" ]; then
+            echo "(no proxy container; nothing to query)"
+        else
+            echo "(no extension container on the node to query from)"
         fi
         echo
 
+        if [ "$probes" -eq 0 ]; then
+            echo "=== probes skipped: the tunnel is closed by this stage ==="
+            echo "(cleanup closes the tunnel before this capture runs, so a"
+            echo " probe here can only return 000 - see the pre-tests capture)"
+        else
         echo "=== the request, against a host that works and one that does not ==="
         # Same proxy, same network, same moment - the only variable is which
         # extension. A status line for each, and enough body to tell Traefik's
@@ -479,6 +569,16 @@ capture_proxy_diagnostics() {
         for lcp in client-extensions/*/LCP.json; do
             local ext_id
             [ -f "$lcp" ] || continue
+            # Only extensions that become containers get a Traefik router:
+            # LDM creates one for `deploy && is_service`, and `is_service`
+            # requires a Dockerfile. A batch, a siteInitializer and a static
+            # customElement build have none, so their subdomains 404 by
+            # design and the artifact was carrying two expected 404s that
+            # read as findings.
+            #
+            # The earlier fix here corrected WHICH name to probe and never
+            # asked whether that extension is a container at all (#1180).
+            [ -f "$(dirname "$lcp")/Dockerfile" ] || continue
             ext_id=$(sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
                 "$lcp" | head -1)
             if [ -z "$ext_id" ]; then
@@ -488,9 +588,8 @@ capture_proxy_diagnostics() {
             echo "--- $ext_id -> https://${ext_id}.${host}/ ---"
             probe_host "${ext_id}.${host}"
         done
-    } 2>&1 \
-        | perl -pe 's/((?:secret|password|api[._]?key|token|users|acme[._-]?\w*|dnschallenge\S*)\W{0,3}).*/$1<redacted>/gi' \
-        > "$facts"
+        fi
+    } 2>&1 | redact_stream > "$facts"
 
     echo "🔎 Captured proxy routing diagnostics ($stage) -> $facts"
 }

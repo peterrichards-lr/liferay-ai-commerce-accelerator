@@ -51,11 +51,19 @@ case "$1" in
     echo "aica-e2e"
     echo "aica-e2e-ai-commerce-accelerator-microservice"
     ;;
-  port)
-    if [[ "$*" == *8080* ]]; then echo "0.0.0.0:18080"
-    else echo "80/tcp -> 0.0.0.0:80"; fi ;;
+  port) echo "80/tcp -> 0.0.0.0:80" ;;
+  exec)
+    # The routers query runs inside a container on the proxy's network.
+    if [[ "$*" == *rawdata* || "$*" == *PROXY_HOST* ]]; then
+      # Credential shapes that the first filter let through: JSON keys, a
+      # bearer header inside JSON, and a basicauth label. Each is here so
+      # the redaction is guarded on the form that actually leaked (#1180).
+      echo '{"routers":{"ms@docker":{"rule":"Host(ms.aica-e2e.demo)","entryPoints":["web"],"status":"enabled"}},"middlewares":{"h@docker":{"headers":{"customRequestHeaders":{"Authorization":"Bearer eyJZZZ.PAYLOAD.SIG"}}},"b@docker":{"basicAuth":{"users":["admin:apr1xyz"]}}},"services":{"ms@docker":{"serverStatus":{"http://172.18.0.5:3001":"UP"}}}}'
+    fi ;;
   inspect)
-    if [[ "$*" == *Config.Cmd* ]]; then
+    if [[ "$*" == *State.Status* ]]; then
+      echo "  /aica-e2e-ai-commerce-accelerator-microservice status=running exit=0 restarts=0"
+    elif [[ "$*" == *Config.Cmd* ]]; then
       # A real Traefik command line commonly carries these.
       echo '["--providers.docker=true","--api.insecure=true","--certificatesresolvers.le.acme.email=ops@example.com","--certificatesresolvers.le.acme.dnschallenge.provider=route53"]'
     elif [[ "$*" == *networks:* ]]; then
@@ -65,6 +73,7 @@ case "$1" in
       if [[ "$*" == *microservice* ]]; then
         echo "  networks: aica-e2e_default "
         echo "  traefik.enable=true"
+        echo "  traefik.http.middlewares.d.basicauth.users=admin:apr1secretform"
         echo "  traefik.http.routers.ms.rule=Host(ai-commerce-accelerator-microservice.aica-e2e.demo)"
       elif [[ "$*" == *liferay-proxy* ]]; then
         echo "  networks: liferay-proxy-global_default "
@@ -107,6 +116,7 @@ exit 0
 }
 
 function runCapture(dir, opts = {}) {
+  const stage = opts.stage || 'pre-tests';
   const bin = stubs(dir, opts);
   const harness = path.join(dir, 'capture.sh');
   fs.writeFileSync(
@@ -117,9 +127,13 @@ function runCapture(dir, opts = {}) {
       // Both, because the capture delegates to probe_host. Extracting only
       // the caller would leave the harness with a command-not-found and a
       // capture that produced nothing - the failure this file exists to catch.
+      // All three. The capture pipes through redact_stream, and a missing
+      // one does not error visibly - the pipeline dies and the artifact is
+      // written empty, which is the failure this file exists to catch.
+      functionSource('redact_stream'),
       functionSource('probe_host'),
       functionSource('capture_proxy_diagnostics'),
-      'capture_proxy_diagnostics pre-tests',
+      `capture_proxy_diagnostics ${stage}`,
     ].join('\n')
   );
 
@@ -140,7 +154,23 @@ function runCapture(dir, opts = {}) {
       path.join(cxDir, 'LCP.json'),
       JSON.stringify({ id, kind: 'Deployment' }, null, 2)
     );
+    // Only an extension that becomes a container gets a router, and that
+    // requires a Dockerfile. Without one here the probe loop skips it.
+    fs.writeFileSync(path.join(cxDir, 'Dockerfile'), 'FROM scratch\n');
   }
+
+  // An extension with no Dockerfile: a static build, which LDM never gives
+  // a router and whose subdomain 404s by design. It must not be probed.
+  const staticDir = path.join(
+    dir,
+    'client-extensions',
+    'ai-commerce-accelerator-configuration'
+  );
+  fs.mkdirSync(staticDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(staticDir, 'LCP.json'),
+    JSON.stringify({ id: 'aicommerceacceleratorconfiguration' }, null, 2)
+  );
 
   const result = spawnSync('bash', [harness], {
     cwd: dir,
@@ -148,7 +178,7 @@ function runCapture(dir, opts = {}) {
     env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
   });
 
-  const file = path.join(dir, 'logs/e2e-proxy-routing-pre-tests.txt');
+  const file = path.join(dir, `logs/e2e-proxy-routing-${stage}.txt`);
   return {
     status: result.status,
     stderr: result.stderr,
@@ -245,15 +275,18 @@ describe('proxy routing diagnostics (#1168)', () => {
       expect(facts).toContain('the routers the proxy actually loaded');
       expect(facts).toContain('"routers"');
       expect(facts).toMatch(/entryPoints/);
+      // Queried from inside the node. The first version read the port
+      // published on the NODE and curled it from the RUNNER, where the
+      // tunnel forwards only 80 and 443, so it reached nothing - and
+      // without `pipefail` the `|| echo` never fired, leaving a header and
+      // a blank line that read as "we did not look" (#1180).
+      expect(facts).toMatch(/querying .* from inside /);
+      // The runtime half must survive redaction; an earlier filter ate it.
+      expect(facts).toContain('serverStatus');
     });
   });
 
-  test('a published api port is used, and its absence is stated', () => {
-    sandbox((dir) => {
-      const { facts } = runCapture(dir);
-      expect(facts).toMatch(/\(api on published port 18080\)/);
-    });
-
+  test('with no proxy, the routers section says so rather than being blank', () => {
     sandbox((dir) => {
       // No proxy at all: the section must say why rather than be empty, or a
       // missing dump reads as "we did not look" - the exact ambiguity the
@@ -261,6 +294,45 @@ describe('proxy routing diagnostics (#1168)', () => {
       const { facts } = runCapture(dir, { proxyPresent: false });
       expect(facts).not.toContain('"routers"');
       expect(facts).toContain('No proxy container on the target.');
+    });
+  });
+
+  test('an extension with no Dockerfile is never probed', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // A router exists only for an extension that becomes a container, and
+      // that needs a Dockerfile. The fixture includes one without, and
+      // deleting the check in the script left all ten cases passing - so
+      // the restriction shipped unguarded and the claim that every change
+      // had a guard was false (#1180).
+      expect(facts).not.toContain('aicommerceacceleratorconfiguration');
+      expect(facts).toContain('aicommerceacceleratorfrontend');
+    });
+  });
+
+  test('the container state is captured, including when it is stopped', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // Read with `docker ps -a`: a stopped container is the case this
+      // exists for, because Traefik withdraws a router when one stops. A
+      // running-only selector could only ever print status=running.
+      expect(facts).toContain('extension container state');
+      expect(facts).toMatch(/status=\w+ exit=\d+ restarts=\d+/);
+    });
+  });
+
+  test('at teardown the probes are skipped, and the reason is stated', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir, { stage: 'teardown' });
+      // cleanup() closes the tunnel thirteen lines before calling this, so
+      // every teardown probe returned 000 on run 36258328678. Labels and the
+      // routers table are still worth having; a wall of 000s is not, and it
+      // reads as failure rather than as "not measurable here" (#1180).
+      expect(facts).toContain('probes skipped');
+      expect(facts).not.toMatch(/status: 000/);
+      // The rest of the capture must still run.
+      expect(facts).toContain('traefik.http.routers');
+      expect(facts).toContain('"routers"');
     });
   });
 
@@ -275,6 +347,16 @@ describe('proxy routing diagnostics (#1168)', () => {
       expect(facts).not.toContain('ops@example.com');
       expect(facts).not.toContain('route53');
       expect(facts).toMatch(/<redacted>/);
+      // The forms the first filter missed: a JSON key cannot be reached by
+      // a pattern that requires `=` or `:` immediately after the keyword,
+      // and the label form of basicauth was a regression against the filter
+      // this replaced.
+      expect(facts).not.toContain('eyJZZZ.PAYLOAD.SIG');
+      expect(facts).not.toContain('apr1xyz');
+      expect(facts).not.toContain('apr1secretform');
+      // And the diagnostics still survive it.
+      expect(facts).toContain('entryPoints');
+      expect(facts).toContain('serverStatus');
     });
   });
 
