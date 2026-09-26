@@ -23,6 +23,10 @@ const {
   listPromptNames,
   listSchemaNames,
 } = require('../utils/configurationAssets.cjs');
+const {
+  isUsableLiferayUrl,
+  resolveEffectiveLiferayConnection,
+} = require('../utils/liferayEnv.cjs');
 const { normalizeCatalogExpiryConfig } = require('../utils/catalogExpiry.cjs');
 const {
   normalizeMediaArchiveConfig,
@@ -99,6 +103,12 @@ class ConfigService {
   constructor(ctx) {
     this.cache = ctx.cache;
     this.logger = ctx.logger;
+    // Held so an internal caller with no request can still be given a
+    // reachable target. Both are constructed before this service in
+    // bootstrap.cjs, and both are optional: a consumer that always states a
+    // URL never reaches the fallback below.
+    this.oauth = ctx.oauth;
+    this.persistence = ctx.persistence;
     this._cachedConfigKeys = new Set();
   }
 
@@ -132,15 +142,63 @@ class ConfigService {
    */
   _configurationSource(requestConfig) {
     const resolved = resolveConfigurationSource(requestConfig);
+    const connection = this._withReachableTarget(resolved.connection);
     const description = {
-      liferayUrl: resolved.liferayUrl,
+      liferayUrl: connection?.liferayUrl ?? resolved.liferayUrl,
       sameAsTarget: resolved.sameAsTarget,
       source: resolved.source,
     };
 
     this._evictForeignConfigurationCache(description);
 
-    return { connection: resolved.connection, description };
+    return { connection, description };
+  }
+
+  /**
+   * A caller that stated no URL must still get a reachable one.
+   *
+   * The dashboard states its target, so the request paths were correct and
+   * the defect was invisible from them. Internal callers - the AI config
+   * read, the credential read, the health report - have no request to state
+   * it from, so the connection reached the SDK with `liferayUrl: null` and
+   * the SDK fell back to the DXP config tree.
+   *
+   * That tree is not wrong: `com.liferay.lxc.dxp.main.domain` is `localhost`
+   * because Liferay is correctly recording its own listener. It is simply
+   * not reachable from a different container on the same host, so run
+   * 36226890870 spent itself on `ECONNREFUSED 127.0.0.1:443` - 3239 of them
+   * against a value that was read successfully every time.
+   *
+   * `resolveEffectiveLiferayConnection` is the chain that already gets this
+   * right for the paths that use it: it rejects a loopback host when the
+   * routes tree supplied the credentials, and falls back to
+   * `LIFERAY_LXC_DXP_MAIN_DOMAIN`, which the platform puts in the
+   * environment. It ran exactly once in that run's log, because nothing on
+   * these paths called it. See #1175.
+   */
+  _withReachableTarget(connection) {
+    if (isUsableLiferayUrl(connection?.liferayUrl)) return connection;
+
+    try {
+      const effective = resolveEffectiveLiferayConnection(
+        connection || {},
+        this.oauth,
+        this.persistence
+      );
+
+      if (!isUsableLiferayUrl(effective?.liferayUrl)) return connection;
+
+      return { ...connection, ...effective };
+    } catch (error) {
+      // Resolution refusing is not a reason to fail the read here: the SDK
+      // still has its own fallback, and the caller's error is more useful
+      // than this one. Recorded so it is not silent.
+      this.logger?.debug?.(
+        `Could not infer a Liferay target for an unstated caller: ${error.message}`,
+        { operation: 'liferay-url-resolution' }
+      );
+      return connection;
+    }
   }
 
   /**
