@@ -51,6 +51,13 @@ function harness({ exitCode = 1, existing = 0, keep = 0 } = {}) {
     // real one is defined above cleanup - staleProjectRemoval asserts that
     // ordering - so this stands in for it rather than excusing its absence.
     'capture_microservice_diagnostics() { echo "[capture] $*"; }',
+    // Stubbed, not guarded with `command -v` in the script. Both capture
+    // functions are defined (386, 498) before the trap is installed (866),
+    // so they are always available when cleanup runs. `close_node_tunnel`
+    // needs the guard because it is defined far below the trap; copying that
+    // pattern here would make a genuine ordering mistake skip the capture
+    // silently instead of failing loudly. See #1177.
+    'capture_proxy_diagnostics() { echo "[capture-proxy] $*"; }',
     lines.slice(start, end + 1).join('\n'),
     'echo "[body] running"',
     `exit ${exitCode}`,
