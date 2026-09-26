@@ -351,6 +351,20 @@ fi
 #
 # Nothing here is fatal. A diagnostic that can fail the run it is diagnosing is
 # worse than no diagnostic.
+# One probe, so the control and each extension are measured identically.
+# Status first: a 404 means no router matched, where an unreachable backend
+# behind a matching rule gives 502 or 504. The body distinguishes Traefik's
+# bare "404 page not found" from Liferay's own.
+probe_host() {
+    local target status body
+    target="$1"
+    status=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 20 \
+        "https://${target}/" 2>&1 || echo "000")
+    echo "  status: $status"
+    body=$(curl -sk --max-time 20 "https://${target}/" 2>&1 | head -c 200 || true)
+    echo "  body[0:200]: $body"
+}
+
 # The proxy's routing table, with a control beside it.
 #
 # #1149 has stood open across four runs on inference alone, and the analysis
@@ -426,20 +440,28 @@ capture_proxy_diagnostics() {
         # Same proxy, same network, same moment - the only variable is which
         # extension. A status line for each, and enough body to tell Traefik's
         # 404 from Liferay's.
-        for probe in \
-            "liferay:${host}" \
-            "microservice:ai-commerce-accelerator-microservice.${host}" \
-            "frontend:ai-commerce-accelerator-frontend.${host}"
-        do
-            local label target status body
-            label="${probe%%:*}"
-            target="${probe#*:}"
-            echo "--- $label -> https://$target/ ---"
-            status=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 20 \
-                "https://${target}/" 2>&1 || echo "000")
-            echo "  status: $status"
-            body=$(curl -sk --max-time 20 "https://${target}/" 2>&1 | head -c 200 || true)
-            echo "  body[0:200]: $body"
+        #
+        # The hostnames are read from each LCP.json `id`, not written out.
+        # LDM builds the Traefik router from the id, and this repository
+        # carries two conventions across three sibling extensions -
+        # `aicommerceacceleratorfrontend` but `ai-commerce-accelerator-
+        # microservice`. The first version of this capture hard-coded the
+        # hyphenated form for all of them, so the frontend probe would have
+        # returned a real 404 for a reason inside our own tooling, in an
+        # artifact built to stop exactly that. See #1171.
+        echo "--- liferay (the control) -> https://${host}/ ---"
+        probe_host "$host"
+        for lcp in client-extensions/*/LCP.json; do
+            local ext_id
+            [ -f "$lcp" ] || continue
+            ext_id=$(sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+                "$lcp" | head -1)
+            if [ -z "$ext_id" ]; then
+                echo "--- $(basename "$(dirname "$lcp")") -> (no id in LCP.json) ---"
+                continue
+            fi
+            echo "--- $ext_id -> https://${ext_id}.${host}/ ---"
+            probe_host "${ext_id}.${host}"
         done
     } > "$facts" 2>&1
 
@@ -575,18 +597,39 @@ capture_microservice_diagnostics() {
         # Names only, never contents: the files published here are
         # credentials.
         echo "=== LXC config trees ==="
-        docker exec "$container" sh -c '
+        local tree_probe
+        # Listed twice, as the container user and as root.
+        #
+        # `ls -A` on a directory this uid cannot read returns nothing and
+        # exits 0, so "empty" and "unreadable by uid 1000" produced identical
+        # output. That ambiguity is not hypothetical: run 36140763065 recorded
+        # ext-init as `(mounted, empty)` while the microservice's own log
+        # carried a real Liferay-generated client id 904 times, and I told
+        # liferay-docker-manager#1944 the empty mount was starving the
+        # extension of credentials. It was not, and the capture could not say
+        # so. See #1171.
+        #
+        # Names only, never contents: the files published here are
+        # credentials.
+        tree_probe='
             dxp="${LIFERAY_ROUTES_DXP:-/etc/liferay/lxc/dxp-metadata}"
             ext="${LIFERAY_ROUTES_CLIENT_EXTENSION:-/etc/liferay/lxc/ext-init-metadata}"
             for d in "$dxp" "$ext"; do
                 echo "--- $d ---"
                 if [ -d "$d" ]; then
+                    echo "  perms: $(ls -ld "$d" 2>&1)"
                     ls -A "$d" 2>&1 || echo "  (unreadable)"
-                    [ -z "$(ls -A "$d" 2>/dev/null)" ] && echo "  (mounted, empty)"
+                    [ -z "$(ls -A "$d" 2>/dev/null)" ] && echo "  (no entries visible here)"
                 else
                     echo "  (path does not exist - nothing mounted here)"
                 fi
-            done' 2>&1 || echo "(config trees unreadable)"
+            done'
+        echo "--- as the container user ($(docker exec "$container" id -un 2>&1)) ---"
+        docker exec "$container" sh -c "$tree_probe" 2>&1 \
+            || echo "(config trees unreadable)"
+        echo "--- as root: if this differs, the tree is not empty, it is unreadable ---"
+        docker exec -u 0 "$container" sh -c "$tree_probe" 2>&1 \
+            || echo "(config trees unreadable as root)"
         echo
         # The DXP tree's *values*, not just its names.
         #
@@ -707,6 +750,35 @@ capture_microservice_diagnostics() {
         docker exec "$LIFERAY_CONTAINER" sh -c \
             'ls -la /opt/liferay/logs/ 2>&1 | tail -n +2' 2>&1 \
             || echo "(no /opt/liferay/logs or not reachable)"
+        echo
+        # When each side started, and when Liferay actually became healthy.
+        #
+        # The gap between the extension starting and its credentials being
+        # written was read as an ordering defect and filed as
+        # liferay-docker-manager#1978. Both halves were then retracted: the
+        # third field of `com.docker.compose.depends_on` is the restart flag,
+        # not whether the condition was met, and `compose create` + `start`
+        # does honour the condition when measured.
+        #
+        # Without a health transition timestamp the gap cannot separate
+        # "waited correctly, registration was slow" from "did not wait", and
+        # registration is downstream of health either way. See #1171.
+        #
+        # Redacted like the environment dump, and `sed -n` rather than `head`:
+        # this block sits inside the routes-listing section, which is asserted
+        # to read no file contents. A `head` here is indistinguishable from a
+        # `head` on a credential file to anything reading the source (#1128).
+        echo "=== start times, and Liferay's health transitions ==="
+        {
+            echo "extension StartedAt: $(docker inspect \
+                -f '{{.State.StartedAt}}' "$container" 2>&1)"
+            echo "liferay   StartedAt: $(docker inspect \
+                -f '{{.State.StartedAt}}' "$LIFERAY_CONTAINER" 2>&1)"
+            docker inspect -f \
+'{{range .State.Health.Log}}  {{.Start}} exit={{.ExitCode}}
+{{end}}' "$LIFERAY_CONTAINER" 2>&1 | sed -n '1,30p' \
+                || echo "(no health log - no healthcheck declared?)"
+        } | sed -E 's/((SECRET|PASSWORD|TOKEN|KEY|PAT)[A-Z_]*=).*/\1<redacted>/'
         echo
         echo "=== compose depends_on for this service ==="
         docker inspect -f '{{index .Config.Labels "com.docker.compose.depends_on"}}' \

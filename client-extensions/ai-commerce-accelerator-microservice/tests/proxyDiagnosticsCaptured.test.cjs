@@ -107,10 +107,33 @@ function runCapture(dir, opts = {}) {
     [
       'set -e',
       'TARGET_HOST=aica-e2e.demo',
+      // Both, because the capture delegates to probe_host. Extracting only
+      // the caller would leave the harness with a command-not-found and a
+      // capture that produced nothing - the failure this file exists to catch.
+      functionSource('probe_host'),
       functionSource('capture_proxy_diagnostics'),
       'capture_proxy_diagnostics pre-tests',
     ].join('\n')
   );
+
+  // The capture reads client-extensions/*/LCP.json relative to the working
+  // directory, and deliberately carries both naming conventions: the real
+  // repository has a hyphenated id for the microservice and stripped ids for
+  // the other two, which is what the first version got wrong (#1171).
+  for (const [name, id] of [
+    [
+      'ai-commerce-accelerator-microservice',
+      'ai-commerce-accelerator-microservice',
+    ],
+    ['ai-commerce-accelerator-frontend', 'aicommerceacceleratorfrontend'],
+  ]) {
+    const cxDir = path.join(dir, 'client-extensions', name);
+    fs.mkdirSync(cxDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(cxDir, 'LCP.json'),
+      JSON.stringify({ id, kind: 'Deployment' }, null, 2)
+    );
+  }
 
   const result = spawnSync('bash', [harness], {
     cwd: dir,
@@ -173,14 +196,35 @@ describe('proxy routing diagnostics (#1168)', () => {
     sandbox((dir) => {
       const { facts } = runCapture(dir);
       // Without the control, a 404 is a fact about one host and nothing else.
-      expect(facts).toMatch(/liferay -> https:\/\/aica-e2e\.demo\//);
       expect(facts).toMatch(
-        /microservice -> https:\/\/ai-commerce-accelerator-microservice\.aica-e2e\.demo\//
+        /liferay \(the control\) -> https:\/\/aica-e2e\.demo\//
+      );
+      expect(facts).toMatch(
+        /ai-commerce-accelerator-microservice -> https:\/\/ai-commerce-accelerator-microservice\.aica-e2e\.demo\//
       );
       expect(facts).toMatch(/status: 200/);
       expect(facts).toMatch(/status: 404/);
       // Traefik's body, not Liferay's - the distinction the whole issue turns on.
       expect(facts).toContain('404 page not found');
+    });
+  });
+
+  test('probe hostnames come from the LCP.json id, not from the directory', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // The regression this file was extended for. LDM builds the Traefik
+      // router from the id, and this repository carries both conventions:
+      // the frontend's id is stripped, the microservice's is hyphenated.
+      // Writing the directory name out returned a real 404 for a reason
+      // inside our own tooling. See #1171.
+      expect(facts).toContain('aicommerceacceleratorfrontend.aica-e2e.demo');
+      expect(facts).not.toContain(
+        'ai-commerce-accelerator-frontend.aica-e2e.demo'
+      );
+      // And the hyphenated one is still used where that is what the id says.
+      expect(facts).toContain(
+        'ai-commerce-accelerator-microservice.aica-e2e.demo'
+      );
     });
   });
 

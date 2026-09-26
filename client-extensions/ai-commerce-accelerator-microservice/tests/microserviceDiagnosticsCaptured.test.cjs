@@ -53,11 +53,18 @@ function stubDocker(
   fs.writeFileSync(
     path.join(bin, 'docker'),
     `#!/bin/bash
+# 'docker exec -u 0 ...' puts the flag before the container name, so the
+# case below must not assume $1 is the subcommand's first argument.
+AS_ROOT=0
+[[ "$*" == *"-u 0"* ]] && AS_ROOT=1
 case "$1" in
+  id) echo "liferay" ;;
   ps) ${container ? `echo "${container}"` : 'true'} ;;
   logs) ${logsFail ? 'exit 1' : 'echo "microservice boot line" >&2; echo "ENOTFOUND aica-e2e.demo" >&2'} ;;
   inspect)
-     if [[ "$*" == *depends_on* ]]; then echo 'liferay:service_healthy'
+     if [[ "$*" == *StartedAt* ]]; then echo '2026-09-26T06:36:18.000000000Z'
+     elif [[ "$*" == *Health.Log* ]]; then echo '  2026-09-26T06:44:30Z exit=0'
+     elif [[ "$*" == *depends_on* ]]; then echo 'liferay:service_healthy'
      elif [[ "$*" == *ExtraHosts* ]]; then echo 'null'
      elif [[ "$*" == *Mounts* ]]; then echo '[{"Type":"bind","Source":"/opt/ldm/aica-e2e/routes/default/ai-commerce-accelerator-microservice","Destination":"/etc/liferay/lxc/ext-init-metadata"}]'
      else
@@ -72,6 +79,7 @@ case "$1" in
        echo "com.liferay.lxc.dxp.main.domain = ${mainDomain}"
        echo "com.liferay.lxc.dxp.server.protocol = https"
        echo "com.liferay.lxc.dxp.client.secret = should-not-appear"
+     elif [[ "$*" == *"id -un"* ]]; then echo "liferay"
      elif [[ "$*" == *LIFERAY_ROUTES_DXP* ]]; then
        ${
          treesPopulated
@@ -443,13 +451,42 @@ describe('microservice container diagnostics', () => {
 
   // ls -la prints names, sizes and times. The per-extension tree holds
   // generated OAuth2 credentials, so the values must never appear (#1128).
+  //
+  // Comment lines are stripped before matching. This guard has now fired on
+  // its own prose three times: twice on #1073, and again when a comment
+  // explaining why `head` was avoided here contained the word `head`. A
+  // guard that a comment can fail is a guard that a comment can also
+  // satisfy, so the stripping is asserted below rather than assumed.
+  const withoutComments = (text) =>
+    text
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('#'))
+      .join('\n');
+
   test('the routes listing reads no file contents', () => {
     const body = functionSource('capture_microservice_diagnostics');
-    const listing = body.slice(
-      body.indexOf('routes/default/*/ contents'),
-      body.indexOf('compose depends_on')
+    const listing = withoutComments(
+      body.slice(
+        body.indexOf('routes/default/*/ contents'),
+        body.indexOf('compose depends_on')
+      )
     );
     expect(listing).toMatch(/ls -la/);
     expect(listing).not.toMatch(/\b(cat|head)\b/);
+  });
+
+  test('the comment stripping actually strips, and keeps code', () => {
+    // Without this, the case above could pass by having stripped everything.
+    const stripped = withoutComments(
+      [
+        '# head of the file',
+        'ls -la "$d"',
+        '  # cat the thing',
+        'echo done',
+      ].join('\n')
+    );
+    expect(stripped).not.toMatch(/\b(cat|head)\b/);
+    expect(stripped).toContain('ls -la "$d"');
+    expect(stripped).toContain('echo done');
   });
 });
