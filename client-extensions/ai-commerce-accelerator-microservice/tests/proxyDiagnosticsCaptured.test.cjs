@@ -51,9 +51,12 @@ case "$1" in
     echo "aica-e2e"
     echo "aica-e2e-ai-commerce-accelerator-microservice"
     ;;
-  port)
-    if [[ "$*" == *8080* ]]; then echo "0.0.0.0:18080"
-    else echo "80/tcp -> 0.0.0.0:80"; fi ;;
+  port) echo "80/tcp -> 0.0.0.0:80" ;;
+  exec)
+    # The routers query runs inside a container on the proxy's network.
+    if [[ "$*" == *rawdata* || "$*" == *PROXY_HOST* ]]; then
+      echo '{"routers":{"ms@docker":{"rule":"Host(ms.aica-e2e.demo)","entryPoints":["web"],"status":"enabled"}},"services":{"ms@docker":{"serverStatus":{"http://172.18.0.5:3001":"UP"}}}}'
+    fi ;;
   inspect)
     if [[ "$*" == *Config.Cmd* ]]; then
       # A real Traefik command line commonly carries these.
@@ -107,6 +110,7 @@ exit 0
 }
 
 function runCapture(dir, opts = {}) {
+  const stage = opts.stage || 'pre-tests';
   const bin = stubs(dir, opts);
   const harness = path.join(dir, 'capture.sh');
   fs.writeFileSync(
@@ -117,9 +121,13 @@ function runCapture(dir, opts = {}) {
       // Both, because the capture delegates to probe_host. Extracting only
       // the caller would leave the harness with a command-not-found and a
       // capture that produced nothing - the failure this file exists to catch.
+      // All three. The capture pipes through redact_stream, and a missing
+      // one does not error visibly - the pipeline dies and the artifact is
+      // written empty, which is the failure this file exists to catch.
+      functionSource('redact_stream'),
       functionSource('probe_host'),
       functionSource('capture_proxy_diagnostics'),
-      'capture_proxy_diagnostics pre-tests',
+      `capture_proxy_diagnostics ${stage}`,
     ].join('\n')
   );
 
@@ -140,7 +148,23 @@ function runCapture(dir, opts = {}) {
       path.join(cxDir, 'LCP.json'),
       JSON.stringify({ id, kind: 'Deployment' }, null, 2)
     );
+    // Only an extension that becomes a container gets a router, and that
+    // requires a Dockerfile. Without one here the probe loop skips it.
+    fs.writeFileSync(path.join(cxDir, 'Dockerfile'), 'FROM scratch\n');
   }
+
+  // An extension with no Dockerfile: a static build, which LDM never gives
+  // a router and whose subdomain 404s by design. It must not be probed.
+  const staticDir = path.join(
+    dir,
+    'client-extensions',
+    'ai-commerce-accelerator-configuration'
+  );
+  fs.mkdirSync(staticDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(staticDir, 'LCP.json'),
+    JSON.stringify({ id: 'aicommerceacceleratorconfiguration' }, null, 2)
+  );
 
   const result = spawnSync('bash', [harness], {
     cwd: dir,
@@ -148,7 +172,7 @@ function runCapture(dir, opts = {}) {
     env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
   });
 
-  const file = path.join(dir, 'logs/e2e-proxy-routing-pre-tests.txt');
+  const file = path.join(dir, `logs/e2e-proxy-routing-${stage}.txt`);
   return {
     status: result.status,
     stderr: result.stderr,
@@ -245,15 +269,18 @@ describe('proxy routing diagnostics (#1168)', () => {
       expect(facts).toContain('the routers the proxy actually loaded');
       expect(facts).toContain('"routers"');
       expect(facts).toMatch(/entryPoints/);
+      // Queried from inside the node. The first version read the port
+      // published on the NODE and curled it from the RUNNER, where the
+      // tunnel forwards only 80 and 443, so it reached nothing - and
+      // without `pipefail` the `|| echo` never fired, leaving a header and
+      // a blank line that read as "we did not look" (#1180).
+      expect(facts).toMatch(/querying .* from inside /);
+      // The runtime half must survive redaction; an earlier filter ate it.
+      expect(facts).toContain('serverStatus');
     });
   });
 
-  test('a published api port is used, and its absence is stated', () => {
-    sandbox((dir) => {
-      const { facts } = runCapture(dir);
-      expect(facts).toMatch(/\(api on published port 18080\)/);
-    });
-
+  test('with no proxy, the routers section says so rather than being blank', () => {
     sandbox((dir) => {
       // No proxy at all: the section must say why rather than be empty, or a
       // missing dump reads as "we did not look" - the exact ambiguity the
@@ -261,6 +288,21 @@ describe('proxy routing diagnostics (#1168)', () => {
       const { facts } = runCapture(dir, { proxyPresent: false });
       expect(facts).not.toContain('"routers"');
       expect(facts).toContain('No proxy container on the target.');
+    });
+  });
+
+  test('at teardown the probes are skipped, and the reason is stated', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir, { stage: 'teardown' });
+      // cleanup() closes the tunnel thirteen lines before calling this, so
+      // every teardown probe returned 000 on run 36258328678. Labels and the
+      // routers table are still worth having; a wall of 000s is not, and it
+      // reads as failure rather than as "not measurable here" (#1180).
+      expect(facts).toContain('probes skipped');
+      expect(facts).not.toMatch(/status: 000/);
+      // The rest of the capture must still run.
+      expect(facts).toContain('traefik.http.routers');
+      expect(facts).toContain('"routers"');
     });
   });
 

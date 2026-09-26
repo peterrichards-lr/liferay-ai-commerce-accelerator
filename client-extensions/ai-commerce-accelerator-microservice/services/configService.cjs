@@ -1341,9 +1341,18 @@ class ConfigService {
         // the config tree's loopback host - while the three readers beside it
         // had already been fixed. The commit that fixed them claimed "one
         // seam" and this was the call site that made that false. See #1175.
-        const { connection: healthConnection } =
-          this._configurationSource(requestConfig);
-        await liferay.getChannels(healthConnection, { pageSize: 1 });
+        // `_withReachableTarget`, not `_configurationSource`. The latter
+        // returns the CONFIGURATION SOURCE's connection whenever one is
+        // stated - a different instance with its own credentials - and
+        // `getChannels` is a target-data read. Routing it through the full
+        // seam made "Liferay Connectivity" report on the wrong instance:
+        // green while the target was down, and a config-source
+        // misconfiguration surfaced as a Liferay outage with the target
+        // never probed. The previous commit's "like every other read" was
+        // false for this call. See #1180.
+        await liferay.getChannels(this._withReachableTarget(requestConfig), {
+          pageSize: 1,
+        });
         health.liferay.status = 'CONNECTED';
       } catch (err) {
         health.liferay.status = 'ERROR';

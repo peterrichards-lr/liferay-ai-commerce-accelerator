@@ -147,6 +147,58 @@ describe('a caller that states no target still gets a reachable one (#1175)', ()
     expect(both).toEqual([false, true]);
   });
 
+  test('the health probe reports on the target, not the configuration source', () => {
+    // The previous fix routed this through `_configurationSource`, which
+    // returns the CONFIGURATION SOURCE's connection whenever one is stated -
+    // a different instance with its own credentials. `getChannels` is a
+    // target-data read, so "Liferay Connectivity" reported on the wrong
+    // instance: green while the target was down. The change shipped with no
+    // guard at all; reverting it left 47/47 passing. See #1180.
+    const dir = routesTree();
+    const { ConfigService, restore } = freshConfigService({
+      LIFERAY_ROUTES_DXP: dir,
+    });
+
+    try {
+      const seen = [];
+      const service = new ConfigService({
+        cache: new Map(),
+        logger: { debug() {}, warn() {}, info() {}, error() {} },
+        oauth: colocatedOauth(),
+      });
+      service.setLiferayService({
+        getChannels: async (connection) => {
+          seen.push(connection?.liferayUrl ?? null);
+          return { items: [] };
+        },
+      });
+
+      return service
+        .checkHealth({
+          liferayUrl: 'https://target.example',
+          clientId: 'tid',
+          clientSecret: 'tsec',
+          configSource: {
+            liferayUrl: 'https://configsource.example',
+            clientId: 'cid',
+            clientSecret: 'csec',
+          },
+        })
+        .then(() => {
+          expect(seen).toContain('https://target.example');
+          expect(seen).not.toContain('https://configsource.example');
+        })
+        .finally(() => {
+          restore();
+          fs.rmSync(dir, { recursive: true, force: true });
+        });
+    } catch (error) {
+      restore();
+      fs.rmSync(dir, { recursive: true, force: true });
+      throw error;
+    }
+  });
+
   test('a stated target is left exactly as the caller gave it', () => {
     const { ConfigService, restore } = freshConfigService({
       LIFERAY_LXC_DXP_MAIN_DOMAIN: 'aica-e2e.demo',
