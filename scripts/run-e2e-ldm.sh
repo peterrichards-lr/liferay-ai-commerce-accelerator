@@ -436,6 +436,31 @@ capture_proxy_diagnostics() {
         done
         echo
 
+        echo "=== the routers the proxy actually loaded ==="
+        # The half that was missing. `149538b2` said this artifact recorded
+        # "the routers the proxy ended up with" and it never queried the API -
+        # only one of the two named sides was captured, and the comment above
+        # about a missing dump referred to a dump that did not exist (#1177).
+        #
+        # This is also the single piece of evidence #1149 needs: a router can
+        # be declared by correct labels on the right network and still be
+        # absent from Traefik's runtime table, and only this tells them apart.
+        if [ -n "$proxy" ]; then
+            local api_port
+            api_port=$(docker port "$proxy" 8080 2>/dev/null | head -1 \
+                | sed 's/.*://')
+            if [ -n "$api_port" ]; then
+                echo "(api on published port $api_port)"
+                curl -s --max-time 20 "http://127.0.0.1:${api_port}/api/rawdata" \
+                    2>&1 | head -c 20000 \
+                    || echo "(api published but unreachable)"
+                echo
+            else
+                echo "(no published api port; --api may be off - see the command above)"
+            fi
+        fi
+        echo
+
         echo "=== the request, against a host that works and one that does not ==="
         # Same proxy, same network, same moment - the only variable is which
         # extension. A status line for each, and enough body to tell Traefik's
@@ -463,7 +488,9 @@ capture_proxy_diagnostics() {
             echo "--- $ext_id -> https://${ext_id}.${host}/ ---"
             probe_host "${ext_id}.${host}"
         done
-    } > "$facts" 2>&1
+    } 2>&1 \
+        | perl -pe 's/((?:secret|password|api[._]?key|token|users|acme[._-]?\w*|dnschallenge\S*)\W{0,3}).*/$1<redacted>/gi' \
+        > "$facts"
 
     echo "🔎 Captured proxy routing diagnostics ($stage) -> $facts"
 }
@@ -813,6 +840,7 @@ cleanup() {
         echo -e "\n🛡️  Skipping cleanup: --keep flag was provided for '$PROJECT_NAME'."
     else
         capture_microservice_diagnostics teardown || true
+        capture_proxy_diagnostics teardown || true
         echo -e "\n🧹 Cleaning up environment..."
         # shellcheck disable=SC2086
         ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true

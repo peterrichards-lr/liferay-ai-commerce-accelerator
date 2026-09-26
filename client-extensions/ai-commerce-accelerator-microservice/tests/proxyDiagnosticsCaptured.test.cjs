@@ -51,10 +51,13 @@ case "$1" in
     echo "aica-e2e"
     echo "aica-e2e-ai-commerce-accelerator-microservice"
     ;;
-  port) echo "80/tcp -> 0.0.0.0:80" ;;
+  port)
+    if [[ "$*" == *8080* ]]; then echo "0.0.0.0:18080"
+    else echo "80/tcp -> 0.0.0.0:80"; fi ;;
   inspect)
     if [[ "$*" == *Config.Cmd* ]]; then
-      echo '["--providers.docker=true","--api.insecure=true"]'
+      # A real Traefik command line commonly carries these.
+      echo '["--providers.docker=true","--api.insecure=true","--certificatesresolvers.le.acme.email=ops@example.com","--certificatesresolvers.le.acme.dnschallenge.provider=route53"]'
     elif [[ "$*" == *networks:* ]]; then
       # The combined template: the networks line, then every label. The
       # microservice carries correct labels on a network the proxy is not on,
@@ -85,6 +88,10 @@ exit 0
     path.join(bin, 'curl'),
     `#!/bin/bash
 target="\${@: -1}"
+if [[ "$target" == *"/api/rawdata"* ]]; then
+  echo '{"routers":{"ms-svc@docker":{"rule":"Host(ai-commerce-accelerator-microservice.aica-e2e.demo)","entryPoints":["web"],"status":"enabled"}}}'
+  exit 0
+fi
 if [[ "$*" == *"-o /dev/null"* ]]; then
   if [[ "$target" == *microservice* ]]; then echo "404"; else echo "200"; fi
 else
@@ -225,6 +232,49 @@ describe('proxy routing diagnostics (#1168)', () => {
       expect(facts).toContain(
         'ai-commerce-accelerator-microservice.aica-e2e.demo'
       );
+    });
+  });
+
+  test('it captures the routers the proxy actually loaded', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // The half `149538b2` claimed and did not have. Labels can be correct,
+      // on the right network, and the router still absent from Traefik's
+      // runtime table - only this tells those apart, and it is the evidence
+      // #1149 has been missing for five runs.
+      expect(facts).toContain('the routers the proxy actually loaded');
+      expect(facts).toContain('"routers"');
+      expect(facts).toMatch(/entryPoints/);
+    });
+  });
+
+  test('a published api port is used, and its absence is stated', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      expect(facts).toMatch(/\(api on published port 18080\)/);
+    });
+
+    sandbox((dir) => {
+      // No proxy at all: the section must say why rather than be empty, or a
+      // missing dump reads as "we did not look" - the exact ambiguity the
+      // original commit message said it had closed and had not.
+      const { facts } = runCapture(dir, { proxyPresent: false });
+      expect(facts).not.toContain('"routers"');
+      expect(facts).toContain('No proxy container on the target.');
+    });
+  });
+
+  test('credential-shaped values never reach this artifact', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // This capture was the only one in the script with no filter, and
+      // `logs/` is uploaded wholesale by e2e-verification.yml. Traefik
+      // command lines carry ACME and DNS-provider settings; the label filter
+      // admits basicauth user hashes. See #1177.
+      expect(facts).toContain('acme');
+      expect(facts).not.toContain('ops@example.com');
+      expect(facts).not.toContain('route53');
+      expect(facts).toMatch(/<redacted>/);
     });
   });
 
