@@ -1335,12 +1335,6 @@ class ConfigService {
     try {
       // Check Liferay connection
       try {
-        // Through the seam, like every other read. This probe took the
-        // caller's config raw, so on a health check with no stated target it
-        // reached the SDK with `liferayUrl: null` and reported ERROR against
-        // the config tree's loopback host - while the three readers beside it
-        // had already been fixed. The commit that fixed them claimed "one
-        // seam" and this was the call site that made that false. See #1175.
         // `_withReachableTarget`, not `_configurationSource`. The latter
         // returns the CONFIGURATION SOURCE's connection whenever one is
         // stated - a different instance with its own credentials - and

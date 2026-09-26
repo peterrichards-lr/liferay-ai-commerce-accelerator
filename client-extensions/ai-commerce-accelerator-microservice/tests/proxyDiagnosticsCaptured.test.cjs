@@ -55,10 +55,15 @@ case "$1" in
   exec)
     # The routers query runs inside a container on the proxy's network.
     if [[ "$*" == *rawdata* || "$*" == *PROXY_HOST* ]]; then
-      echo '{"routers":{"ms@docker":{"rule":"Host(ms.aica-e2e.demo)","entryPoints":["web"],"status":"enabled"}},"services":{"ms@docker":{"serverStatus":{"http://172.18.0.5:3001":"UP"}}}}'
+      # Credential shapes that the first filter let through: JSON keys, a
+      # bearer header inside JSON, and a basicauth label. Each is here so
+      # the redaction is guarded on the form that actually leaked (#1180).
+      echo '{"routers":{"ms@docker":{"rule":"Host(ms.aica-e2e.demo)","entryPoints":["web"],"status":"enabled"}},"middlewares":{"h@docker":{"headers":{"customRequestHeaders":{"Authorization":"Bearer eyJZZZ.PAYLOAD.SIG"}}},"b@docker":{"basicAuth":{"users":["admin:apr1xyz"]}}},"services":{"ms@docker":{"serverStatus":{"http://172.18.0.5:3001":"UP"}}}}'
     fi ;;
   inspect)
-    if [[ "$*" == *Config.Cmd* ]]; then
+    if [[ "$*" == *State.Status* ]]; then
+      echo "  /aica-e2e-ai-commerce-accelerator-microservice status=running exit=0 restarts=0"
+    elif [[ "$*" == *Config.Cmd* ]]; then
       # A real Traefik command line commonly carries these.
       echo '["--providers.docker=true","--api.insecure=true","--certificatesresolvers.le.acme.email=ops@example.com","--certificatesresolvers.le.acme.dnschallenge.provider=route53"]'
     elif [[ "$*" == *networks:* ]]; then
@@ -68,6 +73,7 @@ case "$1" in
       if [[ "$*" == *microservice* ]]; then
         echo "  networks: aica-e2e_default "
         echo "  traefik.enable=true"
+        echo "  traefik.http.middlewares.d.basicauth.users=admin:apr1secretform"
         echo "  traefik.http.routers.ms.rule=Host(ai-commerce-accelerator-microservice.aica-e2e.demo)"
       elif [[ "$*" == *liferay-proxy* ]]; then
         echo "  networks: liferay-proxy-global_default "
@@ -291,6 +297,30 @@ describe('proxy routing diagnostics (#1168)', () => {
     });
   });
 
+  test('an extension with no Dockerfile is never probed', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // A router exists only for an extension that becomes a container, and
+      // that needs a Dockerfile. The fixture includes one without, and
+      // deleting the check in the script left all ten cases passing - so
+      // the restriction shipped unguarded and the claim that every change
+      // had a guard was false (#1180).
+      expect(facts).not.toContain('aicommerceacceleratorconfiguration');
+      expect(facts).toContain('aicommerceacceleratorfrontend');
+    });
+  });
+
+  test('the container state is captured, including when it is stopped', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // Read with `docker ps -a`: a stopped container is the case this
+      // exists for, because Traefik withdraws a router when one stops. A
+      // running-only selector could only ever print status=running.
+      expect(facts).toContain('extension container state');
+      expect(facts).toMatch(/status=\w+ exit=\d+ restarts=\d+/);
+    });
+  });
+
   test('at teardown the probes are skipped, and the reason is stated', () => {
     sandbox((dir) => {
       const { facts } = runCapture(dir, { stage: 'teardown' });
@@ -317,6 +347,16 @@ describe('proxy routing diagnostics (#1168)', () => {
       expect(facts).not.toContain('ops@example.com');
       expect(facts).not.toContain('route53');
       expect(facts).toMatch(/<redacted>/);
+      // The forms the first filter missed: a JSON key cannot be reached by
+      // a pattern that requires `=` or `:` immediately after the keyword,
+      // and the label form of basicauth was a regression against the filter
+      // this replaced.
+      expect(facts).not.toContain('eyJZZZ.PAYLOAD.SIG');
+      expect(facts).not.toContain('apr1xyz');
+      expect(facts).not.toContain('apr1secretform');
+      // And the diagnostics still survive it.
+      expect(facts).toContain('entryPoints');
+      expect(facts).toContain('serverStatus');
     });
   });
 

@@ -365,9 +365,17 @@ fi
 # basicauth user list.
 redact_stream() {
     perl -pe '
-        s/((?:client[._]?secret|[._-]secret|"secret"|password|passwd|api[._]?key|private[._]?key|credential|acme[._-]?email|dnschallenge[.\w-]*provider|"token")\s*[=:]\s*)("?)[^"'"'"',\s\]}]+\2/$1<redacted>/gi;
-        s/((?:authorization|proxy-authorization)\s*[=:]\s*)("?)(?:Bearer\s+|Basic\s+)?[^"'"'"',\]}\n]+/$1<redacted>/gi;
-        s/("users"\s*:\s*\[)[^\]]*/$1<redacted>/gi;
+        # The key boundary is quote-tolerant: `"password":"x"` and
+        # `password=x` both match. The first version required the keyword to
+        # be followed immediately by `=` or `:`, which cannot cross the
+        # closing quote of a JSON key - so every credential in the
+        # /api/rawdata body this capture newly writes went through untouched,
+        # and a basicauth label that the previous filter caught started
+        # leaking. Value classes include single quotes for the same reason.
+        s/((?:secret|password|passwd|api[._-]?key|private[._-]?key|credential|token|users|acme[._-]?email|dnschallenge[.\w-]*provider)"?\s*[=:]\s*)(?:\[?)(["'"'"']?)[^"'"'"',\s\]}]*\2/$1<redacted>/gi;
+        # Header values may contain spaces, so these run to the next
+        # delimiter rather than the next space.
+        s/((?:authorization|proxy-authorization)"?\s*[=:]\s*)(["'"'"']?)(?:Bearer\s+|Basic\s+)?[^"'"'"',\]}\n]*\2/$1<redacted>/gi;
     '
 }
 
@@ -414,8 +422,15 @@ capture_proxy_diagnostics() {
     probes=1
     [ "$stage" = "teardown" ] && probes=0
 
-    local from_container
+    # Two selectors, because the two jobs have opposite requirements.
+    # `docker exec` needs a RUNNING container; the state dump exists to catch
+    # a STOPPED one, since Traefik withdraws a router when its container
+    # stops. A running-only selector there could only ever print
+    # `status=running`, which is the inference it was meant to replace.
+    local from_container state_container
     from_container=$(docker ps --format '{{.Names}}' 2>/dev/null \
+        | grep -i "microservice" | head -1)
+    state_container=$(docker ps -a --format '{{.Names}}' 2>/dev/null \
         | grep -i "microservice" | head -1)
     facts="logs/e2e-proxy-routing-${stage}.txt"
     host="${TARGET_HOST:-<unresolved>}"
@@ -456,12 +471,12 @@ capture_proxy_diagnostics() {
         # That branch was eliminated by noticing the enumeration below uses
         # `docker ps` without `-a` - a true inference, but the artifact
         # should say it rather than leave the next reader to derive it.
-        if [ -n "$from_container" ]; then
+        if [ -n "$state_container" ]; then
             docker inspect -f \
 '  {{.Name}} status={{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}}' \
-                "$from_container" 2>&1
+                "$state_container" 2>&1
         else
-            echo "  (no extension container running on the target)"
+            echo "  (no extension container on the target, running or stopped)"
         fi
         echo
 
@@ -493,9 +508,18 @@ capture_proxy_diagnostics() {
         # status: the section printed a header and a blank line, which reads
         # as "we did not look". That is the gap it was added to close (#1180).
         #
-        # The extension container is on the proxy's network and has node, so
-        # it can reach the proxy's internal API port directly by service name.
-        # No published port, no tunnel, no host involved.
+        # Queried from a container by service name, which works only if it
+        # and the proxy share a user-defined network. The captured labels say
+        # they do (`traefik.docker.network=liferay-net`, and both report
+        # `networks: liferay-net`) - but that is the artifact's own subject,
+        # so it is an assumption here rather than a fact. If it is wrong the
+        # query fails with a stated reason a few lines below, which is the
+        # answer to a different question and still better than the blank the
+        # first version produced.
+        #
+        # 8080 is Traefik's default API port. It is not derived from the
+        # command line printed three blocks above; if that ever changes this
+        # will report unreachable rather than silently read the wrong thing.
         #
         # This is the single piece of evidence #1149 needs: a router can be
         # declared by correct labels on the right network and still be absent
