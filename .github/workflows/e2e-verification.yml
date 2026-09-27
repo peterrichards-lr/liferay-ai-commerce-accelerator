@@ -301,6 +301,29 @@ jobs:
                 echo "  StrictHostKeyChecking no"
                 echo "  UserKnownHostsFile /dev/null"
                 echo "  ConnectTimeout 10"
+                # Keepalives, because nothing here kept an ESTABLISHED
+                # connection open. ConnectTimeout bounds only how long a new
+                # one takes to form.
+                #
+                # `DOCKER_HOST=ssh://` opens one persistent connection and
+                # reuses it, and this run leaves it idle for long stretches -
+                # Liferay startup is ~14 minutes and is driven by ldm's own
+                # SSH, not the Docker transport. Four runs have died with
+                # `client_loop: send disconnect: Broken pipe` at the end of
+                # such a gap, while non-Docker paths kept working through it.
+                # Two of the last three runs produced no result at all.
+                #
+                # An earlier explanation - concurrent SSH from a workstation -
+                # was disproven: one occurrence had no such contention.
+                # Idleness fits all four; contention fits one.
+                #
+                # 30s x 6 tolerates three minutes of silence before giving up,
+                # which is longer than any pause the run legitimately has.
+                echo "  ServerAliveInterval 30"
+                echo "  ServerAliveCountMax 6"
+                # A dropped connection is retried rather than failing the
+                # step outright; the transport is not the thing under test.
+                echo "  ConnectionAttempts 3"
               } > ~/.ssh/config
               chmod 600 ~/.ssh/config
 
