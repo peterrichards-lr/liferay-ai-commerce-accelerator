@@ -497,6 +497,36 @@ capture_proxy_diagnostics() {
         done
         echo
 
+        echo "=== what the proxy said about the containers it saw ==="
+        # The routers table says a router is ABSENT. It cannot say why, and
+        # the reasons that produce exactly this symptom - labels present,
+        # container running, right network, nothing in the runtime table -
+        # are ones Traefik logs rather than swallows:
+        #
+        #   * a malformed traefik.* label anywhere on the container, which
+        #     invalidates that container's ENTIRE configuration rather than
+        #     the one label
+        #   * a router whose service cannot be resolved
+        #   * an IP it cannot determine on the declared network
+        #
+        # One line distinguishes them, and it is the only piece neither side
+        # of this investigation can currently get. Asked for by LDM against
+        # our run 36316051796, where the extension had correct labels and no
+        # router. See #1149.
+        #
+        # Unfiltered by level on purpose: Traefik logs a skipped container at
+        # error OR warn depending on the reason, and grepping for one would
+        # be a guard that cannot fail if the reason is the other.
+        if [ -n "$proxy" ]; then
+            docker logs --tail 400 "$proxy" 2>&1 \
+                | grep -viE "^$" \
+                | tail -120 \
+                || echo "(proxy log unreadable)"
+        else
+            echo "(no proxy container; no log to read)"
+        fi
+        echo
+
         echo "=== the routers the proxy actually loaded ==="
         # Queried from INSIDE the node, not from the runner.
         #
