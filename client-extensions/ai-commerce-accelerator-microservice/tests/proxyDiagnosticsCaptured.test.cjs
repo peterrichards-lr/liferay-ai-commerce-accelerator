@@ -52,6 +52,10 @@ case "$1" in
     echo "aica-e2e-ai-commerce-accelerator-microservice"
     ;;
   port) echo "80/tcp -> 0.0.0.0:80" ;;
+  logs)
+    # What Traefik actually writes when it discards a container's config.
+    echo 'time="..." level=error msg="Unable to obtain a router for container" providerName=docker container=aica-e2e-ai-commerce-accelerator-microservice'
+    echo 'time="..." level=info msg="Configuration loaded from flags."' ;;
   exec)
     # The routers query runs inside a container on the proxy's network.
     if [[ "$*" == *rawdata* || "$*" == *PROXY_HOST* ]]; then
@@ -262,6 +266,22 @@ describe('proxy routing diagnostics (#1168)', () => {
       expect(facts).toContain(
         'ai-commerce-accelerator-microservice.aica-e2e.demo'
       );
+    });
+  });
+
+  test('it captures what the proxy said about the containers it saw', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // The routers table says a router is ABSENT and cannot say why. The
+      // reasons that produce exactly that - a malformed label invalidating
+      // the whole container, an unresolvable service, an undeterminable IP -
+      // are ones Traefik logs. This is the piece neither side of #1149 had.
+      expect(facts).toContain('what the proxy said about the containers');
+      expect(facts).toContain('Unable to obtain a router for container');
+      // Not filtered by level: Traefik uses error or warn depending on the
+      // reason, so grepping for one would be a guard that cannot fail when
+      // the reason is the other.
+      expect(facts).toContain('level=info');
     });
   });
 
