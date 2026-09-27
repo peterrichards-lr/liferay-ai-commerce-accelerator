@@ -54,13 +54,25 @@ function writtenSshConfig() {
 
   if (openAt < 0) throw new Error('ssh config block has no opening brace');
 
-  const body = lines.slice(openAt + 1, closeAt).map((line) => {
-    const match = line.trim().match(/^echo "(.*)"$/);
+  const body = lines
+    .slice(openAt + 1, closeAt)
+    // Shell comments inside the block are prose, not config. Without this
+    // the parser threw, and a throw in `beforeAll` reports the suite as
+    // SKIPPED rather than failed - so adding a comment beside a new option
+    // silently disabled all six cases while the run still looked green.
+    // See #1174.
+    .filter((line) => !line.trim().startsWith('#'))
+    .map((line) => {
+      const match = line.trim().match(/^echo "(.*)"$/);
 
-    if (!match) throw new Error(`unexpected line in the block: ${line.trim()}`);
+      if (!match)
+        throw new Error(`unexpected line in the block: ${line.trim()}`);
 
-    return match[1];
-  });
+      return match[1];
+    });
+
+  if (body.length === 0)
+    throw new Error('the ssh config block parsed to nothing');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sshcfg-'));
   const file = path.join(dir, 'config');
@@ -89,6 +101,16 @@ describe('the SSH identity CI writes is discoverable without -i', () => {
     config = writtenSshConfig();
   });
 
+  it('the block parsed, so the cases below are asserting something', () => {
+    // A throw in beforeAll presents as "skipped", which reads as a pass in
+    // CI output. This case exists so that a parse failure surfaces as a
+    // failing assertion with the file's real content in the message.
+    const body = fs.readFileSync(config, 'utf8');
+
+    expect(body.split('\n').filter(Boolean).length).toBeGreaterThanOrEqual(6);
+    expect(body).toContain('Host *');
+  });
+
   it('names the deploy key as the identity', () => {
     // The whole point: a caller that passes no identity still finds the key.
     expect(resolved(config).identityfile).toBe('~/.ssh/aws-key.pem');
@@ -105,6 +127,29 @@ describe('the SSH identity CI writes is discoverable without -i', () => {
     // that reads exactly like refused credentials.
     expect(resolved(config).stricthostkeychecking).toBe('false');
     expect(resolved(config).userknownhostsfile).toBe('/dev/null');
+  });
+
+  it('keeps an established connection alive while it sits idle', () => {
+    // ConnectTimeout bounds only how long a NEW connection takes to form.
+    // Nothing kept an established one open, and `DOCKER_HOST=ssh://` opens
+    // one persistent connection and reuses it for the whole run.
+    //
+    // Four runs died with `client_loop: send disconnect: Broken pipe` at the
+    // end of a long idle gap - Liferay startup is ~14 minutes and is driven
+    // by ldm's own SSH, not the Docker transport - while non-Docker paths
+    // kept working straight through. Two of the last three produced no
+    // result at all. See #1174.
+    const cfg = resolved(config);
+
+    expect(Number(cfg.serveraliveinterval)).toBeGreaterThan(0);
+    expect(Number(cfg.serveralivecountmax)).toBeGreaterThan(0);
+
+    // The tolerated silence has to exceed the longest legitimate pause in a
+    // run, or the keepalive gives up during normal operation and the cure
+    // reads as the disease.
+    const toleratedSeconds =
+      Number(cfg.serveraliveinterval) * Number(cfg.serveralivecountmax);
+    expect(toleratedSeconds).toBeGreaterThanOrEqual(120);
   });
 
   it('bounds the connect attempt', () => {
