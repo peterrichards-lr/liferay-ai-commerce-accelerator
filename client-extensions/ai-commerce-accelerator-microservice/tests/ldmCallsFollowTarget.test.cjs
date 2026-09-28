@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * Every LDM call must follow the target, and none may be captured with a
  * diagnostic mixed in.
@@ -33,7 +35,11 @@ const SCRIPT = path.resolve(
   'scripts',
   'run-e2e-ldm.sh'
 );
-const source = fs.readFileSync(SCRIPT, 'utf8');
+// Comments stripped. Two of the cases below are positive matchers -
+// `toContain('ldm_cmd list --json')` - and the script's own comment on
+// `ldm_cmd` explains at length why calls go through it. Prose describing
+// the call would satisfy the guard with the call deleted. See #1172.
+const source = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8'));
 
 describe('every LDM call follows the target', () => {
   it('leaves no bare `ldm <subcommand>` that should have been ldm_cmd', () => {
@@ -42,16 +48,14 @@ describe('every LDM call follows the target', () => {
     //   rm      - the stale-project cleanup, before a target is known
     //   --help  - asks the binary what it supports, not a project
     //   --flag  - `ldm --version`, not a subcommand at all
-    // Quoted text is stripped first, or every `echo "... ldm system doctor"`
-    // hint and the string ".ldm configuration" reads as a call.
+    // Quoted text is blanked here too, or every `echo "... ldm system doctor"`
+    // hint and the string ".ldm configuration" reads as a call. Comments are
+    // already gone from `source`.
     const allowed = new Set(['config', 'rm']);
     const offenders = [];
 
     source.split('\n').forEach((line, i) => {
-      const code = line
-        .replace(/#.*/, '')
-        .replace(/"[^"]*"/g, '""')
-        .replace(/'[^']*'/g, "''");
+      const code = line.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
 
       if (/ldm_cmd|command ldm|bin\/ldm|ldm\(\)/.test(code)) return;
       if (/--help/.test(code)) return;

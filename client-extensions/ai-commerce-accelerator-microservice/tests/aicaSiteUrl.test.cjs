@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
 
 /**
  * The tests ask for the site at the URL Liferay actually gives it.
@@ -42,9 +43,15 @@ const clientExtension = fs.readFileSync(
   ),
   'utf8'
 );
-const helper = fs.readFileSync(
-  path.join(ROOT, 'playwright', 'tests', 'e2e', 'test-helper.js'),
-  'utf8'
+// Comments stripped. Every guard below is a positive match on source, and a
+// positive match on source is satisfied by prose describing what the code
+// ought to do - with the code gone. A commented-out `/web/...` would also be
+// picked up as a site path. See #1172.
+const helper = withoutSlashComments(
+  fs.readFileSync(
+    path.join(ROOT, 'playwright', 'tests', 'e2e', 'test-helper.js'),
+    'utf8'
+  )
 );
 
 // Liferay's friendly-URL normalisation, for the shapes a site name takes:

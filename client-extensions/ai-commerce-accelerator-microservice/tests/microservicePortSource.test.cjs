@@ -2,6 +2,8 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * The microservice is reached through the proxy, never a published port.
  *
@@ -33,7 +35,11 @@ const SCRIPT = path.resolve(
   'scripts',
   'run-e2e-ldm.sh'
 );
-const source = fs.readFileSync(SCRIPT, 'utf8');
+// Comments stripped. Four of the cases below assert a helper is *gone* -
+// `find_free_port`, `forward_node_port`, `is_port_free` - and the commit
+// that removed each one left a comment explaining why. Matching that
+// prose is the defect in #1172, in both directions.
+const source = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8'));
 
 function hostUrl({ noSsl = 0, portSuffix = '' } = {}) {
   const lines = source.split('\n');

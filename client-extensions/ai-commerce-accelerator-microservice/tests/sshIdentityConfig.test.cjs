@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * The key has to be usable by callers that pass no identity.
  *
@@ -40,7 +42,15 @@ function writtenSshConfig() {
   // Anchored on the closing line and walked backwards to its `{`. Matching
   // forwards from the first `{` instead picked up the plan step's `echo`s,
   // which are redirections rather than config lines.
-  const lines = fs.readFileSync(WORKFLOW, 'utf8').split('\n');
+  // Comments removed first. The block is found by matching its closing
+  // line, and a comment naming it would anchor the parse on prose; a
+  // comment *inside* it threw, and a throw in `beforeAll` reports the
+  // suite as SKIPPED rather than failed - so adding a comment beside a new
+  // option silently disabled all six cases while the run still looked
+  // green. See #1174, #1172.
+  const lines = withoutHashComments(fs.readFileSync(WORKFLOW, 'utf8')).split(
+    '\n'
+  );
   const closeAt = lines.findIndex((line) =>
     line.trim().startsWith('} > ~/.ssh/config')
   );
@@ -56,12 +66,7 @@ function writtenSshConfig() {
 
   const body = lines
     .slice(openAt + 1, closeAt)
-    // Shell comments inside the block are prose, not config. Without this
-    // the parser threw, and a throw in `beforeAll` reports the suite as
-    // SKIPPED rather than failed - so adding a comment beside a new option
-    // silently disabled all six cases while the run still looked green.
-    // See #1174.
-    .filter((line) => !line.trim().startsWith('#'))
+    .filter((line) => line.trim() !== '')
     .map((line) => {
       const match = line.trim().match(/^echo "(.*)"$/);
 

@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * A stale project on the node must be removed before the build.
  *
@@ -37,7 +39,11 @@ const SCRIPT = path.resolve(
   'scripts',
   'run-e2e-ldm.sh'
 );
-const lines = fs.readFileSync(SCRIPT, 'utf8').split('\n');
+// Comments stripped before anything is matched or counted. The script
+// discusses `ldm_cmd` by name in prose, and the ordering case below used
+// to exclude it by hand; the stripper keeps line numbers, so the indices
+// are still the real file's. See #1172.
+const lines = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8')).split('\n');
 
 function prefixThroughRemoval() {
   const marker = lines.findIndex((l) => l.includes('Removing any stale'));
@@ -205,13 +211,10 @@ describe('stale project removal', () => {
       .slice(ldmCmdDef + 1, lines.indexOf('}', ldmCmdDef))
       .join('\n');
 
-    // Comments in this script discuss ldm_cmd by name, so prose has to be
-    // excluded or the "first call" lands on a remark about one.
+    // `lines` is comment-free, so the "first call" cannot land on a remark
+    // about one.
     const firstCall = lines.findIndex(
-      (l, i) =>
-        i !== ldmCmdDef &&
-        !l.trim().startsWith('#') &&
-        /(^|[^\w-])ldm_cmd\s/.test(l)
+      (l, i) => i !== ldmCmdDef && /(^|[^\w-])ldm_cmd\s/.test(l)
     );
     expect(firstCall).toBeGreaterThan(-1);
 

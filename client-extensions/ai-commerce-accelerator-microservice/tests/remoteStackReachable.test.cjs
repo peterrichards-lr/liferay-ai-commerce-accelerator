@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * A remote target's stack must be reachable at the URL the suite drives.
  *
@@ -28,7 +30,7 @@ const SCRIPT = path.resolve(
   'scripts',
   'run-e2e-ldm.sh'
 );
-const source = fs.readFileSync(SCRIPT, 'utf8');
+const source = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8'));
 
 function functionSource(...names) {
   const lines = source.split('\n');
@@ -301,7 +303,7 @@ describe('a remote stack is reached through the tunnel, not the open internet', 
 });
 
 describe('the tunnel is actually opened, not merely defined', () => {
-  const source = fs.readFileSync(SCRIPT, 'utf8');
+  const source = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8'));
 
   it('opens it on the main path and stops the run if it fails', () => {
     // The defect was no tunnel at all. Every case above calls the function
@@ -331,7 +333,7 @@ describe('the tunnel is actually opened, not merely defined', () => {
 });
 
 describe('readiness probes the URL the suite drives', () => {
-  const source = fs.readFileSync(SCRIPT, 'utf8');
+  const source = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8'));
 
   it('passes the probe override to both waits', () => {
     // Two waits: HTTP readiness, then deployables. A probe override on one and

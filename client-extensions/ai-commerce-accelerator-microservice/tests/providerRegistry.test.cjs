@@ -16,6 +16,7 @@ const {
   resolveCoreKey,
 } = require('../utils/apiKeys.cjs');
 const { PROVIDER_PATTERNS } = require('../utils/modelCatalog.cjs');
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 
@@ -239,15 +240,17 @@ describe('provider registry', () => {
     it.each(sourcesWithNoProviderNames)(
       '%s declares no provider of its own',
       (relative) => {
-        const source = fs
-          .readFileSync(path.join(ROOT, relative), 'utf8')
-          // Comments cite providers by name to explain why something is the way
-          // it is, which is the opposite of a hidden second declaration.
-          .replace(/\/\*[\s\S]*?\*\//g, '')
-          .replace(/^\s*\/\/.*$/gm, '')
-          // The shipped model list is data scripts/refresh_ai_models.py writes,
-          // and every entry names the provider it belongs to by design.
-          .replace(/DEFAULT_MODEL_OPTIONS = \[[\s\S]*?\n\];/, '');
+        // Comments cite providers by name to explain why something is the way
+        // it is, which is the opposite of a hidden second declaration. The
+        // local stripper this used to carry was one of five; it now shares
+        // the one in tests/fixtures (#1172), which also keeps a `//` inside a
+        // string literal rather than eating the rest of the line.
+        //
+        // The shipped model list is data scripts/refresh_ai_models.py writes,
+        // and every entry names the provider it belongs to by design.
+        const source = withoutSlashComments(
+          fs.readFileSync(path.join(ROOT, relative), 'utf8')
+        ).replace(/DEFAULT_MODEL_OPTIONS = \[[\s\S]*?\n\];/, '');
 
         for (const id of registry.PROVIDER_IDS) {
           // Quoted as a value, and unquoted as an object key - a table keyed by
@@ -259,12 +262,14 @@ describe('provider registry', () => {
     );
 
     it('the configuration UI imports the declaration rather than copying it', () => {
-      const source = fs.readFileSync(
-        path.join(
-          ROOT,
-          'client-extensions/ai-commerce-accelerator-configuration/src/config/providerRegistry.js'
-        ),
-        'utf8'
+      const source = withoutSlashComments(
+        fs.readFileSync(
+          path.join(
+            ROOT,
+            'client-extensions/ai-commerce-accelerator-configuration/src/config/providerRegistry.js'
+          ),
+          'utf8'
+        )
       );
 
       expect(source).toContain(
@@ -273,9 +278,11 @@ describe('provider registry', () => {
     });
 
     it('the registry pulls in no Node built-in, so it can be bundled for a browser', () => {
-      const source = fs.readFileSync(
-        path.join(__dirname, '..', 'utils', 'providerRegistry.cjs'),
-        'utf8'
+      const source = withoutSlashComments(
+        fs.readFileSync(
+          path.join(__dirname, '..', 'utils', 'providerRegistry.cjs'),
+          'utf8'
+        )
       );
 
       expect(source).not.toMatch(/require\(/);

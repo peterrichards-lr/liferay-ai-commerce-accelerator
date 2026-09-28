@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * The microservice log artifact must actually contain the microservice's logs.
  *
@@ -28,22 +30,19 @@ const SCRIPT = path.resolve(
   'scripts',
   'run-e2e-ldm.sh'
 );
-const lines = fs.readFileSync(SCRIPT, 'utf8').split('\n');
-
 /**
- * Shell comments removed before any guard matches against the script.
+ * Shell comments are removed before any guard in this file sees the script.
  *
- * Every guard in this file that scans the source must go through this. The
- * count is now four: twice on #1073, once when a comment explaining why
- * `head` was avoided contained `head`, and once when a commit renamed the
- * string a guard matched and left the old wording in the comment beside it -
- * in the same commit that fixed the third. See #1172.
+ * Every guard here that scans the source reads `source` or `lines`, and both
+ * are stripped. The count of comments that fired a guard - or satisfied one -
+ * reached five before it was fixed as a class; the stripper and its own cases
+ * now live in tests/fixtures/sourceComments.cjs. See #1172.
+ *
+ * The capture's *output* is a different thing: `facts` and the collected log
+ * are raw, because a `#` in a log line is data.
  */
-const withoutComments = (text) =>
-  text
-    .split('\n')
-    .filter((line) => !line.trim().startsWith('#'))
-    .join('\n');
+const source = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8'));
+const lines = source.split('\n');
 
 function functionSource(name) {
   const start = lines.findIndex((l) => l.startsWith(`${name}() {`));
@@ -234,7 +233,7 @@ describe('microservice container diagnostics', () => {
     // after ~62s, so a teardown-only capture recorded "no container found"
     // against a stack that had been up for forty minutes. The moment the run
     // fails is the moment the node is least likely to answer.
-    const body = fs.readFileSync(SCRIPT, 'utf8');
+    const body = source;
     const preTests = body.indexOf('capture_microservice_diagnostics pre-tests');
     const phase5 = body.indexOf('Phase 5: Running Playwright');
     expect(preTests).toBeGreaterThan(-1);
@@ -286,7 +285,7 @@ describe('microservice container diagnostics', () => {
       // visible here)" and left "(mounted, empty)" in a comment two lines
       // above, so the old assertion was satisfied by prose alone and would
       // have survived deleting the echo outright.
-      const probe = withoutComments(fs.readFileSync(SCRIPT, 'utf8'));
+      const probe = source;
       expect(probe).toMatch(/path does not exist - nothing mounted here/);
       expect(probe).toMatch(/no entries visible here/);
       // Two distinct answers, or the report cannot tell them apart - which
@@ -312,18 +311,14 @@ describe('microservice container diagnostics', () => {
 
   test('the value probe reads the DXP tree only, never ext-init', () => {
     const body = functionSource('capture_microservice_diagnostics');
-    // Comments only, stripped: the block explains *why* it avoids
-    // ext-init-metadata, and matching that prose would make this pass or fail
-    // on the wording rather than the command. #1073 is the same lesson - a
-    // guard that counted comments as reads.
-    const values = body
-      .slice(
-        body.indexOf('DXP config tree values'),
-        body.indexOf('mounts, as Docker records them')
-      )
-      .split('\n')
-      .filter((l) => !/^\s*#/.test(l))
-      .join('\n');
+    // The block explains *why* it avoids ext-init-metadata, and matching that
+    // prose would make this pass or fail on the wording rather than on the
+    // command - so `functionSource` hands back code only. #1073 is the same
+    // lesson: a guard that counted comments as reads.
+    const values = body.slice(
+      body.indexOf('DXP config tree values'),
+      body.indexOf('mounts, as Docker records them')
+    );
     // It reads file contents, so the directory it reads is the whole safety
     // argument. ext-init-metadata holds generated OAuth2 client secrets.
     expect(values).toMatch(/LIFERAY_ROUTES_DXP/);
@@ -474,35 +469,18 @@ describe('microservice container diagnostics', () => {
   // ls -la prints names, sizes and times. The per-extension tree holds
   // generated OAuth2 credentials, so the values must never appear (#1128).
   //
-  // Comment lines are stripped before matching. This guard has now fired on
-  // its own prose three times: twice on #1073, and again when a comment
-  // explaining why `head` was avoided here contained the word `head`. A
-  // guard that a comment can fail is a guard that a comment can also
-  // satisfy, so the stripping is asserted below rather than assumed.
+  // `functionSource` returns the script with its comments already removed.
+  // This guard has fired on its own prose three times: twice on #1073, and
+  // again when a comment explaining why `head` was avoided here contained the
+  // word `head`. That the stripper strips and keeps code is asserted in
+  // tests/sourceComments.test.cjs rather than restated here.
   test('the routes listing reads no file contents', () => {
     const body = functionSource('capture_microservice_diagnostics');
-    const listing = withoutComments(
-      body.slice(
-        body.indexOf('routes/default/*/ contents'),
-        body.indexOf('compose depends_on')
-      )
+    const listing = body.slice(
+      body.indexOf('routes/default/*/ contents'),
+      body.indexOf('compose depends_on')
     );
     expect(listing).toMatch(/ls -la/);
     expect(listing).not.toMatch(/\b(cat|head)\b/);
-  });
-
-  test('the comment stripping actually strips, and keeps code', () => {
-    // Without this, the case above could pass by having stripped everything.
-    const stripped = withoutComments(
-      [
-        '# head of the file',
-        'ls -la "$d"',
-        '  # cat the thing',
-        'echo done',
-      ].join('\n')
-    );
-    expect(stripped).not.toMatch(/\b(cat|head)\b/);
-    expect(stripped).toContain('ls -la "$d"');
-    expect(stripped).toContain('echo done');
   });
 });

@@ -2,6 +2,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * Where the workflow database lives (#868, #869).
  *
@@ -17,7 +19,12 @@ describe('The workflow database location', () => {
   const repoRoot = path.resolve(__dirname, '../../..');
 
   it('is not deleted by the microservice clean task', () => {
-    const gradle = fs.readFileSync(path.join(repoRoot, 'build.gradle'), 'utf8');
+    // Comments stripped: `delete 'data/workflows.db'` is exactly the line a
+    // reviewer would comment out rather than remove, and the guard below reads
+    // a commented-out one as still present. See #1172.
+    const gradle = withoutSlashComments(
+      fs.readFileSync(path.join(repoRoot, 'build.gradle'), 'utf8')
+    );
 
     // build and dist are reproducible; a session is an hour of paid,
     // non-deterministic generation. Deleting them together is the defect.
@@ -28,9 +35,8 @@ describe('The workflow database location', () => {
   });
 
   it('defaults outside the repository, before the SDK is required', () => {
-    const server = fs.readFileSync(
-      path.join(__dirname, '../server.cjs'),
-      'utf8'
+    const server = withoutSlashComments(
+      fs.readFileSync(path.join(__dirname, '../server.cjs'), 'utf8')
     );
 
     // The SDK reads process.env when its constants are first required, so the
@@ -48,9 +54,8 @@ describe('The workflow database location', () => {
   });
 
   it('lets an explicit path win, so a deployment can use a mounted volume', () => {
-    const server = fs.readFileSync(
-      path.join(__dirname, '../server.cjs'),
-      'utf8'
+    const server = withoutSlashComments(
+      fs.readFileSync(path.join(__dirname, '../server.cjs'), 'utf8')
     );
 
     // The guard is what makes this a default rather than an override.

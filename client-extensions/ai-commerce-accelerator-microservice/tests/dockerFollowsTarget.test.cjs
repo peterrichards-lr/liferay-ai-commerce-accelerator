@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * Anything addressing a container must follow the target.
  *
@@ -31,7 +33,10 @@ const SCRIPT = path.resolve(
   'scripts',
   'run-e2e-ldm.sh'
 );
-const source = fs.readFileSync(SCRIPT, 'utf8');
+// Comments stripped: the ordering cases below are `indexOf` on strings the
+// script also discusses in prose - `route_docker_to_node` has a five-line
+// comment above it naming itself. See #1172.
+const source = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8'));
 
 function functionSource(...names) {
   const lines = source.split('\n');

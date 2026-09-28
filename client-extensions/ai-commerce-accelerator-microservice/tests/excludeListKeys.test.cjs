@@ -8,6 +8,7 @@ const {
 } = require('@liferay/accelerator-sdk');
 
 const ConfigService = require('../services/configService.cjs');
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
 
 /**
  * The exclusion key set, pinned across the three places that used to disagree.
@@ -32,7 +33,11 @@ describe('the exclusion key set agrees everywhere (#951)', () => {
     '../../ai-commerce-accelerator-configuration/src/components/panels/ExcludeListsPanel.jsx'
   );
 
-  const panelSource = () => fs.readFileSync(PANEL, 'utf8');
+  // Comments stripped: the `required: []` guard below is a negative match
+  // over JSX source, and a commented-out `required:` line reads as a live
+  // one. See #1172.
+  const panelSource = () =>
+    withoutSlashComments(fs.readFileSync(PANEL, 'utf8'));
 
   const panelKeys = () => {
     const block = panelSource().match(/const EXCLUSION_KEYS = \[([\s\S]*?)\];/);
