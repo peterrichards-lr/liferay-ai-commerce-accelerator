@@ -1,0 +1,76 @@
+name: Issue Link Check
+
+# Every PR must name the issue that carries its analysis and plan, so a
+# decision outlives the machine it was made on. `.agent-state.md` is gitignored
+# and holds no durable record; the issue is the only place that survives.
+#
+# Adapted from liferay-docker-manager's check of the same name, with one
+# deliberate difference: `Refs #N` is accepted as well as Closes/Fixes/Resolves.
+#
+# That repository requires a CLOSING reference because its CHANGELOG is
+# generated from them. This one has no generated CHANGELOG, and a PR that
+# advances an issue which must stay open is a normal case here, not an edge
+# one - two of four PRs merged on 2026-09-27 referenced an open investigation
+# with `Refs` and closed nothing. Requiring `Closes` would have pushed both
+# towards `no-issue-needed`, which would have recorded the opposite of the
+# truth: they were tracked, and deliberately not closing.
+#
+# See .agents/skills/reflection-and-planning/SKILL.md section 3.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-issue-link:
+    name: Verify PR references an issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for an issue reference or the override label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          labels=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels -q '.labels[].name')
+          if echo "$labels" | grep -qx "no-issue-needed"; then
+            echo "OK: 'no-issue-needed' is present, so no issue is required."
+            exit 0
+          fi
+
+          title=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json title -q '.title')
+          body=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body -q '.body // ""')
+
+          # Refs is accepted deliberately - see the header. A PR may advance an
+          # issue that must stay open.
+          if echo "$title"$'\n'"$body" \
+            | grep -qiE '\b(close[sd]?|fix(e[sd])?|resolve[sd]?|refs?|references?)\b[[:space:]]*:?[[:space:]]*#[0-9]+'; then
+            echo "OK: found an issue reference."
+            exit 0
+          fi
+
+          echo "::error::This PR references no issue."
+          echo
+          echo "Every change gets a tracking issue carrying its analysis and plan,"
+          echo "raised before the PR - see .agents/skills/reflection-and-planning/SKILL.md"
+          echo "section 3. An issue written afterwards is a changelog entry, not a plan."
+          echo
+          echo "  Closes #N  - this PR resolves that issue in full"
+          echo "  Refs #N    - this PR advances it, and it stays open"
+          echo
+          echo "If an issue would carry no analysis and no plan because there was none"
+          echo "to make - a dependabot bump, for instance - add the 'no-issue-needed'"
+          echo "label instead."
+          exit 1
