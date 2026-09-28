@@ -324,6 +324,34 @@ jobs:
                 # A dropped connection is retried rather than failing the
                 # step outright; the transport is not the thing under test.
                 echo "  ConnectionAttempts 3"
+                # Share one connection across every docker call.
+                #
+                # `DOCKER_HOST=ssh://` does not multiplex on its own, and LDM
+                # shells out a fresh `docker` CLI per command - 85 call sites.
+                # Measured on the node's own sshd journal for 2026-09-27:
+                #
+                #   11:00  173 accepted,  43 dropped past MaxStartups
+                #   12:00  302 accepted,  36 dropped past MaxStartups
+                #
+                # 475 authentications in two hours from two runner addresses,
+                # 79 connections shed. sshd's default MaxStartups is 10:30:100,
+                # so it begins random-dropping at 10 concurrent unauthenticated
+                # connections - and a run supplies its own contention.
+                #
+                # This is the half we create. The node also sheds connections
+                # from traffic that is not ours (#1188), so this narrows the
+                # window rather than closing it: do not read a clean run as
+                # proof the transport is fixed.
+                #
+                # ControlMaster is POSIX-only. All three jobs here are
+                # ubuntu-latest, so it applies; it would silently do nothing on
+                # a Windows runner.
+                echo "  ControlMaster auto"
+                echo "  ControlPath ~/.ssh/cm-%C"
+                # Longer than the idle stretch while Liferay boots (~14 min),
+                # so the master survives it rather than being rebuilt into the
+                # burst that follows.
+                echo "  ControlPersist 30m"
               } > ~/.ssh/config
               chmod 600 ~/.ssh/config
 
