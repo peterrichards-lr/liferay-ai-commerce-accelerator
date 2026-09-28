@@ -35,11 +35,31 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      # The same LDM the E2E verifies with, resolved the same way.
+      #
+      # This step used `releases/latest/download`, and GitHub's `latest` skips
+      # pre-releases - so it pinned, in effect, to the newest stable while the
+      # E2E ran against `vars.LDM_VERSION`. On 2026-09-25 that was v2.25.0
+      # against v2.26.0-pre.1. The packaging step runs LDM itself, so the
+      # .ldmp attached to a release was built by a binary the E2E had never
+      # tested with, and a green nightly was evidence about a different
+      # binary. Latent until a tag is cut, immediate the moment one is.
+      #
+      # The resolved version is echoed because the failure mode was silence:
+      # nothing in the job log said which LDM produced the artifact. See #1148.
       - name: Install Liferay Docker Manager (LDM)
         run: |
-          wget https://github.com/peterrichards-lr/liferay-docker-manager/releases/latest/download/ldm-linux -O ldm
+          LDM_VER="${{ vars.LDM_VERSION || 'latest' }}"
+          if [ "$LDM_VER" = "latest" ]; then
+            DOWNLOAD_URL="https://github.com/peterrichards-lr/liferay-docker-manager/releases/latest/download/ldm-linux"
+          else
+            DOWNLOAD_URL="https://github.com/peterrichards-lr/liferay-docker-manager/releases/download/${LDM_VER}/ldm-linux"
+          fi
+          echo "📥 Packaging with LDM '${LDM_VER}' from ${DOWNLOAD_URL}"
+          wget "$DOWNLOAD_URL" -O ldm
           chmod +x ldm
           sudo mv ldm /usr/local/bin/
+          echo "✅ Packaging LDM: $(ldm --version 2>&1 | head -1)"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
