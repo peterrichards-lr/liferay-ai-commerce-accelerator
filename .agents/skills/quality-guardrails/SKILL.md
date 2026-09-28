@@ -65,6 +65,14 @@ thing it reads still exist?**
   there is data. Its own cases in `tests/sourceComments.test.cjs` assert what
   survives as well as what goes, since a stripper that returned `''` would
   satisfy every negative guard in the suite in silence.
+- **A guard asserting a section is present rather than that it produced
+  anything.** A diagnostic capture echoes its own header unconditionally, so
+  `expect(artifact).toContain('=== what the proxy said ===')` can never fail -
+  it passes on a header with a blank line under it, which is what shipped for
+  two runs while the evidence another repository was waiting on went missing.
+  Assert the **content**: a token that can only come from the command having
+  run. Better, assert it for every section at once, so the next one to fall
+  silent fails too rather than needing its own case (#1193).
 - **A guard that stops running rather than failing.** A throw in `beforeAll` is
   reported as _skipped_, which reads as green. Five passing cases became six
   skipped and only the count gave it away.
