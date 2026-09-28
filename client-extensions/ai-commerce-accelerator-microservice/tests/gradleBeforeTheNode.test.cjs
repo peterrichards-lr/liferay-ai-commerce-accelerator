@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
 
 /**
  * Nothing billable is woken before the build can run.
@@ -26,11 +27,15 @@ const WORKFLOWS = path.resolve(
   '.github',
   'workflows'
 );
-const e2e = fs.readFileSync(
-  path.join(WORKFLOWS, 'e2e-verification.yml'),
-  'utf8'
-);
-const ci = fs.readFileSync(path.join(WORKFLOWS, 'ci.yml'), 'utf8');
+// Read with the YAML comments removed. Every string matched below is a step
+// name or a shell line inside a `run:` block - real configuration - so a
+// comment can only ever satisfy one of these assertions falsely, never
+// legitimately. The stripper keeps line structure, which the ordering case
+// relies on, and `#` inside quotes, which the `::error::` lines carry. #1172.
+const read = (name) =>
+  withoutHashComments(fs.readFileSync(path.join(WORKFLOWS, name), 'utf8'));
+const e2e = read('e2e-verification.yml');
+const ci = read('ci.yml');
 
 const lineOf = (source, needle) =>
   source.split('\n').findIndex((l) => l.includes(needle));

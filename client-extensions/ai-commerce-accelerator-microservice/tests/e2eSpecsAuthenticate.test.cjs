@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
 
 /**
  * E2E specs must be authenticated by default, and must not hardcode a site
@@ -27,12 +28,13 @@ const SPEC_DIR = path.join(ROOT, 'playwright', 'tests');
 // the comment in `full-journey.spec.js` that explains why `/web/guest/...` was
 // wrong - a guard firing on prose about the defect it guards. #1073 is the
 // same lesson: a check that counted comments as reads.
+//
+// The line filter this replaces was anchored to the start of a line, so
+// `page.goto(url); // /web/guest/home` read as code and `const x = 1; /* … */`
+// read as code too, while a line of real source beginning with `*` read as
+// prose. The shared stripper scans characters and respects quotes. #1172.
 function codeOf(file) {
-  return fs
-    .readFileSync(file, 'utf8')
-    .split('\n')
-    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
-    .join('\n');
+  return withoutSlashComments(fs.readFileSync(file, 'utf8'));
 }
 
 function specFiles(dir) {
