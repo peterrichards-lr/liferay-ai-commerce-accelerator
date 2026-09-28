@@ -11,7 +11,7 @@ To handle Liferay Headless API constraints and environment-specific behaviors co
 
 - **Demo Mode**: Uses deterministic ERCs for addresses. Repeated runs will trigger "Duplicate address" errors unless the database is cleared.
 - **Liferay Password**: Default local development password is set to `L1feray$`.
-- **Node Version**: v24.0.0+ is the current target; ensure native modules are rebuilt if switching environments.
+- **Node Version**: owned by `.nvmrc` and `build.gradle`'s `nodeVersion` — read those, never this file. A version restated here said `v24.0.0+` while both sources said `22.22.2`, and this file carried the **more recent** `Last Reviewed` date of the two, so the timestamp did not catch it (#1184). Native modules need rebuilding when the environment changes.
 
 ## 2. Deletion Discovery & Sequencing
 
