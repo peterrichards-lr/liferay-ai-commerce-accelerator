@@ -63,9 +63,33 @@ thing it reads still exist?**
   once guarded an env-var injection by asserting what the code wrote into a zip;
   none asserted the variable arrived, and it never did.
 
-### 4.3 Diagnosing, not just guarding
+### 4.3 A negative result that could not have been positive
 
-Two rules earned the same week, both by contradicting something confidently
+`grep -c "Invalid user|Failed password"` on a node's auth log returned **0**,
+which reads as "no unwanted SSH traffic". The node was in fact shedding 159
+connections in three hours - they never reached a password prompt, because
+`MaxStartups` drops them upstream of authentication. A true fact supporting a
+false conclusion.
+
+**A negative result only means what you think if the thing you searched for
+could have been produced at all.** Before believing a zero, establish that a
+non-zero was reachable.
+
+This is the same family as the guards above, one step out: those were checks
+that could not fail, this is a search that could not hit. The question that
+covers both:
+
+> What is this actually reading, and could it produce this answer if nothing
+> were wrong?
+
+Four surfaces of it in the week to 2026-09-28: test data too simple to fail;
+test data too broad to be meaningful; a measurement satisfied by prose
+describing the symptom rather than the symptom (a drop count that matched a
+code comment explaining the drop); and this.
+
+### 4.4 Diagnosing, not just guarding
+
+Three rules earned the same week, both by contradicting something confidently
 held:
 
 - **Put both sides of a boundary in one artifact, and include a control.** Five
