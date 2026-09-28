@@ -1,6 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * Whether the container received its Liferay URL is observable, not inferred.
  *
@@ -40,8 +42,13 @@ const SCRIPT = path.resolve(
   'run-e2e-ldm.sh'
 );
 const source = fs.readFileSync(SCRIPT, 'utf8');
+// `code` is the script with its comments removed; `source` is kept raw for the
+// one case below that deliberately asserts on a comment. Everything that scans
+// for a construct reads `code`, or a commented-out LDM_FORWARD_PREFIXES line -
+// or the prose above the real one - decides what the guard sees. See #1172.
+const code = withoutHashComments(source);
 const prefixes = (
-  source.match(/LDM_FORWARD_PREFIXES="([^"]+)"/)?.[1] ?? ''
+  code.match(/LDM_FORWARD_PREFIXES="([^"]+)"/)?.[1] ?? ''
 ).split(',');
 
 describe('the forwarding list claims nothing it does not do', () => {
@@ -62,6 +69,8 @@ describe('the forwarding list claims nothing it does not do', () => {
   });
 
   it('records why they are absent, so nobody re-adds them', () => {
+    // The one case here that reads the raw source on purpose: the subject is
+    // the comment. Stripping would empty it.
     expect(source).toMatch(/forwards it by default/);
     expect(source).toMatch(
       /extends that list\s*\n#\s*rather than replacing it/
@@ -70,9 +79,9 @@ describe('the forwarding list claims nothing it does not do', () => {
 });
 
 describe('the container diagnostic is conclusive', () => {
-  const block = source.slice(
-    source.indexOf('MICROSERVICE_CONTAINER="${PROJECT_NAME}'),
-    source.indexOf('Waiting for Liferay Client Extensions')
+  const block = code.slice(
+    code.indexOf('MICROSERVICE_CONTAINER="${PROJECT_NAME}'),
+    code.indexOf('Waiting for Liferay Client Extensions')
   );
 
   it('reads the environment from inside the container', () => {

@@ -8,6 +8,7 @@ const path = require('path');
 
 const { ENV } = require('../utils/constants.cjs');
 const { mediaArchiveSettings } = require('../utils/mediaArchive.cjs');
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
 
 describe('The media archive ships writing, outside the repository', () => {
   it('keeps media beside the database rather than inside the checkout', () => {
@@ -21,9 +22,13 @@ describe('The media archive ships writing, outside the repository', () => {
     // moved the database out of after ordinary tooling destroyed it twice. A
     // package is now built from this directory (#896), so media a `gradle
     // clean` can remove is a promotion that arrives without its pictures.
-    const constants = fs.readFileSync(
-      path.join(__dirname, '..', 'utils', 'constants.cjs'),
-      'utf8'
+    // Comments stripped, both ways round: the note recording where this used
+    // to live would satisfy the first matcher and fire the second. See #1172.
+    const constants = withoutSlashComments(
+      fs.readFileSync(
+        path.join(__dirname, '..', 'utils', 'constants.cjs'),
+        'utf8'
+      )
     );
 
     expect(constants).toContain("path.join(os.homedir(), '.aica', 'media')");

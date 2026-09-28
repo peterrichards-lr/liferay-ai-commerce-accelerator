@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { logger } = require('../utils/logger.cjs');
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
 
 /**
  * The suite's own logging must never reach the checkout's real app.log
@@ -58,9 +59,13 @@ describe("the suite's own logging cannot reach logs/app.log (#794)", () => {
     // shipped MEDIA_ARCHIVE_PATH default: this process's own ENV.LOGS_DIR is
     // never the shipped value, because tests/setup.mjs has already
     // redirected it.
-    const constants = fs.readFileSync(
-      path.join(__dirname, '..', 'utils', 'constants.cjs'),
-      'utf8'
+    // Comments stripped: a positive matcher on source passes on prose
+    // describing the default, with the default itself gone. See #1172.
+    const constants = withoutSlashComments(
+      fs.readFileSync(
+        path.join(__dirname, '..', 'utils', 'constants.cjs'),
+        'utf8'
+      )
     );
 
     expect(constants).toContain(

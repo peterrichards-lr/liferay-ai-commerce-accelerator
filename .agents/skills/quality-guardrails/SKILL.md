@@ -52,10 +52,19 @@ thing it reads still exist?**
 
 ### 4.2 Variants worth recognising
 
-- **A guard a comment can satisfy.** Strip comment lines before matching source,
-  and assert the stripping works - otherwise the guard can pass by having
-  stripped everything. Bitten four times on 2026-09-26, each fixed as an
-  instance. See #1172 before fixing a fifth.
+- **A guard a comment can satisfy.** Bitten five times, each fixed as an
+  instance, before it was fixed as a class in #1172. Anything that scans source
+  for a construct goes through the shared stripper in
+  `client-extensions/ai-commerce-accelerator-microservice/tests/fixtures/sourceComments.cjs`
+  (`withoutHashComments` for shell, YAML and Python; `withoutSlashComments` for
+  JavaScript, JSX and Gradle) rather than carrying its own copy. Do not write a
+  sixth copy: the copies are what let the defect keep recurring, because each
+  fix reached one guard and not the class. The helper is for **source scans
+  only** - a guard asserting a value is absent from captured output (a log, an
+  artifact, a rendered prompt, an API response) must not strip, because a `#`
+  there is data. Its own cases in `tests/sourceComments.test.cjs` assert what
+  survives as well as what goes, since a stripper that returned `''` would
+  satisfy every negative guard in the suite in silence.
 - **A guard that stops running rather than failing.** A throw in `beforeAll` is
   reported as _skipped_, which reads as green. Five passing cases became six
   skipped and only the count gave it away.

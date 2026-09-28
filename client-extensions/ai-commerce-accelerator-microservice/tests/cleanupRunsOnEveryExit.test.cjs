@@ -2,6 +2,8 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * A failed run must not leave its project on the node.
  *
@@ -32,7 +34,12 @@ const SCRIPT = path.resolve(
   'scripts',
   'run-e2e-ldm.sh'
 );
-const source = fs.readFileSync(SCRIPT, 'utf8');
+// Comments stripped: every guard below scans the script for a construct,
+// and the script's prose names `close_node_tunnel`, `ldm_cmd` and the
+// readiness message it looks for. Prose must neither satisfy nor fail
+// them. The stripper keeps line numbers, so the ordering cases still
+// compare positions in the real file. See #1172.
+const source = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8'));
 const lines = source.split('\n');
 
 function harness({ exitCode = 1, existing = 0, keep = 0 } = {}) {
