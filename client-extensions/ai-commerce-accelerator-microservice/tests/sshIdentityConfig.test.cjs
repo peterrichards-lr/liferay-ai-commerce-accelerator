@@ -129,6 +129,29 @@ describe('the SSH identity CI writes is discoverable without -i', () => {
     expect(resolved(config).userknownhostsfile).toBe('/dev/null');
   });
 
+  it('shares one connection across every docker call', () => {
+    // `DOCKER_HOST=ssh://` does not multiplex, and LDM shells out a fresh
+    // `docker` CLI per command. The node's sshd journal for 2026-09-27
+    // recorded 475 authentications in two hours from two runner addresses,
+    // and shed 79 connections past MaxStartups (default 10:30:100). A run
+    // supplies its own contention. See #1174.
+    const cfg = resolved(config);
+
+    expect(cfg.controlmaster).toBe('auto');
+    expect(cfg.controlpath).toBeTruthy();
+
+    // The master has to outlive the idle stretch while Liferay boots - about
+    // fourteen minutes - or it is torn down and rebuilt into the burst that
+    // follows, which is the contention this exists to remove.
+    const persist = String(cfg.controlpersist || '');
+    const seconds = /^(\d+)m$/.test(persist)
+      ? Number(persist.replace('m', '')) * 60
+      : Number(persist);
+
+    expect(Number.isFinite(seconds)).toBe(true);
+    expect(seconds).toBeGreaterThanOrEqual(900);
+  });
+
   it('keeps an established connection alive while it sits idle', () => {
     // ConnectTimeout bounds only how long a NEW connection takes to form.
     // Nothing kept an established one open, and `DOCKER_HOST=ssh://` opens
