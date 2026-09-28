@@ -21,6 +21,14 @@ describe('HealthService', () => {
           clientId: 'mock-id',
           clientSecret: 'mock-secret',
         }),
+        // The check resolves a reachable target before falling back to the
+        // environment (#1197). These cases are about the credentials, not the
+        // topology, so this stands in for a deployment with nothing to
+        // resolve from - which is what the real one returns there too. The
+        // topology itself is guarded in healthCheckTarget.test.cjs against a
+        // real ConfigService, because a stub that returned a good URL would
+        // pass whatever the health check did with it.
+        withReachableTarget: vi.fn((connection) => connection),
       },
       persistence: {
         ping: vi.fn().mockReturnValue(true),

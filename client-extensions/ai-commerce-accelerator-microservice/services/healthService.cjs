@@ -195,9 +195,6 @@ class HealthService {
       // - the one situation the fallback exists to cover (#933).
       const oauthConfig =
         (await configService.getOAuthConfig(requestConfig)) || {};
-      if (!oauthConfig.liferayUrl) {
-        oauthConfig.liferayUrl = ENV.LIFERAY_URL;
-      }
       if (!oauthConfig.clientId && ENV.LIFERAY_OAUTH_CLIENT_ID) {
         oauthConfig.clientId = ENV.LIFERAY_OAUTH_CLIENT_ID;
       }
@@ -205,7 +202,30 @@ class HealthService {
         oauthConfig.clientSecret = ENV.LIFERAY_OAUTH_CLIENT_SECRET;
       }
 
-      await liferay.rest.testConnection(oauthConfig);
+      // Resolve FIRST, then fall back to the environment - not the other way
+      // round. `ENV.LIFERAY_URL` defaults to `http://localhost:8080`, which on
+      // a colocated deployment is this container, and assigning it before
+      // asking made run 36433590783 spend 378 token requests and 630
+      // `ECONNREFUSED 127.0.0.1:8080` on itself while the same log named
+      // `https://aica-e2e.demo` correctly seconds earlier. Unhealthy results
+      // are deliberately not cached, so the wrong address was retried for the
+      // life of the container.
+      //
+      // The order is not cosmetic. `resolveEffectiveLiferayConnection` only
+      // replaces a URL that is INVALID, and `http://localhost:8080` is
+      // perfectly valid - so handing it in as a candidate short-circuits the
+      // whole chain and the resolver returns it untouched. Measured: the first
+      // version of this fix did exactly that and changed nothing. See #1197.
+      const resolved = configService.withReachableTarget(oauthConfig) || {};
+      const target = {
+        ...oauthConfig,
+        ...resolved,
+        // Last resort, for a developer running this as a host process with
+        // Liferay really on 8080 and no LXC tree to resolve from.
+        liferayUrl: resolved.liferayUrl || ENV.LIFERAY_URL,
+      };
+
+      await liferay.rest.testConnection(target);
       const responseTime = Date.now() - start;
 
       const result = {

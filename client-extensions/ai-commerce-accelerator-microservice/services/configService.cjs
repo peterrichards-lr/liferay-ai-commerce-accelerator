@@ -176,6 +176,22 @@ class ConfigService {
    * environment. It ran exactly once in that run's log, because nothing on
    * these paths called it. See #1175.
    */
+  /**
+   * `_withReachableTarget` for callers outside this service.
+   *
+   * The health check is one: it has no request to state a target from, and it
+   * was filling the gap with `ENV.LIFERAY_URL`, whose default is
+   * `http://localhost:8080`. On a colocated deployment that is this container,
+   * so run 36433590783 spent 378 token requests and 630 refusals on it while
+   * the LXC tree named the real instance in the same log. See #1197.
+   *
+   * @param {object} connection
+   * @returns {object} The same connection, or one with a reachable URL.
+   */
+  withReachableTarget(connection) {
+    return this._withReachableTarget(connection);
+  }
+
   _withReachableTarget(connection) {
     if (isUsableLiferayUrl(connection?.liferayUrl)) return connection;
 
