@@ -4,6 +4,7 @@ const {
   GENERATE_OPTIONS,
   WITHHELD_GENERATE_KEYS,
 } = require('../../../scripts/aica-cli.cjs');
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
 
 /**
  * Keeps the CLI's generate flags from drifting away from what the
@@ -25,7 +26,11 @@ const {
 const NORMALIZE_PATH = path.resolve(__dirname, '..', 'utils', 'normalize.cjs');
 
 function destructuredRequestBodyKeys() {
-  const source = fs.readFileSync(NORMALIZE_PATH, 'utf8');
+  // Stripped first: the destructure is split on commas, so a `//` comment
+  // inside it - an eslint directive, a note against one field - arrives as a
+  // phantom key that no CLI flag can account for, and the failure points at
+  // the wrong thing. #1172.
+  const source = withoutSlashComments(fs.readFileSync(NORMALIZE_PATH, 'utf8'));
   const match = source.match(
     /function buildConfigAndOptions\(req\) \{\s*const \{([\s\S]*?)\}\s*=\s*req\.body \|\| \{\};/
   );

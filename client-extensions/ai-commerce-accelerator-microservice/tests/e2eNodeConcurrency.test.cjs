@@ -2,6 +2,7 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
 
 /**
  * Two runs must not take the same compute node at once.
@@ -31,6 +32,13 @@ const WORKFLOW = path.resolve(
   'e2e-verification.yml'
 );
 const source = fs.readFileSync(WORKFLOW, 'utf8');
+// The concurrency assertions below match `group:` and `cancel-in-progress:`
+// with a regex that takes the FIRST occurrence anywhere in the file. A
+// commented-out key - the shape left behind whenever one of these is being
+// changed - would shadow the live one and the guard would read the wrong
+// value without saying so. The plan step is still executed from the raw text;
+// what runs in CI is what should run here. #1172.
+const configuration = withoutHashComments(source);
 
 function planFor(requestedNode) {
   const lines = source.split('\n');
@@ -99,8 +107,8 @@ describe('runs serialise on the node they share', () => {
 });
 
 describe('the concurrency group uses it', () => {
-  const group = source.match(/group: (.*)/)?.[1] ?? '';
-  const cancel = source.match(/cancel-in-progress: (.*)/)?.[1] ?? '';
+  const group = configuration.match(/group: (.*)/)?.[1] ?? '';
+  const cancel = configuration.match(/cancel-in-progress: (.*)/)?.[1] ?? '';
 
   it('groups a remote run by node rather than by ref', () => {
     // The defect: a cron on master and a dispatch on a branch in different
