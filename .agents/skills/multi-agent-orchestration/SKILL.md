@@ -37,7 +37,7 @@ out non-trivial work.
 
 Four reviews were run in the week to 2026-09-27 and **all four found real
 defects**, including in work that had been break-tested and declared clean. One
-found a redaction filter that was *worse* than the one it replaced, on a commit
+found a redaction filter that was _worse_ than the one it replaced, on a commit
 whose message said the class had been retired.
 
 ### 4.1 When to dispatch a reviewer
@@ -61,7 +61,7 @@ from the issue.
 **Withhold your conclusion, your commit message, and your verdict.** The method
 that works is having something re-derive the answer from the evidence without
 being told what it is. This is not ceremony: in one review two of three defects
-*contradicted their own commit messages*, so a reviewer handed the message
+_contradicted their own commit messages_, so a reviewer handed the message
 inherits the frame that hid the defect. In another, a reviewer given only the
 artifact produced a failure grouping different from the one already believed,
 and the new one was right.

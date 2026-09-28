@@ -57,7 +57,7 @@ thing it reads still exist?**
   stripped everything. Bitten four times on 2026-09-26, each fixed as an
   instance. See #1172 before fixing a fifth.
 - **A guard that stops running rather than failing.** A throw in `beforeAll` is
-  reported as *skipped*, which reads as green. Five passing cases became six
+  reported as _skipped_, which reads as green. Five passing cases became six
   skipped and only the count gave it away.
 - **A test asserting the implementation rather than the requirement.** Ten tests
   once guarded an env-var injection by asserting what the code wrote into a zip;
