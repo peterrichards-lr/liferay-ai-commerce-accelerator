@@ -37,7 +37,10 @@ function functionSource(name) {
 // A node with a proxy, Liferay, and a microservice whose labels are present
 // but whose network is not the proxy's - the shape that 404s while looking
 // correct from either side alone.
-function stubs(dir, { proxyPresent = true, dockerAlive = true } = {}) {
+function stubs(
+  dir,
+  { proxyPresent = true, dockerAlive = true, proxyLogSilent = false } = {}
+) {
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin, { recursive: true });
 
@@ -53,9 +56,16 @@ case "$1" in
     ;;
   port) echo "80/tcp -> 0.0.0.0:80" ;;
   logs)
-    # What Traefik actually writes when it discards a container's config.
+    ${
+      proxyLogSilent
+        ? // Nothing on stdout, nothing on stderr, exit 0 - what run
+          // 36433590783 got back while every other docker call against this
+          // same container in the same function answered normally.
+          'exit 0'
+        : `# What Traefik actually writes when it discards a container's config.
     echo 'time="..." level=error msg="Unable to obtain a router for container" providerName=docker container=aica-e2e-ai-commerce-accelerator-microservice'
-    echo 'time="..." level=info msg="Configuration loaded from flags."' ;;
+    echo 'time="..." level=info msg="Configuration loaded from flags."'`
+    } ;;
   exec)
     # The routers query runs inside a container on the proxy's network.
     if [[ "$*" == *rawdata* || "$*" == *PROXY_HOST* ]]; then
@@ -188,6 +198,34 @@ function runCapture(dir, opts = {}) {
     stderr: result.stderr,
     facts: fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null,
   };
+}
+
+/**
+ * Every `=== header ===` that is followed by no content before the next one.
+ *
+ * The guards below assert that particular strings are PRESENT, which is a
+ * guard that cannot fail for a section that produces nothing: the header is
+ * echoed unconditionally, so the section exists whether or not the command
+ * under it ran. Run 36433590783 shipped `=== what the proxy said about the
+ * containers it saw ===` followed by a blank line, in both stages, and
+ * every case in this file passed. Content is the thing worth asserting.
+ * See #1193.
+ */
+function emptySections(facts) {
+  const empty = [];
+  let header = null;
+  let hasBody = false;
+  for (const line of facts.split('\n')) {
+    if (line.startsWith('=== ')) {
+      if (header && !hasBody) empty.push(header);
+      header = line;
+      hasBody = false;
+    } else if (line.trim() !== '') {
+      hasBody = true;
+    }
+  }
+  if (header && !hasBody) empty.push(header);
+  return empty;
 }
 
 function sandbox(fn) {
@@ -353,6 +391,41 @@ describe('proxy routing diagnostics (#1168)', () => {
       // The rest of the capture must still run.
       expect(facts).toContain('traefik.http.routers');
       expect(facts).toContain('"routers"');
+    });
+  });
+
+  test('no section is a header with nothing under it', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir);
+      // The class, not the instance. Asserting presence of a header proves
+      // only that `echo` ran; this asserts that the command under it
+      // produced something, for every section at once, so the next section
+      // to fall silent fails here rather than shipping empty (#1193).
+      expect(emptySections(facts)).toEqual([]);
+    });
+  });
+
+  test('a silent proxy log says so rather than leaving the section blank', () => {
+    sandbox((dir) => {
+      const { facts } = runCapture(dir, { proxyLogSilent: true });
+      // The specific regression. `docker logs | grep | tail || echo` takes
+      // tail's status, tail succeeds on empty input, so the fallback never
+      // fired and the header stood alone - which reads as "the proxy had
+      // nothing to say" when it in fact means "we could not read it".
+      expect(emptySections(facts)).toEqual([]);
+      expect(facts).toContain('no output at all');
+      // And which of the two it was must be recoverable, not guessed.
+      expect(facts).toMatch(/exit status \d/);
+    });
+  });
+
+  test('at teardown too, no section is left blank', () => {
+    sandbox((dir) => {
+      // Both stages shipped the empty section, so both are guarded. The
+      // teardown path takes different branches - the probes are skipped -
+      // and a fix proved only on pre-tests would be half a fix.
+      const { facts } = runCapture(dir, { stage: 'teardown' });
+      expect(emptySections(facts)).toEqual([]);
     });
   });
 

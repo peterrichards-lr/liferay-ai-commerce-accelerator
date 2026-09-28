@@ -517,11 +517,30 @@ capture_proxy_diagnostics() {
         # Unfiltered by level on purpose: Traefik logs a skipped container at
         # error OR warn depending on the reason, and grepping for one would
         # be a guard that cannot fail if the reason is the other.
+        # No pipeline in front of the fallback. `pipefail` is not set, so
+        # `cmd | grep | tail || echo` takes TAIL's status, and tail succeeds
+        # on empty input - the fallback can never fire and the section is a
+        # header with nothing under it. That is what run 36433590783 shipped,
+        # in both stages, while every other `docker` call against this same
+        # container in this same function worked. It is the third appearance
+        # of this shape in this file: #1177 found it in the routers dump and
+        # fixed it by removing the pipeline; this block reintroduced it on a
+        # branch cut before that fix landed. See #1193.
         if [ -n "$proxy" ]; then
-            docker logs --tail 400 "$proxy" 2>&1 \
-                | grep -viE "^$" \
-                | tail -120 \
-                || echo "(proxy log unreadable)"
+            local proxy_log proxy_log_status
+            proxy_log=$(docker logs --tail 400 "$proxy" 2>&1)
+            proxy_log_status=$?
+            if [ -n "$proxy_log" ]; then
+                printf '%s\n' "$proxy_log" | tail -120
+            else
+                # An empty log and an unreadable one are different facts, and
+                # the old form could not tell them apart because it printed
+                # nothing either way.
+                echo "(docker logs produced no output at all, on stdout or"
+                echo " stderr; exit status ${proxy_log_status}. An empty log"
+                echo " and an unreadable one are different facts - a reader"
+                echo " of this artifact must not have to guess which.)"
+            fi
         else
             echo "(no proxy container; no log to read)"
         fi
