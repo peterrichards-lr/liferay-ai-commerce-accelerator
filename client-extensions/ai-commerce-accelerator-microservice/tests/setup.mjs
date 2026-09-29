@@ -4,12 +4,36 @@ import { handlers } from './mocks/handlers.mjs';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// The fixture is .cjs because the test files that share it are, and a
+// `require` of it here avoids depending on interop for a module that must load
+// before anything else in the worker.
+const require = createRequire(import.meta.url);
+const { clearAmbientLxcEnv } = require('./fixtures/ambientLxcEnv.cjs');
+
 const server = setupServer(...handlers);
+
+// Every COM_LIFERAY_LXC_* variable is a config source config-node will read,
+// and `scripts/run-e2e-ldm.sh` exports them before the orchestrator reaches
+// `yarn test` - so inside an E2E run the suite inherits a live Liferay target
+// that no test set. Nothing here asserts on the ambient values, so reading
+// them has no upside and one large downside: #1199 stopped a nightly at
+// `yarn test`, and #1158 and #1175 were each found only after passing on a
+// workstation and failing in CI.
+//
+// The floor goes here rather than in the files that care, so that a new file
+// inherits it instead of having to remember the prefix. Recorded rather than
+// merely done, because a guard asserting the environment looks clean is green
+// on a clean workstation whether or not this ran - see
+// tests/ambientLxcEnvIsCleared.test.cjs.
+process.env.AICA_TEST_AMBIENT_LXC_SWEPT = JSON.stringify(
+  Object.keys(clearAmbientLxcEnv())
+);
 
 process.env.PERSISTENCE_DB_PATH = `./data/test-workflows-${process.pid}.db`;
 
