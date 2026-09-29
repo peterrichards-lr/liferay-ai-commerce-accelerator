@@ -27,7 +27,14 @@ const path = require('node:path');
 // case would run as "not colocated", and the case that matters could not fail.
 // `assertTheEnvironmentTook` below refuses to let that pass silently.
 const ROUTES_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'aica-routes-'));
-const DOMAIN = 'aica-e2e.demo';
+
+// Deliberately not `aica-e2e.demo`, which is what `scripts/run-e2e-ldm.sh`
+// exports as COM_LIFERAY_LXC_DXP_MAIN_DOMAIN before the orchestrator reaches
+// `yarn test`. With that literal here the case below passed inside an E2E run
+// whether or not the variable this file sets was ever read - deleting the line
+// that sets it would have left the assertion green. A reserved TLD cannot be
+// produced by anything but this file. See #1199.
+const DOMAIN = 'aica-unit.invalid';
 
 process.env.LIFERAY_ROUTES_DXP = ROUTES_DIR;
 process.env.LIFERAY_LXC_DXP_MAIN_DOMAIN = DOMAIN;

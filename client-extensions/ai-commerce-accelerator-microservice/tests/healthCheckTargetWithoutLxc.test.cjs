@@ -18,12 +18,19 @@ const path = require('node:path');
 
 // No routes tree and no LXC domain: a standalone deployment. Set before any
 // require, for the reason in the header.
+//
+// The COM_LIFERAY_LXC_* family is a config source too, and deleting only the
+// names below left the orchestrator's own target live in this process - which
+// is how this file stopped a nightly at `yarn test` the night it merged.
+// `tests/setup.mjs` clears the family before any test file loads; the case
+// asserts it below rather than trusting it. See #1199.
 process.env.LIFERAY_ROUTES_DXP = path.join(os.tmpdir(), 'aica-no-routes-here');
 delete process.env.LIFERAY_LXC_DXP_MAIN_DOMAIN;
 delete process.env.LIFERAY_LXC_DXP_SERVER_PROTOCOL;
 delete process.env.LIFERAY_URL;
 delete process.env.LIFERAY_API_URL;
 
+const { AMBIENT_LXC_PREFIX } = require('./fixtures/ambientLxcEnv.cjs');
 const HealthService = require('../services/healthService.cjs');
 const ConfigService = require('../services/configService.cjs');
 const { ENV } = require('../utils/constants.cjs');
@@ -33,6 +40,9 @@ describe('the Liferay health check target, with no LXC tree (#1197)', () => {
     // Or this case passes for the wrong reason.
     expect(ENV.LIFERAY_LXC_DXP_MAIN_DOMAIN).toBeFalsy();
     expect(ENV.LIFERAY_URL).toBe('http://localhost:8080');
+    expect(
+      Object.keys(process.env).filter((key) => AMBIENT_LXC_PREFIX.test(key))
+    ).toEqual([]);
 
     const logger = {
       info: vi.fn(),

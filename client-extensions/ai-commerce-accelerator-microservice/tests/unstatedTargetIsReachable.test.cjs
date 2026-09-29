@@ -19,6 +19,8 @@ const path = require('node:path');
  * and falls back to `LIFERAY_LXC_DXP_MAIN_DOMAIN`, ran exactly once in that
  * whole run because nothing on those paths called it. See #1175.
  */
+const { clearAmbientLxcEnv } = require('./fixtures/ambientLxcEnv.cjs');
+
 const CX_ROOT = path.resolve(__dirname, '..');
 
 // Two separate conditions, and conflating them made the first version of the
@@ -57,12 +59,12 @@ const LXC_KEYS = [
 ];
 
 function freshConfigService(env) {
-  // The whole COM_LIFERAY_LXC_* family too: config-node mangles dotted keys
-  // into that shape, and a workstation exporting them made #1158 pass here
-  // and fail in CI.
-  const saved = {};
-  for (const key of Object.keys(process.env)) {
-    if (key.startsWith('COM_LIFERAY_LXC_') || LXC_KEYS.includes(key)) {
+  // The COM_LIFERAY_LXC_* family goes through the shared fixture, which owns
+  // why it is a config source at all; `tests/setup.mjs` swept it before this
+  // file loaded, and this keeps each case starting from nothing. See #1199.
+  const saved = clearAmbientLxcEnv();
+  for (const key of LXC_KEYS) {
+    if (key in process.env) {
       saved[key] = process.env[key];
       delete process.env[key];
     }
