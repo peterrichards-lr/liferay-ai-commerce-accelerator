@@ -30,10 +30,20 @@ const ROUTES_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'aica-routes-'));
 
 // Deliberately not `aica-e2e.demo`, which is what `scripts/run-e2e-ldm.sh`
 // exports as COM_LIFERAY_LXC_DXP_MAIN_DOMAIN before the orchestrator reaches
-// `yarn test`. With that literal here the case below passed inside an E2E run
-// whether or not the variable this file sets was ever read - deleting the line
-// that sets it would have left the assertion green. A reserved TLD cannot be
-// produced by anything but this file. See #1199.
+// `yarn test`.
+//
+// The perturbation that establishes this is deleting the PRODUCTION fallback -
+// `utils/liferayEnv.cjs`'s LXC_ENV branch - not deleting the setter below.
+// With the fallback gone, the sweep removed and the ambient present,
+// `aica-e2e.demo` passes and `aica-unit.invalid` fails: the ambient supplies
+// exactly the value the old literal asserted.
+//
+// An earlier version of this comment claimed that deleting the setter below
+// would have left the case green. It would not: `assertTheEnvironmentTook`
+// asserts that value first. That claim came from a perturbation which deleted
+// the assertion along with the setter - testing against the expectation rather
+// than against the code, which is the anchoring quality-guardrails §4 names.
+// See #1199, #1203.
 const DOMAIN = 'aica-unit.invalid';
 
 process.env.LIFERAY_ROUTES_DXP = ROUTES_DIR;
