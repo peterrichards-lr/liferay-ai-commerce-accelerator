@@ -270,7 +270,79 @@ route_docker_to_node() {
     fi
 
     export DOCKER_HOST="ssh://$endpoint"
+    # When the transport starts being used, so the accept count at teardown can
+    # be scoped to this run. Held as an elapsed-seconds origin rather than a
+    # wall-clock stamp: journalctl reads --since in the NODE's timezone, and a
+    # runner in UTC against a node that is not would silently widen or empty
+    # the window. See #1211.
+    export SSH_ACCEPT_ORIGIN=$SECONDS
     echo "🐳 Routing docker to '$LDM_NODE_TARGET' ($DOCKER_HOST)."
+}
+
+# The only signal left for #1174, and it needs saying out loud in the artifact
+# because the GOOD outcome is a small number, which reads exactly like a capture
+# that failed.
+#
+# LDM's DockerSshTunnel (their #2023) multiplexes what was one SSH connection
+# per `docker` command. They measured 21 authentications for 20 commands
+# without it and 1 with, from a workstation - but never across a real `ldm run`,
+# which exercises their pipelines rather than the transport. This is the number
+# that says which happened here.
+#
+# It is NOT a verdict on the drops. With MaxStartups at 100:30:200 on both
+# nodes the node cannot shed connections whatever LDM does, so an absence of
+# drops means nothing; the accept count is the measurement that survives that.
+capture_ssh_accept_count() {
+    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
+
+    local endpoint facts window count status
+    endpoint="$(node_ssh_endpoint)"
+    [ -n "$endpoint" ] || return 0
+
+    facts="logs/e2e-ssh-accepts.txt"
+    mkdir -p logs
+
+    # Rounded up, plus a minute, so the window covers the whole run rather than
+    # ending an instant before the last authentication it is meant to count.
+    window=$(( ( (SECONDS - ${SSH_ACCEPT_ORIGIN:-0}) / 60 ) + 2 ))
+
+    if count=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
+        "journalctl -u sshd --since '-${window}min' --no-pager 2>/dev/null \
+         | grep -c 'Accepted publickey'" 2>/dev/null); then
+        status=0
+    else
+        status=$?
+        count=""
+    fi
+
+    {
+        echo "=== SSH authentications on ${LDM_NODE_TARGET} during this run ==="
+        echo "window: the last ${window} minutes, on the node's own clock"
+        echo "source: journalctl -u sshd (Amazon Linux has no /var/log/auth.log)"
+        echo
+        if [ -n "$count" ]; then
+            echo "Accepted publickey: ${count}"
+            echo
+            echo "How to read it - a LOW number is the good outcome, which is why"
+            echo "this section says so rather than leaving a bare figure that looks"
+            echo "like a failed capture:"
+            echo "  ~1-3   the Docker SSH tunnel carried the run (LDM #2023)"
+            echo "  100s   something is opening a connection per docker command,"
+            echo "         so the tunnel is not in the path"
+            echo
+            echo "This capture's own ssh is one of the authentications counted."
+            echo "It says nothing about dropped connections: MaxStartups is"
+            echo "100:30:200 on both nodes, so the node cannot shed and an"
+            echo "absence of drops is not evidence. See #1174, #1211."
+        else
+            echo "(unreadable; ssh exit status ${status}. Not the same fact as a"
+            echo " count of zero, and a count of zero would itself be suspicious -"
+            echo " this script cannot have reached the node without authenticating"
+            echo " at least once.)"
+        fi
+    } > "$facts"
+
+    echo "🔎 Captured SSH accept count -> ${facts}"
 }
 
 if ! route_docker_to_node; then
@@ -571,8 +643,17 @@ capture_proxy_diagnostics() {
                     | grep -F "$proxy_selector" || true)
                 # Rare at any level, and the ones that speak at the level the
                 # proxy runs at by default. Kept whatever the selector finds.
+                #
+                # BOTH log formats. Traefik's `common` writes ` ERR ` / ` WRN `;
+                # `json` writes `"level":"error"`. LDM_PROXY_LOG_FORMAT (their
+                # #2022) makes the choice ours, and json is the better one - it
+                # removes the ANSI escapes at source rather than stripping them
+                # afterwards. A selector written for one format finds nothing in
+                # the other, which would have produced the empty section this
+                # block exists to prevent, on the first run using the format we
+                # asked for. See #1211.
                 proxy_notable=$(printf '%s\n' "$proxy_log" \
-                    | grep -E ' (ERR|WRN) ' || true)
+                    | grep -E ' (ERR|WRN) |"level":"(error|warn)"' || true)
 
                 echo "(read ${proxy_lines} lines; proxy log level: ${proxy_level})"
                 # The head, unfiltered by anything. Traefik's startup is where
@@ -1055,6 +1136,7 @@ cleanup() {
     else
         capture_microservice_diagnostics teardown || true
         capture_proxy_diagnostics teardown || true
+        capture_ssh_accept_count || true
         echo -e "\n🧹 Cleaning up environment..."
         # shellcheck disable=SC2086
         ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true

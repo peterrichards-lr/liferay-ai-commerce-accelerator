@@ -65,6 +65,12 @@ function harness({ exitCode = 1, existing = 0, keep = 0 } = {}) {
     // pattern here would make a genuine ordering mistake skip the capture
     // silently instead of failing loudly. See #1177.
     'capture_proxy_diagnostics() { echo "[capture-proxy] $*"; }',
+    // Same reasoning, for the accept-count capture added with the proxy log
+    // level (#1211). It is defined beside the other two, above the trap, so it
+    // is always available when cleanup runs; this enumerates the dependency
+    // rather than excusing it. Adding the call without adding this line is
+    // what this file caught, exactly as intended.
+    'capture_ssh_accept_count() { echo "[capture-ssh] $*"; }',
     lines.slice(start, end + 1).join('\n'),
     'echo "[body] running"',
     `exit ${exitCode}`,

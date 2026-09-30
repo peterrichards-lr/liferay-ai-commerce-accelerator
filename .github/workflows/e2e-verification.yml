@@ -23,6 +23,28 @@ on:
           - none
           - openai
           - gemini
+      # Both default to Traefik's own defaults, so a dispatch that does not ask
+      # changes nothing for anyone. ERROR is why three runs of capturing the
+      # proxy log answered nothing: a container the provider declines to expose
+      # is reported at DEBUG and at no level above it, so the log was empty by
+      # configuration rather than by fault. See #1149, #1211.
+      proxy_log_level:
+        description: 'Global proxy log level. DEBUG is the only level that reports a container the provider filtered (#1149).'
+        required: false
+        default: 'ERROR'
+        type: choice
+        options:
+          - ERROR
+          - INFO
+          - DEBUG
+      proxy_log_format:
+        description: 'Global proxy log format. json removes the ANSI escapes common writes between key and value.'
+        required: false
+        default: 'common'
+        type: choice
+        options:
+          - common
+          - json
   schedule:
     # Nightly. Skipped automatically (see check-for-changes below) if
     # nothing has landed on the default branch since the last successful run,
@@ -459,6 +481,13 @@ jobs:
           # did, twice per shard, every night.
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # Read by LDM (their #2022) when it composes the global proxy, not by
+          # this script. Set on the runner and not exported, they would sit here
+          # doing nothing and the artifact would come back with an empty proxy
+          # log - which reads as LDM's switch having failed rather than as ours
+          # never having been passed on. See #1211.
+          LDM_PROXY_LOG_LEVEL: ${{ github.event.inputs.proxy_log_level || 'ERROR' }}
+          LDM_PROXY_LOG_FORMAT: ${{ github.event.inputs.proxy_log_format || 'common' }}
           LIFERAY_USER: ${{ secrets.LIFERAY_USER }}
           LIFERAY_PASSWORD: ${{ secrets.LIFERAY_PASSWORD }}
           LIFERAY_OAUTH_CLIENT_ID: ${{ secrets.LIFERAY_OAUTH_CLIENT_ID }}
