@@ -20,11 +20,19 @@ const {
  */
 describe('the ambient LXC environment is cleared before any test loads (#1199)', () => {
   it('records that setup.mjs swept, rather than that the result looks clean', () => {
-    const swept = process.env.AICA_TEST_AMBIENT_LXC_SWEPT;
+    // On globalThis rather than process.env: a fork inherits the environment,
+    // so a record kept there can be supplied by the shell. Deleting the sweep
+    // AND exporting the old variable by hand left this green, which is a
+    // guard that cannot fail in exactly the case it was written for (#1203).
+    const swept = globalThis.__aicaAmbientLxcSweep;
 
     expect(swept).toBeDefined();
-    expect(() => JSON.parse(swept)).not.toThrow();
-    expect(Array.isArray(JSON.parse(swept))).toBe(true);
+    expect(swept.ran).toBe(true);
+    // The contents, not merely the shape. The sentinel is planted immediately
+    // before the sweep, so it must be among what the sweep removed - on every
+    // machine, including one with no ambient LXC variables of its own.
+    expect(swept.cleared).toContain(swept.sentinel);
+    expect(process.env[swept.sentinel]).toBeUndefined();
   });
 
   it('leaves no ambient config source behind', () => {

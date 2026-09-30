@@ -6,7 +6,7 @@ const path = require('node:path');
  * A colocated client extension must never accept a loopback Liferay URL.
  *
  * Run 36014266810 measured `com.liferay.lxc.dxp.main.domain = localhost` in
- * the config tree, while `LIFERAY_LXC_DXP_MAIN_DOMAIN=aica-e2e.demo` sat
+ * the config tree, while `LIFERAY_LXC_DXP_MAIN_DOMAIN=aica-unit.invalid` sat
  * correct and unused in the environment - config-node consults config trees
  * before individual environment variables. The microservice then spent forty
  * minutes on `connect ECONNREFUSED 127.0.0.1:8080`, calling itself.
@@ -16,9 +16,17 @@ const path = require('node:path');
  * See #1137.
  */
 // Why the ambient family has to go, and why it is matched by prefix rather
-// than by name, is in the fixture. `tests/setup.mjs` already swept it before
-// this file loaded; this keeps the sweep inside `withEnv` so a case that sets
-// one of its own still starts from nothing. See #1199.
+// than by name, is in the fixture. `tests/setup.mjs` sweeps it before any test
+// file loads, which is what actually protects these cases.
+//
+// The call inside `withEnv` is defence in depth and NOT a guard: no case here
+// sets a COM_LIFERAY_LXC_* variable, so replacing it with `const saved = {}`
+// leaves this file green with the ambient exported. Kept because a future case
+// may set one; counted as nothing. See #1199, #1203.
+//
+// The hostnames below are `.invalid` rather than `aica-e2e.demo` for the
+// reason in healthCheckTarget.test.cjs: the orchestrator exports that exact
+// string, so a case asserting it cannot tell its own setup from the ambient.
 const { clearAmbientLxcEnv } = require('./fixtures/ambientLxcEnv.cjs');
 
 function withEnv(vars, fn) {
@@ -81,7 +89,7 @@ describe('a loopback Liferay URL is refused when colocated (#1137)', () => {
     withEnv(
       {
         LIFERAY_ROUTES_DXP: dir,
-        LIFERAY_LXC_DXP_MAIN_DOMAIN: 'aica-e2e.demo',
+        LIFERAY_LXC_DXP_MAIN_DOMAIN: 'aica-unit.invalid',
         LIFERAY_LXC_DXP_SERVER_PROTOCOL: 'https',
         LIFERAY_API_URL: undefined,
       },
@@ -91,7 +99,7 @@ describe('a loopback Liferay URL is refused when colocated (#1137)', () => {
           oauthService('https://localhost'),
           null
         );
-        expect(resolved.liferayUrl).toBe('https://aica-e2e.demo');
+        expect(resolved.liferayUrl).toBe('https://aica-unit.invalid');
       }
     );
   });
@@ -121,10 +129,10 @@ describe('a loopback Liferay URL is refused when colocated (#1137)', () => {
       ({ resolveEffectiveLiferayConnection }) => {
         const resolved = resolveEffectiveLiferayConnection(
           CREDS,
-          oauthService('https://aica-e2e.demo'),
+          oauthService('https://aica-unit.invalid'),
           null
         );
-        expect(resolved.liferayUrl).toBe('https://aica-e2e.demo');
+        expect(resolved.liferayUrl).toBe('https://aica-unit.invalid');
       }
     );
   });
@@ -155,7 +163,7 @@ describe('a loopback Liferay URL is refused when colocated (#1137)', () => {
     ['localhost', true],
     ['127.0.0.1', true],
     ['127.10.0.9', true],
-    ['aica-e2e.demo', false],
+    ['aica-unit.invalid', false],
     ['localhost.example.com', false],
   ])('%s is loopback: %s', (host, loopback) => {
     const dir = tree();
