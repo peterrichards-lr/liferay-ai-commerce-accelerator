@@ -31,9 +31,27 @@ const server = setupServer(...handlers);
 // merely done, because a guard asserting the environment looks clean is green
 // on a clean workstation whether or not this ran - see
 // tests/ambientLxcEnvIsCleared.test.cjs.
-process.env.AICA_TEST_AMBIENT_LXC_SWEPT = JSON.stringify(
-  Object.keys(clearAmbientLxcEnv())
-);
+//
+// On globalThis, NOT process.env. A fork inherits process.env from the shell
+// that started it, so a record kept there has no provenance: exporting
+// AICA_TEST_AMBIENT_LXC_SWEPT by hand made the guard pass with this very call
+// deleted. globalThis is shared between this file and the test module under
+// `pool: 'forks'` and cannot be reached from outside the process, which is the
+// whole point of a guard that proves the sweep ran. See #1203.
+//
+// The sentinel is planted immediately before the sweep and must come back in
+// what the sweep removed. Without it the record could say `cleared: []` on a
+// clean workstation and be indistinguishable from a sweep that matched
+// nothing because it was broken - the same shape as a comment stripper that
+// returns '' and satisfies every negative guard in the suite.
+const AMBIENT_LXC_SENTINEL = 'COM_LIFERAY_LXC_AICA_TEST_SENTINEL';
+process.env[AMBIENT_LXC_SENTINEL] = 'planted-by-setup';
+
+globalThis.__aicaAmbientLxcSweep = {
+  ran: true,
+  sentinel: AMBIENT_LXC_SENTINEL,
+  cleared: Object.keys(clearAmbientLxcEnv()),
+};
 
 process.env.PERSISTENCE_DB_PATH = `./data/test-workflows-${process.pid}.db`;
 

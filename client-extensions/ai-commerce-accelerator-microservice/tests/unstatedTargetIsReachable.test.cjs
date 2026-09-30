@@ -59,9 +59,10 @@ const LXC_KEYS = [
 ];
 
 function freshConfigService(env) {
-  // The COM_LIFERAY_LXC_* family goes through the shared fixture, which owns
-  // why it is a config source at all; `tests/setup.mjs` swept it before this
-  // file loaded, and this keeps each case starting from nothing. See #1199.
+  // `tests/setup.mjs` sweeps the COM_LIFERAY_LXC_* family before any test file
+  // loads, and that is what protects these cases. This call is defence in
+  // depth and NOT a guard - no case here sets one, so `const saved = {}` in
+  // its place leaves the file green with the ambient exported. See #1203.
   const saved = clearAmbientLxcEnv();
   for (const key of LXC_KEYS) {
     if (key in process.env) {
@@ -91,8 +92,8 @@ describe('a caller that states no target still gets a reachable one (#1175)', ()
   test('an unstated target resolves to the LXC domain, not the tree loopback', () => {
     const dir = routesTree();
     const { ConfigService, restore } = freshConfigService({
-      LIFERAY_LXC_DXP_MAIN_DOMAIN: 'aica-e2e.demo',
-      LIFERAY_LXC_DXP_DOMAINS: 'aica-e2e.demo',
+      LIFERAY_LXC_DXP_MAIN_DOMAIN: 'aica-unit.invalid',
+      LIFERAY_LXC_DXP_DOMAINS: 'aica-unit.invalid',
       LIFERAY_LXC_DXP_SERVER_PROTOCOL: 'https',
       // Present, so `isColocatedDeployment()` is true and the loopback
       // rejection is actually in force. Without it this case passed with the
@@ -112,7 +113,7 @@ describe('a caller that states no target still gets a reachable one (#1175)', ()
 
       expect(connection?.liferayUrl).toBeTruthy();
       expect(connection.liferayUrl).not.toMatch(/localhost|127\.0\.0\.1/);
-      expect(connection.liferayUrl).toContain('aica-e2e.demo');
+      expect(connection.liferayUrl).toContain('aica-unit.invalid');
       // The description is what gets logged and cache-keyed, so it has to
       // agree with what was actually used.
       expect(description.liferayUrl).toBe(connection.liferayUrl);
@@ -130,7 +131,7 @@ describe('a caller that states no target still gets a reachable one (#1175)', ()
 
     for (const routes of [dir, path.join(dir, 'does-not-exist')]) {
       const { ConfigService, restore } = freshConfigService({
-        LIFERAY_LXC_DXP_MAIN_DOMAIN: 'aica-e2e.demo',
+        LIFERAY_LXC_DXP_MAIN_DOMAIN: 'aica-unit.invalid',
         LIFERAY_LXC_DXP_SERVER_PROTOCOL: 'https',
         LIFERAY_ROUTES_DXP: routes,
       });
@@ -203,7 +204,7 @@ describe('a caller that states no target still gets a reachable one (#1175)', ()
 
   test('a stated target is left exactly as the caller gave it', () => {
     const { ConfigService, restore } = freshConfigService({
-      LIFERAY_LXC_DXP_MAIN_DOMAIN: 'aica-e2e.demo',
+      LIFERAY_LXC_DXP_MAIN_DOMAIN: 'aica-unit.invalid',
     });
 
     try {

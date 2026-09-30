@@ -24,6 +24,23 @@
 const AMBIENT_LXC_PREFIX = /^COM_LIFERAY_LXC_/;
 
 /**
+ * config-node reads config TREES as well as individual environment variables,
+ * and consults the trees first. A directory holding a file named
+ * `com.liferay.lxc.dxp.main.domain` is therefore a config source no less than
+ * the mangled variable is, and clearing only the variables leaves it live:
+ * #1199 reproduces on unmodified master through LIFERAY_ROUTES_CLIENT_EXTENSION
+ * alone, with no COM_LIFERAY_LXC_* set anywhere.
+ *
+ * Not the live cause of that run - neither the workflow nor run-e2e-ldm.sh
+ * exports these on the runner host - but the same class, and a test asserting
+ * "nothing is configured" must mean it. See #1203.
+ */
+const AMBIENT_LXC_TREES = [
+  'LIFERAY_ROUTES_CLIENT_EXTENSION',
+  'LIFERAY_ROUTES_DXP',
+];
+
+/**
  * Deletes every ambient LXC variable from `env`, returning what was removed so
  * a caller scoping the change to one block can put it back.
  *
@@ -34,7 +51,7 @@ function clearAmbientLxcEnv(env = process.env) {
   const cleared = {};
 
   for (const key of Object.keys(env)) {
-    if (AMBIENT_LXC_PREFIX.test(key)) {
+    if (AMBIENT_LXC_PREFIX.test(key) || AMBIENT_LXC_TREES.includes(key)) {
       cleared[key] = env[key];
       delete env[key];
     }
@@ -43,4 +60,8 @@ function clearAmbientLxcEnv(env = process.env) {
   return cleared;
 }
 
-module.exports = { AMBIENT_LXC_PREFIX, clearAmbientLxcEnv };
+module.exports = {
+  AMBIENT_LXC_PREFIX,
+  AMBIENT_LXC_TREES,
+  clearAmbientLxcEnv,
+};
