@@ -384,6 +384,12 @@ const ERC_PREFIX = {
   ORDER_BATCH: 'AICA-ORD-BATCH',
   OPTION: 'AICA-OPT',
   OPTION_CATEGORY: 'AICA-OPT-CAT',
+  // Taxonomy categories, distinct from OPTION_CATEGORY (Commerce option
+  // categories) and SPECIFICATION_CATEGORY. Absent until #1206: the one call
+  // site read `ERC_PREFIX.CATEGORY || 'CAT'`, so every taxonomy category AICA
+  // has ever created carries a bare 'CAT' outside the AICA- namespace that
+  // makes our content identifiable in a shared instance.
+  CATEGORY: 'AICA-CAT',
   PRICE_LIST: 'AICA-PL',
   PRICE_ENTRY: 'AICA-PE',
   PRICEENTRY_BATCH: 'AICA-PE-BATCH',

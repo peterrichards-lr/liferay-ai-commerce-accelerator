@@ -154,9 +154,17 @@ async function runEnsureCategoriesStep(sessionId) {
           : pd.category;
       const categoryName =
         fromI18n(categoryObj, defaultLocaleKey) || 'Default Category';
-      const categoryERC = buildStableERC(ERC_PREFIX.CATEGORY || 'CAT', [
-        categoryName,
-      ]);
+      // No `|| 'CAT'` fallback. It read as a deliberate default and was not:
+      // ERC_PREFIX.CATEGORY did not exist, so the fallback was the only branch
+      // ever taken and a wrong-but-consistent prefix looked correct on every
+      // run. A missing constant must fail rather than silently degrade (#1206).
+      //
+      // The hash covers the name alone. That is sound while the category list
+      // is a flat set of unique strings; it stops being sound under #1204,
+      // where two sub-categories sharing a name under different parents would
+      // collide on one ERC and the reuse map below would assign the first
+      // category's id to both. The parent must join this key when it exists.
+      const categoryERC = buildStableERC(ERC_PREFIX.CATEGORY, [categoryName]);
 
       let categoryId =
         categoryMap.get(categoryERC.toUpperCase()) ||
