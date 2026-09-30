@@ -507,14 +507,39 @@ jobs:
           path: resource-monitor.log
           retention-days: 7
 
-      - name: Upload E2E Logs on Failure
+      # Always, not on failure. Every capture this work has added lands in
+      # `logs/` and it is kilobytes - run 36538159793's whole artifact was 1241
+      # bytes. A green run kept none of it, so we have never seen what a working
+      # stack looks like and every capture we hold describes a broken one. The
+      # run that first goes green is the one we most want to read, and it was
+      # the one guaranteed to be discarded. See #1169.
+      - name: Upload E2E captures
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: e2e-logs-shard-${{ matrix.shardIndex }}
           path: |
             logs/
             client-extensions/*/logs/
+          retention-days: 7
+
+      # Still only on failure: this is the 57MB. Run 36433590783's artifact was
+      # 57,307,626 bytes and `playwright-report/` traces and videos are
+      # effectively all of it, so keeping them on green runs doubles storage to
+      # retain what nobody reads when the suite passed.
+      #
+      # A separate artifact NAME on purpose. `e2e-logs-shard-N` keeps meaning
+      # "the captures", which is what every investigation downloads and greps;
+      # moving the traces out of it rather than the captures in keeps that
+      # habit working. Nothing consumes either artifact programmatically -
+      # no workflow uses download-artifact - so the split is invisible to
+      # tooling. See #1169.
+      - name: Upload Playwright report on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-playwright-shard-${{ matrix.shardIndex }}
+          path: |
             test-results/
             playwright-report/
           retention-days: 7
