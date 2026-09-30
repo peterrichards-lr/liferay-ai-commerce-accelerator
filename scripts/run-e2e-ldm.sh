@@ -516,7 +516,9 @@ capture_proxy_diagnostics() {
         #
         # Unfiltered by level on purpose: Traefik logs a skipped container at
         # error OR warn depending on the reason, and grepping for one would
-        # be a guard that cannot fail if the reason is the other.
+        # be a guard that cannot fail if the reason is the other. Selecting on
+        # the CONTAINER keeps that property; selecting on a reason would not.
+        #
         # No pipeline in front of the fallback. `pipefail` is not set, so
         # `cmd | grep | tail || echo` takes TAIL's status, and tail succeeds
         # on empty input - the fallback can never fire and the section is a
@@ -526,12 +528,76 @@ capture_proxy_diagnostics() {
         # of this shape in this file: #1177 found it in the routers dump and
         # fixed it by removing the pipeline; this block reintroduced it on a
         # branch cut before that fix landed. See #1193.
+        #
+        # Selected by CONTENT, not by position. The old form took
+        # `--tail 400 | tail -120`, which was correctly sized for the only
+        # proxy we have ever had: one running at Traefik's default level of
+        # ERROR, where the whole log is a handful of lines. LDM now ships an
+        # opt-in LDM_PROXY_LOG_LEVEL, and at DEBUG over a 45-minute run those
+        # 120 lines are the last few seconds - while the event worth having
+        # is the provider reacting to the extension container at BRING-UP,
+        # thousands of lines earlier. `liferay-proxy-global` is also
+        # long-lived and shared, so its tail can be another stack entirely.
+        # See #1201.
+        #
+        # ANSI is stripped before matching. Traefik's default `common` format
+        # writes the colour escape BETWEEN key and value -
+        # `ESC[36mrouterName=ESC[0m<name>` - so a grep for `routerName=<name>`
+        # matches nothing. Measured against traefik:v3.6.1, after nearly
+        # shipping it that way. LDM_PROXY_LOG_FORMAT=json avoids this
+        # entirely and is the better choice once available.
         if [ -n "$proxy" ]; then
-            local proxy_log proxy_log_status
-            proxy_log=$(docker logs --tail 400 "$proxy" 2>&1)
-            proxy_log_status=$?
+            local proxy_log proxy_log_status proxy_lines proxy_level
+            local proxy_selector proxy_hits proxy_notable esc
+            if proxy_log=$(docker logs --tail "${PROXY_LOG_TAIL:-20000}" \
+                "$proxy" 2>&1); then
+                proxy_log_status=0
+            else
+                proxy_log_status=$?
+            fi
             if [ -n "$proxy_log" ]; then
-                printf '%s\n' "$proxy_log" | tail -120
+                esc=$(printf '\033')
+                proxy_log=$(printf '%s\n' "$proxy_log" \
+                    | sed "s/${esc}\[[0-9;]*m//g")
+                proxy_lines=$(printf '%s\n' "$proxy_log" | wc -l | tr -d ' ')
+                # Only present if the window still reaches Traefik's startup.
+                # Saying "unknown" is better than implying we checked.
+                proxy_level=$(printf '%s\n' "$proxy_log" \
+                    | grep -o '"level":"[A-Z]*"' | head -1 \
+                    | cut -d'"' -f4 || true)
+                [ -n "$proxy_level" ] || proxy_level="unknown (startup not in window)"
+                proxy_selector="${state_container:-microservice}"
+                proxy_hits=$(printf '%s\n' "$proxy_log" \
+                    | grep -F "$proxy_selector" || true)
+                # Rare at any level, and the ones that speak at the level the
+                # proxy runs at by default. Kept whatever the selector finds.
+                proxy_notable=$(printf '%s\n' "$proxy_log" \
+                    | grep -E ' (ERR|WRN) ' || true)
+
+                echo "(read ${proxy_lines} lines; proxy log level: ${proxy_level})"
+                # The head, unfiltered by anything. Traefik's startup is where
+                # the static configuration is declared, and it is the one part
+                # of the log that is not about a particular container - so a
+                # container-name selector would silently drop it. Bring-up is
+                # also the window that matters, which is the same reason a
+                # tail was the wrong end to take. See #1201.
+                echo "--- first 60 lines (startup, unfiltered) ---"
+                printf '%s\n' "$proxy_log" | head -60
+                echo "--- lines naming '${proxy_selector}' ---"
+                if [ -n "$proxy_hits" ]; then
+                    printf '%s\n' "$proxy_hits" | head -200
+                else
+                    echo "(none - the proxy read this container's name nowhere"
+                    echo " in ${proxy_lines} lines. At ERROR that is expected and"
+                    echo " says only that nothing errored; the class that drops a"
+                    echo " container without a router is logged at DEBUG. See #1149.)"
+                fi
+                echo "--- lines at ERR or WRN, any container ---"
+                if [ -n "$proxy_notable" ]; then
+                    printf '%s\n' "$proxy_notable" | head -100
+                else
+                    echo "(none in ${proxy_lines} lines)"
+                fi
             else
                 # An empty log and an unreadable one are different facts, and
                 # the old form could not tell them apart because it printed

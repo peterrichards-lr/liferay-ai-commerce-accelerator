@@ -39,7 +39,12 @@ function functionSource(name) {
 // correct from either side alone.
 function stubs(
   dir,
-  { proxyPresent = true, dockerAlive = true, proxyLogSilent = false } = {}
+  {
+    proxyPresent = true,
+    dockerAlive = true,
+    proxyLogSilent = false,
+    proxyLogHuge = false,
+  } = {}
 ) {
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin, { recursive: true });
@@ -62,7 +67,19 @@ case "$1" in
           // 36433590783 got back while every other docker call against this
           // same container in the same function answered normally.
           'exit 0'
-        : `# What Traefik actually writes when it discards a container's config.
+        : proxyLogHuge
+          ? // A DEBUG-level proxy over a long run. The line that matters is
+            // near the START, as it is in reality - the provider reacts to
+            // the container at bring-up - and is followed by thousands of
+            // lines that do not name it. Any positional selection drops it.
+            // The escapes are real: traefik:v3.6.1 at the default `common`
+            // format writes them between key and value.
+            `printf '\\033[90m2026-09-30T07:57:05Z\\033[0m DBG \\033[36mcontainer=\\033[0maica-e2e-ai-commerce-accelerator-microservice Filtering disabled container\\n'
+    for i in $(seq 1 3000); do
+      echo "2026-09-30T07:57:06Z DBG unrelated chatter line $i providerName=docker"
+    done
+    echo '2026-09-30T08:42:00Z WRN Could not find network named "x" for container "/other"'`
+          : `# What Traefik actually writes when it discards a container's config.
     echo 'time="..." level=error msg="Unable to obtain a router for container" providerName=docker container=aica-e2e-ai-commerce-accelerator-microservice'
     echo 'time="..." level=info msg="Configuration loaded from flags."'`
     } ;;
@@ -460,6 +477,55 @@ describe('proxy routing diagnostics (#1168)', () => {
       expect(facts).toContain('No proxy container on the target.');
       // "not deployed" and "docker is gone" produce the same empty name list.
       expect(facts).toMatch(/docker ps exit status: \d/);
+    });
+  });
+
+  /**
+   * #1201. The capture took `--tail 400 | tail -120`, which is right for the
+   * only proxy we have ever had - one at Traefik's default level of ERROR,
+   * where that is the whole log. LDM now ships an opt-in LDM_PROXY_LOG_LEVEL,
+   * and at DEBUG the line worth having is at bring-up, thousands of lines
+   * before the end of a 45-minute run.
+   *
+   * These run the real function against a log shaped like that one.
+   */
+  describe('a DEBUG-level proxy, where the answer is not at the end (#1201)', () => {
+    test('keeps the line naming the container, 3000 lines from the end', () => {
+      sandbox((dir) => {
+        const { facts } = runCapture(dir, { proxyLogHuge: true });
+
+        // The planted line is first in a 3002-line log. `--tail 400` would
+        // never have read it; `tail -120` would have discarded it again.
+        expect(facts).toContain('Filtering disabled container');
+        expect(facts).toContain(
+          'aica-e2e-ai-commerce-accelerator-microservice Filtering'
+        );
+      });
+    });
+
+    test('strips the ANSI the default log format writes between key and value', () => {
+      sandbox((dir) => {
+        const { facts } = runCapture(dir, { proxyLogHuge: true });
+
+        // traefik:v3.6.1 at `--log.format=common` emits
+        // `ESC[36mcontainer=ESC[0m<name>`, so a grep for `container=<name>`
+        // finds nothing and an unstripped artifact is unreadable. Measured,
+        // after nearly shipping the filter in the form that cannot match.
+        // eslint-disable-next-line no-control-regex
+        expect(facts).not.toMatch(/\u001b\[[0-9;]*m/);
+        expect(facts).toContain('container=aica-e2e');
+      });
+    });
+
+    test('says how much it read, so a miss is a fact about the log', () => {
+      sandbox((dir) => {
+        const { facts } = runCapture(dir, { proxyLogHuge: true });
+
+        // Without this a zero-match section is indistinguishable from a
+        // capture that never ran - the defect #1193 closed, one layer on.
+        expect(facts).toMatch(/read \d{4,} lines/);
+        expect(facts).toContain('lines at ERR or WRN');
+      });
     });
   });
 });
