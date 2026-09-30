@@ -45,6 +45,17 @@ on:
         options:
           - common
           - json
+      # LDM's DockerSshTunnel (their #2023) multiplexes what is otherwise one
+      # SSH connection per docker command. Off by default there and here, so a
+      # run that does not ask for it is the baseline. #1211 forwarded two of
+      # the three variables that release introduced and missed this one; the
+      # habit that prevents the next one is to grep the dependency for what
+      # else it reads, not to remember harder. See #1213.
+      docker_tunnel:
+        description: 'Route docker through LDM one forwarded socket instead of a connection per command (#1174).'
+        required: false
+        default: false
+        type: boolean
   schedule:
     # Nightly. Skipped automatically (see check-for-changes below) if
     # nothing has landed on the default branch since the last successful run,
@@ -488,6 +499,7 @@ jobs:
           # never having been passed on. See #1211.
           LDM_PROXY_LOG_LEVEL: ${{ github.event.inputs.proxy_log_level || 'ERROR' }}
           LDM_PROXY_LOG_FORMAT: ${{ github.event.inputs.proxy_log_format || 'common' }}
+          LDM_DOCKER_TUNNEL: ${{ github.event.inputs.docker_tunnel == true && '1' || '' }}
           LIFERAY_USER: ${{ secrets.LIFERAY_USER }}
           LIFERAY_PASSWORD: ${{ secrets.LIFERAY_PASSWORD }}
           LIFERAY_OAUTH_CLIENT_ID: ${{ secrets.LIFERAY_OAUTH_CLIENT_ID }}
