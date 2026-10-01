@@ -543,9 +543,20 @@ capture_proxy_diagnostics() {
         # That branch was eliminated by noticing the enumeration below uses
         # `docker ps` without `-a` - a true inference, but the artifact
         # should say it rather than leave the next reader to derive it.
+        # health, NOT only status. `status` says `running` for any container
+        # that started, healthy or not - it could not disconfirm the theory it
+        # was being used to support. On run 36707123322 this printed
+        # `status=running` while the container was running AND unhealthy, and
+        # #1149 spent a week pointing at the proxy because "running" read as
+        # "fine". Traefik had withdrawn the router seven minutes earlier,
+        # correctly, because Docker said unhealthy.
+        #
+        # `{{if .State.Health}}` first: a container with no healthcheck has an
+        # empty Health.Status, and printing that bare would reintroduce the
+        # same ambiguity one level down - blank reading as healthy. See #1214.
         if [ -n "$state_container" ]; then
             docker inspect -f \
-'  {{.Name}} status={{.State.Status}} exit={{.State.ExitCode}} restarts={{.RestartCount}}' \
+'  {{.Name}} status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none-declared{{end}} exit={{.State.ExitCode}} restarts={{.RestartCount}}' \
                 "$state_container" 2>&1
         else
             echo "  (no extension container on the target, running or stopped)"
@@ -1100,8 +1111,57 @@ capture_microservice_diagnostics() {
 '{{range .State.Health.Log}}  {{.Start}} exit={{.ExitCode}}
 {{end}}' "$LIFERAY_CONTAINER" 2>&1 | sed -n '1,30p' \
                 || echo "(no health log - no healthcheck declared?)"
+            # The EXTENSION's health log too. This block captured Liferay's
+            # transitions and not the extension's, so the one transition that
+            # mattered on run 36707123322 - the extension going unhealthy at
+            # 11:29:45, which is why Traefik withdrew its router - had to be
+            # reconstructed from Traefik's own DEBUG log a week later. The
+            # capture existed, in the right format, pointed at the wrong
+            # container. See #1214, #1149.
+            echo "  --- extension health transitions ---"
+            echo "  current: $(docker inspect \
+                -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none-declared{{end}}' \
+                "$container" 2>&1)"
+            docker inspect -f \
+'{{range .State.Health.Log}}  {{.Start}} exit={{.ExitCode}}
+{{end}}' "$container" 2>&1 | sed -n '1,30p' \
+                || echo "  (no health log)"
         } | sed -E 's/((SECRET|PASSWORD|TOKEN|KEY|PAT)[A-Z_]*=).*/\1<redacted>/'
         echo
+        # A HASH of each credential, never the value. #1215: the tree was
+        # rewritten at 11:28, six minutes after this container read it, and
+        # the existing capture records names and timestamps only - so a
+        # rewrite with identical content is indistinguishable from one that
+        # changed the secret underneath a running consumer.
+        #
+        # The hash answers that without putting a credential in an artifact
+        # that is uploaded wholesale. Compare pre-tests against teardown:
+        # same hash means the rewrite was benign, different means the
+        # consumer is holding a secret Liferay has replaced. See LDM-#2029.
+        echo "=== credential fingerprints (hashes, never values) ==="
+        # Redacted like its neighbours, and `${f##*/}` rather than `basename`.
+        #
+        # The redaction is not belt-and-braces: this block is the only one that
+        # reads credential FILES, it writes into an artifact uploaded wholesale
+        # - and since #1169, uploaded on green runs too - and a `docker exec`
+        # that fails unexpectedly puts whatever it emitted into that artifact.
+        # The first version had no filter, and the harness caught it by feeding
+        # this command a fixture containing a secret.
+        #
+        # `${f##*/}` also avoids matching the stub's `basename` branch, which
+        # is what fed it that fixture - but the filter is the fix and the
+        # expansion is the tidy-up, not the other way round.
+        docker exec "$LIFERAY_CONTAINER" sh -c \
+            'for f in /opt/liferay/routes/default/*/*.client.id \
+                      /opt/liferay/routes/default/*/*.client.secret; do
+                 [ -f "$f" ] || continue
+                 printf "%s  %s\n" "$(sha256sum < "$f" | cut -c1-16)" \
+                     "${f##*/}"
+             done' 2>&1 \
+            | sed -E 's/(secret|password|token|key)([[:space:]]*[=:][[:space:]]*).*/\1\2<redacted>/I' \
+            || echo "(unreadable)"
+        echo
+
         echo "=== compose depends_on for this service ==="
         docker inspect -f '{{index .Config.Labels "com.docker.compose.depends_on"}}' \
             "$container" 2>&1 || echo "(label unreadable)"
