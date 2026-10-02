@@ -65,6 +65,25 @@ describe('credential fingerprints (#1215)', () => {
     expect(script()).toMatch(/cut -c1-16/);
   });
 
+  it('is captured at bring-up as well, so the rewrite is visible', () => {
+    // pre-tests runs after bring-up, which is after Liferay rewrites the tree
+    // on client-extension deploy. Comparing pre-tests against teardown shows
+    // the tree is stable DURING the run and says nothing about what changed
+    // before it - which is why #1215 needed two runs and a hand-computed hash.
+    //
+    // The bring-up stage fires about two seconds after the extension container
+    // starts, so its fingerprints are the ones the container actually read.
+    const source = script();
+
+    expect(source).toMatch(/capture_microservice_diagnostics bring-up/);
+    // Before the health wait, or it is just another post-bring-up capture.
+    const bringUp = source.indexOf('capture_microservice_diagnostics bring-up');
+    const healthWait = source.indexOf('Waiting for Liferay HTTP layer');
+
+    expect(bringUp).toBeGreaterThan(-1);
+    expect(bringUp).toBeLessThan(healthWait);
+  });
+
   it('redacts its own output, like every other block that reads the tree', () => {
     // Not belt-and-braces. This is the only block that reads credential FILES,
     // it writes into an artifact uploaded wholesale - and since #1169 uploaded
