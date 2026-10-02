@@ -306,13 +306,54 @@ capture_ssh_accept_count() {
     # ending an instant before the last authentication it is meant to count.
     window=$(( ( (SECONDS - ${SSH_ACCEPT_ORIGIN:-0}) / 60 ) + 2 ))
 
-    if count=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
-        "journalctl -u sshd --since '-${window}min' --no-pager 2>/dev/null \
-         | grep -c 'Accepted publickey'" 2>/dev/null); then
+    # The series, not only the total. LDM's readiness loop
+    # (ldm_core/runtime/readiness.py:507) issues three docker commands every
+    # two seconds for the whole of Liferay's boot, so a total measures how long
+    # the portal took to start rather than how much work the run did - two
+    # baseline runs differing only in boot time differ by hundreds with no
+    # transport change at all.
+    #
+    # Dividing by boot duration does not rescue it: the count's window includes
+    # the specs and teardown (biasing up) while the boot window contains an
+    # image pull at near-zero rate before the poll begins (biasing down). Two
+    # unknown errors in opposite directions, so a quotient near the predicted
+    # 1.5/s could be them cancelling.
+    #
+    # Ten-second buckets answer the question the total cannot: a flat plateau
+    # during the poll, absent with the tunnel on however long the boot runs.
+    # Shape survives the two runs having different durations, which they will.
+    # See #1213.
+    # `grep` exits 1 on zero matches, and the pipeline's status is grep's - so
+    # the first version of this reported "unreadable" for a journal it had read
+    # perfectly well and found nothing in. That is the exact conflation this
+    # capture exists to prevent, committed inside it. `|| true` on the remote
+    # side makes the ssh status mean what it says: the connection, not the
+    # match count. Zero is a legitimate measurement here - it is the number to
+    # hope for with the tunnel on.
+    #
+    # Both unit names, because `journalctl -u <wrong-unit>` exits 0 with no
+    # output and is indistinguishable from a journal with nothing in it:
+    # ssh.service on Debian/Ubuntu, sshd.service on RHEL and Amazon Linux.
+    #
+    # `reachable` is captured separately and unconditionally, so a journal that
+    # cannot be read at all is distinguished from one that is empty. A
+    # non-root user outside systemd-journal gets only its own user journal,
+    # silently and with exit 0, which produces an empty result that looks
+    # exactly like a quiet node. See #1213.
+    local series probe
+    if probe=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
+        "journalctl -u ssh -u sshd --since '-${window}min' --no-pager 2>/dev/null \
+         | wc -l; id -nG" 2>/dev/null); then
         status=0
+        series=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
+            "journalctl -u ssh -u sshd --since '-${window}min' --no-pager 2>/dev/null \
+             | grep 'Accepted publickey' || true" 2>/dev/null)
+        count=$(printf '%s\n' "$series" | grep -c 'Accepted publickey' || true)
     else
         status=$?
         count=""
+        series=""
+        probe=""
     fi
 
     {
@@ -320,8 +361,34 @@ capture_ssh_accept_count() {
         echo "window: the last ${window} minutes, on the node's own clock"
         echo "source: journalctl -u sshd (Amazon Linux has no /var/log/auth.log)"
         echo
+        echo "docker tunnel: ${LDM_DOCKER_TUNNEL:+on}${LDM_DOCKER_TUNNEL:-off}"
+        if [ -n "$probe" ]; then
+            echo "journal lines visible: $(printf '%s\n' "$probe" | head -1)"
+            echo "groups on the node: $(printf '%s\n' "$probe" | tail -1)"
+            echo "(zero journal lines with no 'systemd-journal' above means the"
+            echo " journal was not readable, NOT that the node was quiet - a"
+            echo " user outside that group silently gets only its own journal.)"
+        fi
+        echo
         if [ -n "$count" ]; then
             echo "Accepted publickey: ${count}"
+            echo
+            echo "--- per 10-second bucket ---"
+            echo "Read the SHAPE, not the total. The total is a measure of how"
+            echo "long Liferay took to boot; the shape says what generated the"
+            echo "load, and survives two runs booting at different speeds:"
+            echo "  a flat plateau ~15/bucket held for the whole readiness"
+            echo "  wait, then it stops          -> the poll loop, tunnel OFF"
+            echo "  no plateau at any boot length -> the tunnel carried the run"
+            echo "  a plateau at another height   -> neither; read the buckets"
+            echo
+            echo "A quiet period prints NO bucket rather than a zero, so gaps in"
+            echo "the timestamps are the silence - not missing data. The pull and"
+            echo "compose-up before the poll begins is one such gap."
+            echo
+            printf '%s\n' "$series" \
+                | awk '{ print $1, $2, substr($3, 1, 7) "0" }' \
+                | uniq -c
             echo
             echo "How to read it - a LOW number is the good outcome, which is why"
             echo "this section says so rather than leaving a bare figure that looks"
