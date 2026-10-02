@@ -2075,6 +2075,19 @@ fi
 # --- Phase 4: Sync & Wait ---
 
 write_signal "WAITING_HEALTHY"
+
+# Before the wait, not after it. The pre-tests capture runs once bring-up has
+# completed, which is AFTER Liferay rewrites the routes tree on client-extension
+# deploy - so comparing pre-tests against teardown shows the tree is stable
+# during the run and says nothing about what changed before it. That gap is
+# what made #1215 take two runs and a hand-computed hash to settle.
+#
+# This fires about two seconds after the extension container starts (11:22:14
+# -> 11:22:16 on run 36707123322), so its credential fingerprints are the ones
+# the container actually read, and the rewrite becomes visible as a difference
+# between this stage and pre-tests rather than something to infer. See #1215.
+capture_microservice_diagnostics bring-up || true
+
 echo "⏳ Waiting for Liferay HTTP layer to be ready at $TARGET_URL..."
 
 # Reverting to manual bash log streaming to bypass Python/LDM subprocess buffering in CI
