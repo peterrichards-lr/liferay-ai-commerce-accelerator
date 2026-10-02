@@ -1,11 +1,33 @@
 version: 2
 updates:
+  # One ecosystem, at the root, deliberately.
+  #
+  # This is a yarn WORKSPACES monorepo with a single `yarn.lock`. Dependabot
+  # runs per-directory, so an ecosystem declared for a workspace directory can
+  # only touch that directory's `package.json` - there is no lockfile there,
+  # and it will not reach the root one. Every such PR arrived with a manifest
+  # asking for a version the lockfile did not pin, and
+  # `scripts/check-lockfile-drift.cjs` failed it, correctly, every week.
+  #
+  # The root entry already covers every workspace dependency: a grouped root
+  # PR updates all four manifests and the lockfile together. Three per-
+  # directory entries were declared as well and produced nine unmergeable PRs
+  # before anyone traced why a dependabot PR could never go green. See #1231.
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 10
     versioning-strategy: increase
+    # Replaces Dependabot's defaults rather than adding to them, so
+    # `dependencies` and `javascript` are listed to keep what it labelled
+    # before. `no-issue-needed` is what `issue-link-check.yml` looks for - its
+    # own help text names a dependabot bump as the case it exists for, and
+    # nothing has ever applied it.
+    labels:
+      - 'dependencies'
+      - 'javascript'
+      - 'no-issue-needed'
     groups:
       dependencies:
         patterns:
@@ -17,21 +39,3 @@ updates:
       # thirteen-release downgrade. The pin only ever moves deliberately, as
       # part of releasing the SDK, so there is nothing here for it to propose.
       - dependency-name: '@liferay/accelerator-sdk'
-  - package-ecosystem: 'npm'
-    directory: '/client-extensions/ai-commerce-accelerator-microservice'
-    schedule:
-      interval: 'weekly'
-    open-pull-requests-limit: 10
-    ignore:
-      # See the root entry: a git-tag pin Dependabot cannot order.
-      - dependency-name: '@liferay/accelerator-sdk'
-  - package-ecosystem: 'npm'
-    directory: '/client-extensions/ai-commerce-accelerator-frontend'
-    schedule:
-      interval: 'weekly'
-    open-pull-requests-limit: 10
-  - package-ecosystem: 'npm'
-    directory: '/client-extensions/ai-commerce-accelerator-configuration'
-    schedule:
-      interval: 'weekly'
-    open-pull-requests-limit: 10
