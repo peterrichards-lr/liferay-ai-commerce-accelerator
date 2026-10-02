@@ -18,12 +18,12 @@
     "@commitlint/config-conventional": "^21.0.2",
     "@playwright/test": "^1.63.0",
     "@testing-library/dom": "^10.4.2",
-    "baseline-browser-mapping": "^2.11.25",
+    "baseline-browser-mapping": "^2.11.26",
     "happy-dom": "^20.14.5",
     "husky": "^9.1.7",
-    "lint-staged": "^17.5.1",
+    "lint-staged": "^17.6.0",
     "markdownlint-cli": "^0.49.1",
-    "prettier": "^3.9.8",
+    "prettier": "^3.9.9",
     "yaml": "^2.9.1"
   },
   "resolutions": {
@@ -37,9 +37,9 @@
   "optionalDependencies": {
     "@rolldown/binding-darwin-arm64": "^1.2.9",
     "@rolldown/binding-darwin-x64": "^1.2.9",
-    "@rollup/rollup-darwin-arm64": "4.63.4",
-    "@rollup/rollup-darwin-x64": "4.63.4",
-    "@rollup/rollup-linux-x64-gnu": "4.63.4"
+    "@rollup/rollup-darwin-arm64": "4.63.5",
+    "@rollup/rollup-darwin-x64": "4.63.5",
+    "@rollup/rollup-linux-x64-gnu": "4.63.5"
   },
   "scripts": {
     "prepare": "husky || true",
@@ -118,10 +118,10 @@
     "eslint": "10.11.0",
     "immutable": "5.1.9",
     "jsdom": "^30.1.1",
-    "openai": "7.21.0",
+    "openai": "7.23.0",
     "react-codemirror2": "9.0.1",
-    "rollup": "4.63.4",
-    "vite": "8.3.0"
+    "rollup": "4.63.5",
+    "vite": "8.3.1"
   },
   "version": "0.0.1"
 }
