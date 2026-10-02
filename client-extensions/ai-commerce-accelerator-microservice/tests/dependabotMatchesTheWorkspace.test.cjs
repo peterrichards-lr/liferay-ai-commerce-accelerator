@@ -58,6 +58,23 @@ describe('dependabot matches the workspace layout (#1231)', () => {
     expect(labels).toContain('no-issue-needed');
   });
 
+  it('holds back a major for a dependency the suite mocks through', () => {
+    // A grouped PR is all-or-nothing. #1230 carried twenty bumps and failed on
+    // one: msw 3.0.0 changed request interception, the frontend handlers
+    // stopped matching, and AdminApp.test.jsx got `ECONNREFUSED ::1:3001`
+    // where it expected a mocked response. Nineteen safe updates were held
+    // back by a breaking change that needs its own migration.
+    //
+    // Asserts the shape, not the package: majors held, patches and minors
+    // still arriving. An outright ignore would also pass a weaker test and is
+    // the wrong fix - it stops security patches too.
+    const ignore = npmEcosystems()[0].ignore || [];
+    const msw = ignore.find((e) => e['dependency-name'] === 'msw');
+
+    expect(msw).toBeDefined();
+    expect(msw['update-types']).toContain('version-update:semver-major');
+  });
+
   it('keeps the labels dependabot applied by default', () => {
     // `labels:` REPLACES the defaults rather than adding to them, so omitting
     // these silently drops labelling that existed before.
