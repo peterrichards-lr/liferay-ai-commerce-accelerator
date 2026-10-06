@@ -298,6 +298,100 @@ jobs:
                 free -m
                 docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}\t{{.BlockIO}}" 2>/dev/null || true
                 df -h /
+                # The SSH transport, sampled alongside everything else.
+                #
+                # Run 37435455079 hung for 106 minutes inside `docker compose
+                # up` and was cancelled with nothing to read. Three nightlies
+                # have gone this way and nothing we capture separates the
+                # possible causes, so each one costs a billable instance and
+                # produces no evidence.
+                #
+                # Do NOT reason from the orphan list the way #1237 originally
+                # did. It showed `docker` and `docker-compose` with no `ssh`,
+                # which looks like the transport had gone - but step 14 sets
+                # ControlPersist, which puts the master connection in the
+                # background, detached from the step. A healthy master is
+                # absent from a descendant sweep too, so the fact could not
+                # have come out any other way. That inference is withdrawn.
+                #
+                # The keepalives step 14 sets (ServerAliveInterval 30,
+                # ServerAliveCountMax 6) DID apply: the connhelper passes no
+                # -F, so ~/.ssh/config is in play. So the cause is not an
+                # absence of detection, and all three easy explanations
+                # predict something other than 106 minutes of silence -
+                # ControlMaster auto falls back when the socket is gone, and
+                # a dead master should give the client EOF, not silence.
+                #
+                # Hence an instrument rather than another argument. These two
+                # lines distinguish outcomes that want different fixes:
+                #
+                #   Send-Q not draining   -> the channel is alive, not moving
+                #   no connection at all  -> the transport is gone and the
+                #                            client has not noticed
+                #   connection healthy    -> the stall is above the transport
+                #
+                # STAT and WCHAN say what the client is blocked ON, which
+                # separates "waiting on a socket" from "waiting on a futex".
+                # `args` also catches the connhelper's real argv on Ubuntu,
+                # which is so far only observed on macOS.
+                #
+                # Runner-side only, deliberately: a periodic ssh to the node
+                # would add connection churn to the very resource this is
+                # investigating. The node's own journal is read once at
+                # teardown instead. See #1237.
+                #
+                # Both branches below distinguish "nothing to report" from
+                # "could not report", because an empty section that might mean
+                # either is the defect this whole investigation keeps hitting.
+                # In particular `grep | head` takes head's status, so a `||`
+                # fallback after it can never fire - the first version of this
+                # had exactly that.
+                echo "-- ssh transport --"
+                if command -v ss >/dev/null 2>&1; then
+                  # EVERY state, not `state established`. A transport that
+                  # died leaves CLOSE-WAIT or FIN-WAIT-2, and filtering to
+                  # established would drop exactly those - making "dead socket
+                  # the client never closed" look identical to "no connection
+                  # at all", which are two of the three outcomes this sample
+                  # exists to tell apart. CLOSE-WAIT is the strongest evidence
+                  # available here: the peer sent FIN and the client has not
+                  # closed its end. Verified in a container - an established
+                  # filter returned a header row for a CLOSE-WAIT socket that
+                  # the unfiltered form showed. Dropping the filter also keeps
+                  # the State column, which `state established` suppresses.
+                  ss -tnp '( dport = :22 )' \
+                    || echo "(ss failed, status $?)"
+                else
+                  echo "(ss not installed - no transport sample this tick)"
+                fi
+                # The control socket, read next to the connection it
+                # belongs to. Step 14 sets ControlMaster auto / ControlPersist
+                # 30m, so the master is backgrounded and multiplexes every
+                # docker call. The pairing is what discriminates:
+                #
+                #   socket + connection     -> master alive, look elsewhere
+                #   socket, no connection   -> STALE: the master died without
+                #                              cleaning up, and `auto` dials a
+                #                              socket that answers nothing -
+                #                              a candidate shape for a client
+                #                              that blocks instead of falling
+                #                              back to a direct connection
+                #   no socket, no conn      -> never established, or cleaned up
+                #
+                # A guess, which is why it is captured rather than concluded.
+                # It cannot be reconstructed after the run. Credit to the LDM
+                # session for the suggestion.
+                echo "-- control socket --"
+                ls -l ~/.ssh/cm-* 2>/dev/null \
+                  || echo "(no control socket present)"
+                echo "-- docker clients --"
+                clients=$(ps -eo pid,ppid,etime,stat,wchan:20,args 2>/dev/null \
+                  | grep -E '[d]ocker|[s]sh ' || true)
+                if [ -n "$clients" ]; then
+                  printf '%s\n' "$clients" | head -10
+                else
+                  echo "(no docker or ssh processes running)"
+                fi
                 echo "---"
               } >> resource-monitor.log
               sleep 60
