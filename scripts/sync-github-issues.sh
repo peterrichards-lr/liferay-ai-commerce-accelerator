@@ -75,11 +75,15 @@ create_sub_issue() {
     local completed="$3"
     
     echo "Creating sub-issue: $title..."
-    local issue_url=$(gh issue create \
+    # Split from the declaration: `local x=$(cmd)` takes `local`'s exit
+    # status, not the command's, so a failed `gh issue create` under `set -e`
+    # carried on with an empty URL and closed issue "" a few lines down.
+    local issue_url issue_num
+    issue_url=$(gh issue create \
         --title "$title" \
         --body "$body (Belongs to Epic #$EPIM_EPIC_NUM)" \
         --label "enhancement")
-    local issue_num=$(echo "$issue_url" | grep -oE "[0-9]+$")
+    issue_num=$(echo "$issue_url" | grep -oE "[0-9]+$")
     
     if [ "$completed" = "true" ]; then
         echo -e "Closing completed Issue #${issue_num} with commit reference..."

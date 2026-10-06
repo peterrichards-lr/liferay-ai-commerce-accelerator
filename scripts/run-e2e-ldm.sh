@@ -1896,7 +1896,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # capture after the failing step never executes; non-fatal, because
     # diagnostics must not become a second way for the run to die. See #1235.
     if [ -d "$PROJECT_NAME" ]; then
-        local build_log="logs/e2e-image-build.txt"
+        build_log="logs/e2e-image-build.txt"
         mkdir -p logs
         echo "🔨 Building images with output captured -> ${build_log}"
         {
