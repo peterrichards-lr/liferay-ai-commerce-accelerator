@@ -340,7 +340,7 @@ capture_ssh_accept_count() {
     # non-root user outside systemd-journal gets only its own user journal,
     # silently and with exit 0, which produces an empty result that looks
     # exactly like a quiet node. See #1213.
-    local series probe
+    local series probe docker_journal
     if probe=$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
         "journalctl -u ssh -u sshd --since '-${window}min' --no-pager 2>/dev/null \
          | wc -l; id -nG" 2>/dev/null); then
@@ -408,6 +408,40 @@ capture_ssh_accept_count() {
             echo " at least once.)"
         fi
     } > "$facts"
+
+    # The DAEMON's own view, in the same window.
+    #
+    # The accept count above says whether connections were made. It says
+    # nothing about whether dockerd was doing anything, and that is the
+    # discriminator: if the daemon was still building happily while our client
+    # sat silent for 106 minutes (run 37435455079), the stall is a streaming
+    # or client-side problem and MaxStartups has been a red herring. If the
+    # daemon went quiet too, it is pressure on the node.
+    #
+    # One read at teardown rather than sampling during the run: a periodic ssh
+    # would add connection churn to the resource being investigated. See #1237.
+    {
+        echo
+        echo "=== dockerd on ${LDM_NODE_TARGET}, same window ==="
+        echo "(was the daemon working while the client waited? that is the"
+        echo " question this answers - an idle daemon and a busy one want"
+        echo " different fixes)"
+        echo
+        if docker_journal=$(ssh -o BatchMode=yes -o ConnectTimeout=10 \
+            "$endpoint" \
+            "journalctl -u docker --since '-${window}min' --no-pager 2>/dev/null \
+             | tail -n 200 || true" 2>/dev/null); then
+            if [ -n "$docker_journal" ]; then
+                printf '%s\n' "$docker_journal"
+            else
+                echo "(empty - either the daemon logged nothing in the window,"
+                echo " or the journal is not readable by this user; the groups"
+                echo " line above says which)"
+            fi
+        else
+            echo "(unreadable; ssh exit status $?)"
+        fi
+    } >> "$facts"
 
     echo "🔎 Captured SSH accept count -> ${facts}"
 }
