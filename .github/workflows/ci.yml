@@ -112,6 +112,44 @@ jobs:
       - name: Run Client Extension Validation
         run: yarn lint:cx
 
+      # `run-e2e-ldm.sh` is ~2000 lines of bash that drives the whole E2E, and
+      # until now nothing checked any of it. #1236 put `local` at the top level
+      # of that script; `local` outside a function returns 1, `set -e` is on,
+      # and the run would have died immediately before `ldm run` - every run,
+      # with no output. It was caught by reading the file, not by a check.
+      #
+      # `bash -n` would not have helped and is not what this is: the line is
+      # syntactically valid. Only a linter that knows what `local` means
+      # catches it (SC2168).
+      #
+      # `git ls-files` rather than a fixed list, so a script added later is
+      # covered without anyone remembering to come back here.
+      #
+      # --severity=warning because the backlog at that level was three
+      # findings, all fixed in #1238. It is set where the tree actually is, so
+      # it has somewhere to fail from. See #1238.
+      - name: Run Shell Lint
+        run: |
+          command -v shellcheck >/dev/null || {
+            echo "::error::shellcheck is not on this runner; the shell lint cannot run and must not be reported as passing"
+            exit 1
+          }
+          scripts=()
+          while IFS= read -r f; do scripts+=("$f"); done < <(git ls-files '*.sh')
+          # A lint that linted nothing used to report success: the first
+          # version of this step built the list with `mapfile`, and where that
+          # is unavailable the array came back empty, printed "Linting 0
+          # script(s)" and passed. The count is asserted because the whole
+          # point of the step is that it can fail.
+          if [ "${#scripts[@]}" -eq 0 ]; then
+            echo "::error::no shell scripts matched; the lint would have passed over an empty set"
+            exit 1
+          fi
+          echo "Linting ${#scripts[@]} script(s):"
+          printf '  %s\n' "${scripts[@]}"
+          shellcheck --severity=warning "${scripts[@]}"
+        timeout-minutes: 5
+
       # The pre-commit hook is the only other place this runs, and a hook is
       # skippable - `--no-verify` is routine in a worktree, where there is no
       # node_modules for lint-staged. Nothing scanned a pull request before
