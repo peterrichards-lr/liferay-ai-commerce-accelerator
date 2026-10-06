@@ -1882,6 +1882,35 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
     write_signal "STARTING"
+    # Build the images first, with their output captured.
+    #
+    # `ldm run` calls `docker compose up`, which swallows BuildKit output
+    # beyond a truncated frame. Nightlies 37106009658, 37186266764 and
+    # 37280776231 all died at `RUN yarn install` in the microservice image and
+    # NONE of them says why - the job log has `yarn install v1.22.22` and
+    # `[1/4] Resolving packages...` and then nothing. Three days of failures
+    # and the error never left the node.
+    #
+    # Same defect family as #1194, #1201 and #1214: a capture that reports a
+    # failure without reporting the failure. Before `ldm run`, because a
+    # capture after the failing step never executes; non-fatal, because
+    # diagnostics must not become a second way for the run to die. See #1235.
+    if [ -d "$PROJECT_NAME" ]; then
+        local build_log="logs/e2e-image-build.txt"
+        mkdir -p logs
+        echo "🔨 Building images with output captured -> ${build_log}"
+        {
+            echo "=== docker compose build, from ${PROJECT_NAME} ==="
+            echo '(captured because ldm run truncates BuildKit output; an'
+            echo ' empty section below means the build was already cached)'
+            echo
+        } > "$build_log"
+        docker compose --project-directory "$PROJECT_NAME" build \
+            --progress plain >> "$build_log" 2>&1 \
+            || echo "(build reported a failure; see above - ldm run will say so too)" \
+                >> "$build_log"
+    fi
+
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     # LDM 2.7.12+ automatically:
     # 1. Detects and handles external volume locking (--internal-state)
