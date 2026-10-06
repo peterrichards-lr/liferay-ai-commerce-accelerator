@@ -231,6 +231,21 @@ describe('the tunnel command is built, not guessed', () => {
     expect(argv).toContain('ExitOnForwardFailure=yes');
   });
 
+  it('pins BOTH halves of the keepalive, not just the interval', () => {
+    // The pair, asserted together on purpose. ServerAliveInterval was explicit
+    // here while ServerAliveCountMax inherited OpenSSH's default of 3, so this
+    // forward gave up at ~90s and the Docker transport at ~180s. One network
+    // event reaching both then surfaces twice, ninety seconds apart, and reads
+    // off a timeline as two events in sequence.
+    //
+    // A test asserting only the interval passes against that defect - which is
+    // how it survived. Both values, or this guard cannot fail. See #1244.
+    const argv = tunnelCommand();
+
+    expect(argv).toContain('ServerAliveInterval=30');
+    expect(argv).toContain('ServerAliveCountMax=6');
+  });
+
   it('omits the key flag when there is no key to name', () => {
     // A bad -i fails in a way that reads like refused credentials (#1085).
     expect(tunnelCommand({ key: '/definitely/not/here' })).not.toContain('-i');

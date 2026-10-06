@@ -2048,12 +2048,34 @@ node_tunnel_command() {
 
     # 443 and 80 by default: the certificate names $TARGET_HOST with no port,
     # and Liferay builds absolute URLs from the same host name.
+    #
+    # Both halves of the keepalive are set below, because pinning one and
+    # inheriting the other is what went wrong: ServerAliveInterval was explicit
+    # and ServerAliveCountMax fell back to OpenSSH's default of 3, giving this
+    # forward ~90s to detection against the Docker transport's ~180s (which
+    # inherits ServerAliveCountMax 6 from the ~/.ssh/config step 14 writes).
+    #
+    # The problem is not that 90s is wrong. It is that the two paths to the
+    # same node DISAGREE: one network event reaches both and surfaces twice,
+    # ninety seconds apart, which off a timeline is indistinguishable from two
+    # events in sequence. Three causal stories have already been retracted in
+    # this investigation for being read off artefacts that way.
+    #
+    # Explicit rather than inherited is still right here - this runs under sudo
+    # as root, whose ~/.ssh is not the one CI configured, which is why -i is
+    # explicit too (#1085). Make the pair explicit; do not start inheriting.
+    #
+    # NOTE: no comments inside the printf below. A `#` on a backslash-continued
+    # line ends the command and silently truncates the argument list - the
+    # first attempt at this change dropped both -L forwards that way, and
+    # `bash -n` accepted it. See #1244.
     printf '%s\n' \
         -N \
         -o StrictHostKeyChecking=no \
         -o UserKnownHostsFile=/dev/null \
         -o ExitOnForwardFailure=yes \
         -o ServerAliveInterval=30 \
+        -o ServerAliveCountMax=6 \
         -o BatchMode=yes \
         -L "${TUNNEL_HTTPS_PORT}:localhost:443" \
         -L "${TUNNEL_HTTP_PORT}:localhost:80"
