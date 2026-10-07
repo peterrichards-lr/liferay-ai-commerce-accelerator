@@ -299,12 +299,22 @@ remove_stale_node_dxp_tree() {
     endpoint="$(node_ssh_endpoint)"
     [ -n "$endpoint" ] || return 0
 
-    if ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
+    # stderr CAPTURED, not discarded. The first version of this sent it to
+    # /dev/null, so when the removal failed on run 37624820282 the warning said
+    # only that it had - a diagnostic reporting a failure without reporting the
+    # failure, which is the exact family this repository keeps producing, in
+    # the fix for an instance of it. The reason is the whole value here.
+    local err status
+    err="$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
         "rm -rf \"\$HOME/.liferay-docker/projects/${PROJECT_NAME}/routes/default/dxp\"" \
-        2>/dev/null; then
+        2>&1)"
+    status=$?
+
+    if [ $status -eq 0 ]; then
         echo "🧹 Removed any stale DXP config tree on '${LDM_NODE_TARGET}' so Liferay rewrites it for ${TARGET_HOST}."
     else
-        echo "⚠️  Could not remove the node's stale DXP config tree; if OAuth redirect URIs say localhost, that is why (#1252)."
+        echo "⚠️  Could not remove the node's stale DXP config tree (ssh exit ${status} to ${endpoint}): ${err:-no output on stderr}"
+        echo "    If OAuth redirect URIs say localhost, that is why (#1252)."
     fi
 }
 
@@ -615,7 +625,6 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     echo "🧹 Removing any stale '$PROJECT_NAME' before build..."
     ldm_cmd rm "$PROJECT_NAME" --delete -y 2>/dev/null || true
     rm -rf "$PROJECT_NAME"
-    remove_stale_node_dxp_tree
 fi
 
 
@@ -2062,6 +2071,12 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # version before writing any of this again.
 
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
+
+    # Here, not before `ldm import`. Import syncs the project to the node, so a
+    # removal before it is undone by whatever import restores. This is the only
+    # window that is both after the node's directory reaches its final state
+    # and before Liferay starts and reads it. See #1252.
+    remove_stale_node_dxp_tree
 
     write_signal "STARTING"
     # Make BuildKit emit the build line by line instead of redrawing a frame.
