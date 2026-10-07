@@ -31,11 +31,27 @@ function extract(name) {
   return source.slice(start, end + 3);
 }
 
-/** Run one of the script's functions with its outside world stubbed. */
+/**
+ * Run one of the script's functions with its outside world stubbed.
+ *
+ * `set -e` as well as `set -u`, because `run-e2e-ldm.sh` sets it on line 4 and
+ * a harness that omits it cannot catch the failure mode it most needs to.
+ * This harness ran with `set -u` alone and passed a version of
+ * `remove_stale_node_dxp_tree` that ABORTED THE RUN: a bare `err="$(cmd)"`
+ * whose command fails exits the script under errexit, so run 37632331741 died
+ * at the removal and went straight to cleanup. Eleven green tests said nothing
+ * about it. See #1252.
+ *
+ * The trailing marker is what proves survival: if the function aborts, it is
+ * never printed and execFileSync throws.
+ */
 function run(name, preamble) {
   return execFileSync(
     'bash',
-    ['-c', `set -u\n${preamble}\n${extract(name)}\n${name}\necho "exit=$?"`],
+    [
+      '-c',
+      `set -eu\n${preamble}\n${extract(name)}\n${name}\necho "exit=$?"\necho "SURVIVED"`,
+    ],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
   );
 }
@@ -94,6 +110,44 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
     );
 
     expect(out).not.toContain('SSH-ARGS');
+  });
+
+  it('cannot abort the run when ssh fails, under errexit', () => {
+    // The defect run 37632331741 died on. `set -e` is on in the real script,
+    // and a bare `err="$(cmd)"` that fails aborts AT THE ASSIGNMENT - the
+    // following `status=$?` never runs. A diagnostic becoming a second way for
+    // the run to die is #1238, committed while fixing a diagnostic.
+    const out = run(
+      'remove_stale_node_dxp_tree',
+      [
+        'LDM_NODE_TARGET=aws-1',
+        'PROJECT_NAME=aica-e2e',
+        'TARGET_HOST=aica-e2e.demo',
+        'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
+        'ssh() { echo "nope" >&2; return 255; }',
+      ].join('\n')
+    );
+
+    expect(out).toContain('SURVIVED');
+  });
+
+  it('reports the real ssh exit code, not the negation of one', () => {
+    // `if ! err="$(cmd)"` also survives errexit, but inside the branch $? is
+    // the negation's status - always 0 - so the message would say "ssh exit 0"
+    // for a failure. Surviving is not enough; the code must be the real one.
+    const out = run(
+      'remove_stale_node_dxp_tree',
+      [
+        'LDM_NODE_TARGET=aws-1',
+        'PROJECT_NAME=aica-e2e',
+        'TARGET_HOST=aica-e2e.demo',
+        'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
+        'ssh() { echo "nope" >&2; return 255; }',
+      ].join('\n')
+    );
+
+    expect(out).toContain('ssh exit 255');
+    expect(out).not.toContain('ssh exit 0');
   });
 
   it('says WHY it failed, not merely that it did', () => {

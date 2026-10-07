@@ -269,9 +269,16 @@ assert_dxp_domain_matches_host() {
     local container domain
     container="${MICROSERVICE_CONTAINER:-${PROJECT_NAME}-ai-commerce-accelerator-microservice}"
 
+    # `|| domain=""` for the same reason as the removal above: under `set -e`
+    # a bare assignment whose command substitution fails aborts the script. A
+    # container that is gone, or a docker that cannot reach the node, would
+    # have killed the run from inside a check whose entire purpose is to be
+    # non-fatal. Found by running the tests under `set -e` after the removal
+    # was bitten by it - the same defect, in the function beside it. See #1252.
     domain="$(docker exec "$container" sh -c '
         dxp="${LIFERAY_ROUTES_DXP:-/etc/liferay/lxc/routes/dxp}"
-        cat "$dxp/com.liferay.lxc.dxp.main.domain" 2>/dev/null' 2>/dev/null)"
+        cat "$dxp/com.liferay.lxc.dxp.main.domain" 2>/dev/null' 2>/dev/null)" \
+        || domain=""
 
     if [ -z "$domain" ]; then
         echo "⚠️  Could not read com.liferay.lxc.dxp.main.domain; OAuth redirect URIs cannot be checked (#1252)."
@@ -304,11 +311,23 @@ remove_stale_node_dxp_tree() {
     # only that it had - a diagnostic reporting a failure without reporting the
     # failure, which is the exact family this repository keeps producing, in
     # the fix for an instance of it. The reason is the whole value here.
-    local err status
+    # `|| status=$?`, NOT a bare assignment followed by `status=$?`.
+    #
+    # `set -e` is on from line 4. A plain `err="$(cmd)"` whose command fails
+    # ABORTS THE SCRIPT at the assignment - `status=$?` never runs. That is not
+    # theory: it is what run 37632331741 did. The script died here and went
+    # straight to cleanup without reaching the removal, so a diagnostic became
+    # a second way for the run to die, which is #1238 exactly, committed while
+    # fixing a diagnostic.
+    #
+    # `if ! err="$(cmd)"` survives but is also wrong: inside the branch $? is
+    # the negation's status, always 0, so the message would report `ssh exit 0`
+    # for a failure. `|| status=$?` is the one form that both survives errexit
+    # and keeps the real code. All three were tested, not reasoned about.
+    local err status=0
     err="$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
         "rm -rf \"\$HOME/.liferay-docker/projects/${PROJECT_NAME}/routes/default/dxp\"" \
-        2>&1)"
-    status=$?
+        2>&1)" || status=$?
 
     if [ $status -eq 0 ]; then
         echo "🧹 Removed any stale DXP config tree on '${LDM_NODE_TARGET}' so Liferay rewrites it for ${TARGET_HOST}."
