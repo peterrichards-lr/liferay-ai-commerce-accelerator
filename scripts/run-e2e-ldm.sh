@@ -196,8 +196,20 @@ assert_build_output_captured() {
     # BuildKit's plain writer prefixes every step with `#N `, and names the
     # stage. Either spelling counts; matching both means a change to one does
     # not silently fail the check.
-    if grep -qE '^#[0-9]+ |\[internal\] load build definition|DONE [0-9]+\.[0-9]+s' "$log"; then
+    # Two independent routes carry the build: what LDM printed (teed above)
+    # and what it captured into its own trace log (copied beside it). Either
+    # is a success - failing because only one of them carried it would be a
+    # check reporting on itself rather than on the build.
+    local trace="logs/e2e-ldm-trace.txt"
+    local markers='^(\[STDOUT\] )?#[0-9]+ |\[internal\] load build definition|DONE [0-9]+\.[0-9]+s'
+
+    if grep -qE "$markers" "$log" 2>/dev/null; then
         echo "🔎 Build output captured in ${log}."
+        return 0
+    fi
+
+    if [ -s "$trace" ] && grep -qE "$markers" "$trace" 2>/dev/null; then
+        echo "🔎 Build output captured in ${trace} (LDM's trace log)."
         return 0
     fi
 
@@ -206,7 +218,7 @@ assert_build_output_captured() {
         return 0
     fi
 
-    echo "::warning::ldm run produced output but no BuildKit progress lines, with LDM $(ldm --version 2>/dev/null || echo 'unknown'). BUILDKIT_PROGRESS=plain may no longer reach the compose child - see #1247."
+    echo "::warning::ldm run produced output but no BuildKit progress lines, with LDM ${LDM_VERSION_OUTPUT:-unknown}. Neither the teed stdout nor the trace copy carried the build - see #1250."
     return 0
 }
 
@@ -2026,6 +2038,34 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     mkdir -p logs
     ldm_cmd "${RUN_ARGS[@]}" 2>&1 | tee "$LDM_RUN_LOG"
     ldm_run_status=${PIPESTATUS[0]}
+
+    # IMMEDIATELY, before anything else runs `ldm`.
+    #
+    # LDM writes the full captured stdout of every command it shells out to -
+    # including `docker compose up`, and so the whole BuildKit build - into
+    # ~/.ldm/last-command.log, unconditionally and with no flag
+    # (ldm_core/utils.py:1576 -> ui.py:211, independent of --verbose). That is
+    # the unabridged output #1235, #1236 and #1247 were all chasing, and it has
+    # been on disk the whole time.
+    #
+    # But ui.py:150 opens it with "w", so EVERY `ldm` invocation truncates it.
+    # Seven run after this one - deploy, info, logs x2, wait x2, configuration
+    # - so by teardown the file holds whichever of those ran last. Copying it
+    # at teardown, which is the obvious place, would capture the wrong command
+    # every single time.
+    #
+    # I proved the hazard by accident: running `ldm --version` while
+    # investigating cut the local file to 210 bytes and destroyed the trace I
+    # was reading. Nothing between the line above and this one may invoke
+    # `ldm`, and a test asserts it. See #1250.
+    LDM_TRACE_LOG="logs/e2e-ldm-trace.txt"
+    if [ -f "$HOME/.ldm/last-command.log" ]; then
+        cp "$HOME/.ldm/last-command.log" "$LDM_TRACE_LOG" 2>/dev/null \
+            && echo "🔎 Copied LDM's trace of the bring-up -> ${LDM_TRACE_LOG}" \
+            || echo "⚠️  Could not copy ${HOME}/.ldm/last-command.log"
+    else
+        echo "⚠️  No LDM trace log at ${HOME}/.ldm/last-command.log; the build output has only the teed stdout to arrive on."
+    fi
 
     assert_build_output_captured "$LDM_RUN_LOG"
 
