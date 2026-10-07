@@ -143,6 +143,71 @@ describe('the shapes that must not come back (#1247)', () => {
   });
 });
 
+describe("LDM's trace log survives long enough to be copied (#1250)", () => {
+  // LDM writes every shelled-out command's full stdout - including the whole
+  // BuildKit build - to ~/.ldm/last-command.log, with no flag. But it opens
+  // that file with "w", so EVERY `ldm` invocation truncates it, and seven run
+  // after the bring-up. The copy is only correct because nothing touches ldm
+  // between the two lines, which neither line shows on its own.
+
+  // An INVOCATION, at a command position. Matching the string `ldm` anywhere
+  // is how the first version of these tests failed three times over: it hit
+  // the variable `ldm_run_status`, and the words "No ldm run output" inside an
+  // echoed warning. Neither runs anything.
+  //
+  // Two positions, because the first version only checked one and a
+  // perturbation walked straight through it: restoring `$(ldm --version)`
+  // inside an echoed warning left all 14 tests green. A command substitution
+  // is an invocation and truncates the trace exactly the same way.
+  const invokesLdm = (text) =>
+    text
+      .split('\n')
+      .some(
+        (line) =>
+          /^\s*(ldm|ldm_cmd)\s/.test(line) ||
+          /\$\(\s*(ldm|ldm_cmd)\s/.test(line)
+      );
+
+  const RUN_CALL = 'ldm_cmd "${RUN_ARGS[@]}"';
+
+  it('copies the trace before anything else can invoke ldm', () => {
+    const source = script();
+    const run = source.indexOf(RUN_CALL);
+    const copy = source.indexOf('LDM_TRACE_LOG="logs/');
+
+    expect(run).toBeGreaterThan(-1);
+    expect(copy).toBeGreaterThan(run);
+    expect(invokesLdm(source.slice(run + RUN_CALL.length, copy))).toBe(false);
+  });
+
+  it('is guarding against a hazard that really exists', () => {
+    // Non-vacuous: ldm IS invoked after the copy - deploy, info, logs, wait,
+    // configuration - so the ordering above is load-bearing rather than
+    // incidentally true. If this ever fails, the guard above has stopped
+    // meaning anything and should be reconsidered, not deleted.
+    const source = script();
+    const copy = source.indexOf('LDM_TRACE_LOG="logs/');
+
+    expect(invokesLdm(source.slice(copy))).toBe(true);
+  });
+
+  it('runs no ldm command inside the build-output assertion', () => {
+    // The first version ended with `ldm --version` in its warning branch,
+    // truncating the trace log in the exact case where the build output was
+    // missing and most wanted - a diagnostic destroying its own evidence.
+    const source = script();
+    const start = source.indexOf('assert_build_output_captured() {');
+    const end = source.indexOf('\n}\n', start);
+
+    expect(start).toBeGreaterThan(-1);
+    expect(invokesLdm(source.slice(start, end))).toBe(false);
+  });
+
+  it('reads the trace copy as well as the teed stdout', () => {
+    expect(script()).toMatch(/logs\/e2e-ldm-trace\.txt/);
+  });
+});
+
 describe('the base image does not float (#1235)', () => {
   it('is pinned by digest, not a tag', () => {
     const from = dockerfile().match(/^FROM\s+(\S+)/m);
