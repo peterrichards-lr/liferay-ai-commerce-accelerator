@@ -163,6 +163,53 @@ log_command() {
 # individually, where each one has to remember. All the subcommands this script
 # uses accept `--node` (verified against `ldm <cmd> --help`), so there is no
 # per-command exception to carry. See #1077.
+# Did the build output actually reach us?
+#
+# The previous version of this capture ran `docker compose build` BEFORE
+# `ldm run`, and could never have worked: LDM generates the compose file
+# during `ldm run`, so there was nothing to build from. It emitted
+# `no configuration file provided: not found` on every run - and its `|| echo`
+# fired on any non-zero exit, so every run also recorded "build reported a
+# failure" whether or not a build had failed. Empty and alarming at once.
+#
+# This replaces that bet with a check. BUILDKIT_PROGRESS=plain reaching the
+# compose child depends on LDM continuing not to set its own - true today,
+# verified, but not a promised interface. If that changes, this says so with
+# the LDM version attached instead of leaving an empty artifact that reads as
+# "the build was cached".
+#
+# A warning, never a failure: the suite must not die because a diagnostic is
+# missing. That was the lesson of #1238, where exactly this kind of block
+# became a second way for the run to end.
+#
+# Three outcomes, deliberately distinguished - "no build happened" is a normal,
+# healthy result on a warm cache and must not read as a broken capture. See
+# #1247.
+assert_build_output_captured() {
+    local log="$1"
+
+    if [ ! -s "$log" ]; then
+        echo "::warning::No ldm run output was captured at all (${log} is empty or absent). The build capture cannot have worked."
+        return 0
+    fi
+
+    # BuildKit's plain writer prefixes every step with `#N `, and names the
+    # stage. Either spelling counts; matching both means a change to one does
+    # not silently fail the check.
+    if grep -qE '^#[0-9]+ |\[internal\] load build definition|DONE [0-9]+\.[0-9]+s' "$log"; then
+        echo "🔎 Build output captured in ${log}."
+        return 0
+    fi
+
+    if grep -qE 'Pulling|Pulled|Container .* (Created|Started)|Starting Container Stack' "$log"; then
+        echo "🔎 No image build this run (nothing to rebuild); bring-up output captured in ${log}."
+        return 0
+    fi
+
+    echo "::warning::ldm run produced output but no BuildKit progress lines, with LDM $(ldm --version 2>/dev/null || echo 'unknown'). BUILDKIT_PROGRESS=plain may no longer reach the compose child - see #1247."
+    return 0
+}
+
 ldm_cmd() {
     local node_args=()
 
@@ -1916,34 +1963,35 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
 
     write_signal "STARTING"
-    # Build the images first, with their output captured.
+    # Make BuildKit emit the build line by line instead of redrawing a frame.
     #
-    # `ldm run` calls `docker compose up`, which swallows BuildKit output
-    # beyond a truncated frame. Nightlies 37106009658, 37186266764 and
-    # 37280776231 all died at `RUN yarn install` in the microservice image and
-    # NONE of them says why - the job log has `yarn install v1.22.22` and
-    # `[1/4] Resolving packages...` and then nothing. Three days of failures
-    # and the error never left the node.
+    # `ldm run` shells out to `docker compose up`, and our compose file has a
+    # `build:` section, so a missing image is built INSIDE the bring-up - which
+    # is why `RUN yarn install` runs there at all. Nightlies 37106009658,
+    # 37186266764 and 37280776231 all died in it and NONE says why: the job log
+    # has `yarn install v1.22.22`, `[1/4] Resolving packages...` and then
+    # nothing. In tty mode BuildKit redraws one frame in place, so a captured
+    # copy keeps only the last repaint. `plain` has no repainting to lose.
     #
-    # Same defect family as #1194, #1201 and #1214: a capture that reports a
-    # failure without reporting the failure. Before `ldm run`, because a
-    # capture after the failing step never executes; non-fatal, because
-    # diagnostics must not become a second way for the run to die. See #1235.
-    if [ -d "$PROJECT_NAME" ]; then
-        build_log="logs/e2e-image-build.txt"
-        mkdir -p logs
-        echo "🔨 Building images with output captured -> ${build_log}"
-        {
-            echo "=== docker compose build, from ${PROJECT_NAME} ==="
-            echo '(captured because ldm run truncates BuildKit output; an'
-            echo ' empty section below means the build was already cached)'
-            echo
-        } > "$build_log"
-        docker compose --project-directory "$PROJECT_NAME" build \
-            --progress plain >> "$build_log" 2>&1 \
-            || echo "(build reported a failure; see above - ldm run will say so too)" \
-                >> "$build_log"
-    fi
+    # LDM sets no --progress flag and no BUILDKIT_PROGRESS of its own (verified
+    # across ldm_core: zero matches), so this propagates to the compose child
+    # untouched. It is an absence rather than a feature, which is the better
+    # kind of thing to depend on.
+    #
+    # DO NOT "improve" this by adding `-f`/`--follow` to RUN_ARGS. It looks
+    # like the right answer - with --follow, LDM runs the bring-up with
+    # capture_output=False and BuildKit streams straight through. But
+    # ldm_core/pipelines/run.py:2830 then does this:
+    #
+    #     if follow:
+    #         # DELIBERATELY UNBOUNDED (LDM-#2072)
+    #         manager.run_command([*compose_base, "logs", "-f"], ...)
+    #         return None
+    #
+    # An unbounded `compose logs -f`, and an early return that skips the
+    # --no-wait path below. It would hang this script for ever - the exact
+    # failure #1237 exists for - and bypass --no-wait on the way. See #1247.
+    export BUILDKIT_PROGRESS=plain
 
     echo "⚡ Starting Liferay container with tag [$LIFERAY_TAG] (Detached + Sidecar)..."
     # LDM 2.7.12+ automatically:
@@ -1966,7 +2014,25 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         RUN_ARGS+=("$LDM_SSL_FLAG")
     fi
     docker rm -f liferay-docker-proxy 2>/dev/null || true
-    ldm_cmd "${RUN_ARGS[@]}"
+    # Teed so the build reaches the artifact, not only the step log, which is
+    # 70k lines and expires with the run.
+    #
+    # `pipefail` is NOT set in this script - two comments above already record
+    # bugs caused by that - so the pipeline's status is tee's and is always 0.
+    # Without reinstating it explicitly, a failed `ldm run` would read as a
+    # successful one, which is far worse than the missing build output this
+    # block exists to fix.
+    LDM_RUN_LOG="logs/e2e-ldm-run.txt"
+    mkdir -p logs
+    ldm_cmd "${RUN_ARGS[@]}" 2>&1 | tee "$LDM_RUN_LOG"
+    ldm_run_status=${PIPESTATUS[0]}
+
+    assert_build_output_captured "$LDM_RUN_LOG"
+
+    if [ "$ldm_run_status" -ne 0 ]; then
+        echo "::error::ldm run exited ${ldm_run_status}; see ${LDM_RUN_LOG}"
+        exit "$ldm_run_status"
+    fi
 
 else
     echo "⏭️  Skipping initialization/boot for existing project '$PROJECT_NAME'."
