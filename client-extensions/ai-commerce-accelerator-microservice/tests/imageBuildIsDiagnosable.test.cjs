@@ -1,18 +1,29 @@
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
 
 /**
  * A failing image build must say why, and must not float.
  *
  * Nightlies 37106009658, 37186266764 and 37280776231 all died at
- * `RUN yarn install` in the microservice image, and none of them says why:
- * `ldm run` calls `docker compose up`, which swallows BuildKit's output beyond
- * a truncated frame. The job log has `yarn install v1.22.22`, then
- * `[1/4] Resolving packages...`, then nothing. Three days, no error.
+ * `RUN yarn install` in the microservice image and none says why. Our compose
+ * file has a `build:` section, so `compose up` builds a missing image without
+ * `--build` — the build happens inside the bring-up, and in tty mode BuildKit
+ * redraws one frame in place, so a captured copy keeps only the last repaint.
  *
- * Same family as #1194, #1201 and #1214 — a capture that reports a failure
- * without reporting the failure — this time in the build path. See #1235.
+ * THIS FILE PREVIOUSLY ENFORCED THE BUG (#1247). Its first three tests
+ * asserted that the script ran `docker compose ... build` with
+ * `--progress plain` BEFORE `ldm run`, and that the string
+ * "build reported a failure" was present. All three passed for the whole life
+ * of a capture that emitted `no configuration file provided: not found` on
+ * every run and never captured a build — because LDM generates the compose
+ * file DURING `ldm run`, so there was nothing to build from.
+ *
+ * The lesson is encoded below: asserting the SHAPE of a capture cannot tell
+ * you the capture works. These tests run the capture's own check against real
+ * inputs instead, and lock the two shapes that must never come back.
  */
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'run-e2e-ldm.sh');
@@ -23,31 +34,112 @@ const DOCKERFILE = path.join(
   'Dockerfile'
 );
 
-const script = () => withoutHashComments(fs.readFileSync(SCRIPT, 'utf8'));
+const rawScript = () => fs.readFileSync(SCRIPT, 'utf8');
+const script = () => withoutHashComments(rawScript());
 const dockerfile = () => fs.readFileSync(DOCKERFILE, 'utf8');
 
-describe('the image build is diagnosable (#1235)', () => {
-  it('builds with captured output before the stack is started', () => {
-    const source = script();
+/** Run the script's own assertion against a log we control. */
+function runAssertion(contents) {
+  const source = rawScript();
+  const start = source.indexOf('assert_build_output_captured() {');
+  const end = source.indexOf('\n}\n', start);
 
-    expect(source).toMatch(/docker compose[\s\S]{0,80}build/);
-    // Plain progress, or BuildKit collapses the very output this captures.
-    expect(source).toMatch(/--progress plain/);
+  expect(start).toBeGreaterThan(-1);
+
+  const fn = source.slice(start, end + 3);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'build-capture-'));
+  const log = path.join(dir, 'ldm-run.txt');
+
+  fs.writeFileSync(log, contents);
+
+  try {
+    return execFileSync(
+      'bash',
+      ['-c', `${fn}\nassert_build_output_captured "${log}"`],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+describe('the build capture reports what actually happened (#1247)', () => {
+  it('recognises a real build', () => {
+    const out = runAssertion(
+      '#1 [internal] load build definition from Dockerfile\n#5 DONE 0.3s\n'
+    );
+
+    expect(out).toMatch(/Build output captured/);
+    expect(out).not.toMatch(/::warning::/);
   });
 
-  it('builds BEFORE ldm run, or the capture is pointless', () => {
-    // `ldm run` is what fails; a capture after it never executes.
+  it('calls a warm cache a warm cache, not a broken capture', () => {
+    // The outcome the old capture could not express. A run with nothing to
+    // rebuild is healthy, and reporting it as a failed capture is how a
+    // reader learns to ignore the artifact.
+    const out = runAssertion(
+      'Pulling liferay...\nStarting Container Stack\nContainer aica-e2e Started\n'
+    );
+
+    expect(out).toMatch(/No image build this run/);
+    expect(out).not.toMatch(/::warning::/);
+  });
+
+  it('warns when output arrived but carried no build lines', () => {
+    // BUILDKIT_PROGRESS=plain reaching the compose child depends on LDM
+    // continuing to set none of its own. True today, not a promised
+    // interface — so it must be noticed, not assumed.
+    expect(runAssertion('some unrelated output\n')).toMatch(/::warning::/);
+  });
+
+  it('warns when nothing was captured at all', () => {
+    expect(runAssertion('')).toMatch(/::warning::/);
+  });
+
+  it('never fails the run, whatever it finds', () => {
+    // Diagnostics must not become a second way for the run to die (#1238).
+    // Asserted by execution: execFileSync throws on a non-zero exit, so each
+    // call above already proves it, and this states it for the empty case.
+    expect(() => runAssertion('')).not.toThrow();
+  });
+});
+
+describe('the shapes that must not come back (#1247)', () => {
+  it('does not run a second `docker compose build` of its own', () => {
+    // A reproduction against a different cache state. One that SUCCEEDS while
+    // the real build failed would exonerate the thing that broke.
+    expect(script()).not.toMatch(/docker compose[\s\S]{0,120}\bbuild\b/);
+  });
+
+  it('does not pass --follow to ldm run', () => {
+    // It looks like the fix — with --follow, LDM runs the bring-up with
+    // capture_output=False and BuildKit streams through. But
+    // ldm_core/pipelines/run.py:2830 then runs a DELIBERATELY UNBOUNDED
+    // `compose logs -f` and returns early, skipping --no-wait. It would hang
+    // the run for ever: the exact failure #1237 exists for.
+    const runArgs = script().match(/RUN_ARGS=\(([\s\S]*?)\n\s*\)/);
+
+    expect(runArgs).not.toBeNull();
+    expect(runArgs[1]).not.toMatch(/(^|\s)(-f|--follow)(\s|$)/);
+  });
+
+  it('exports plain BuildKit progress before the stack starts', () => {
     const source = script();
-    const build = source.indexOf('docker compose --project-directory');
+    const exported = source.indexOf('BUILDKIT_PROGRESS=plain');
     const run = source.indexOf('Starting Liferay container with tag');
 
-    expect(build).toBeGreaterThan(-1);
-    expect(build).toBeLessThan(run);
+    expect(exported).toBeGreaterThan(-1);
+    expect(exported).toBeLessThan(run);
   });
 
-  it('cannot fail the run on its own', () => {
-    // Diagnostics must not become a second way for the run to die.
-    expect(script()).toMatch(/build reported a failure/);
+  it("takes ldm run's status from PIPESTATUS, not the pipeline", () => {
+    // `pipefail` is not set in this script, so a teed command's pipeline
+    // status is tee's and is always 0. Without this, a failed bring-up reads
+    // as a successful one — worse than the missing output being fixed.
+    const source = script();
+
+    expect(source).toMatch(/ldm_run_status=\$\{PIPESTATUS\[0\]\}/);
+    expect(source).toMatch(/exit "\$ldm_run_status"/);
   });
 });
 
@@ -57,7 +149,6 @@ describe('the base image does not float (#1235)', () => {
 
     expect(from).not.toBeNull();
     expect(from[1]).toMatch(/@sha256:[0-9a-f]{64}$/);
-    // The line whose change turns this red, and the exact shape that shipped.
     expect(from[1]).not.toMatch(/:latest$/);
   });
 });
