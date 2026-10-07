@@ -2375,10 +2375,28 @@ close_node_tunnel() {
 # both unnecessary and wrong. Detect it rather than pinning a version, so an
 # older LDM still runs - it just probes as it always did.
 PROBE_URL_ARGS=()
-if ldm wait --help 2>&1 | grep -q -- '--probe-url'; then
-    PROBE_URL_ARGS=(--probe-url "$TARGET_URL")
-else
-    echo "⚠️  This LDM has no --probe-url; readiness will probe the address it derives, not $TARGET_URL."
+if [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ]; then
+    # Only when a tunnel makes LDM's own derivation wrong.
+    #
+    # #1088 added this because a REMOTE stack is reached through a forwarded
+    # port, so the address LDM derives points at the node rather than at the
+    # tunnel. It was applied unconditionally, and that broke local runs - where
+    # there is no tunnel and the derivation was right all along.
+    #
+    # The packaging job is a local run. From 21 September it probed
+    # http://<project>.demo instead, which on an unactivated DXP is the
+    # activation page (#805) and can never satisfy the probe. Packaging has
+    # never had a licence and never needed one; it had simply never been
+    # pointed at the portal before. Release v3.3.54 burned the full 30-minute
+    # timeout against a Liferay that had finished initialising nine seconds in.
+    #
+    # `open_node_tunnel` already returns early on the same condition, so this
+    # is the existing notion of "is there a tunnel", not a new one. See #1257.
+    if ldm wait --help 2>&1 | grep -q -- '--probe-url'; then
+        PROBE_URL_ARGS=(--probe-url "$TARGET_URL")
+    else
+        echo "⚠️  This LDM has no --probe-url; readiness will probe the address it derives, not $TARGET_URL."
+    fi
 fi
 
 if ! open_node_tunnel; then
