@@ -222,6 +222,92 @@ assert_build_output_captured() {
     return 0
 }
 
+# `ldm rm --delete` does not remove the project directory on the NODE.
+#
+# Its help says it will "permanently delete its directory from disk", and for a
+# local project it does. For a node-targeted one it drops the containers, the
+# schema and the registry entry, then safe_rmtree's the LOCAL path. Nothing
+# deletes the remote copy - liferay-docker-manager confirmed it, and a grep of
+# their tree for any remote removal finds none.
+#
+# So ~/.liferay-docker/projects/<project>/routes/default/dxp survives every run.
+# Liferay writes the four com.liferay.lxc.dxp.* values into it on first
+# provision and - on the evidence - does not rewrite them once present. Ours was
+# dated 23 SEPTEMBER while the client-extension tree beside it in the same
+# listing was current, and it said:
+#
+#     com.liferay.lxc.dxp.main.domain = localhost
+#
+# Every OAuth user-agent application then gets redirect.uris of
+# http://localhost/o/oauth2/redirect, so a browser on the real host can never
+# complete a handshake, and twelve specs fail on elements that never render.
+# The container's own LIFERAY_LXC_DXP_MAIN_DOMAIN is correct throughout;
+# config-node reads config TREES before individual environment variables, so the
+# stale tree outranks it. That is why --host-name looks correctly plumbed and
+# changes nothing.
+#
+# Narrow on purpose: the dxp subtree only, not the whole remote project. The
+# proven defect is these four files, and removing more would be a larger change
+# justified by less evidence. LDM rescaffolds the empty directory and Liferay
+# writes it fresh. See #1252.
+# Does the portal's own notion of its domain match the host the suite uses?
+#
+# A precondition for every browser-side OAuth path in the suite, and when it is
+# wrong the symptom is twelve specs timing out on elements that never render -
+# which took a full run and a long read of the artifacts to trace back to one
+# stale file. Named here instead, in one line, before a single spec runs.
+#
+# A WARNING, not a failure. #1238 was a diagnostic becoming a second way for
+# the run to die, and that lesson outranks the convenience of failing early:
+# a wrong domain still lets most of the suite run, and a check that halts the
+# run on its own reading would be worse than the twelve timeouts it replaces.
+#
+# Reads the tree rather than the environment on purpose. The environment has
+# been correct throughout this defect's life; config-node consults config TREES
+# first, so the tree is what consumers actually get. See #1252.
+assert_dxp_domain_matches_host() {
+    local container domain
+    container="${MICROSERVICE_CONTAINER:-${PROJECT_NAME}-ai-commerce-accelerator-microservice}"
+
+    domain="$(docker exec "$container" sh -c '
+        dxp="${LIFERAY_ROUTES_DXP:-/etc/liferay/lxc/routes/dxp}"
+        cat "$dxp/com.liferay.lxc.dxp.main.domain" 2>/dev/null' 2>/dev/null)"
+
+    if [ -z "$domain" ]; then
+        echo "⚠️  Could not read com.liferay.lxc.dxp.main.domain; OAuth redirect URIs cannot be checked (#1252)."
+        return 0
+    fi
+
+    if [ "$domain" = "$TARGET_HOST" ]; then
+        echo "✅ DXP config tree names ${domain}, matching the suite's host."
+        return 0
+    fi
+
+    echo "::warning::DXP config tree says '${domain}' but the suite uses '${TARGET_HOST}'. Every OAuth redirect URI is registered against the wrong host, so browser-side specs will fail on elements that never render. This is #1252 - the node's stale routes/default/dxp."
+    return 0
+}
+
+remove_stale_node_dxp_tree() {
+    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
+
+    # Never build an rm -rf path from an empty name. It would still be scoped
+    # to .../projects//routes/default/dxp and harmless, but a destructive
+    # command should not rely on that being true of the next edit too.
+    [ -n "${PROJECT_NAME:-}" ] || return 0
+
+    local endpoint
+    endpoint="$(node_ssh_endpoint)"
+    [ -n "$endpoint" ] || return 0
+
+    if ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
+        "rm -rf \"\$HOME/.liferay-docker/projects/${PROJECT_NAME}/routes/default/dxp\"" \
+        2>/dev/null; then
+        echo "🧹 Removed any stale DXP config tree on '${LDM_NODE_TARGET}' so Liferay rewrites it for ${TARGET_HOST}."
+    else
+        echo "⚠️  Could not remove the node's stale DXP config tree; if OAuth redirect URIs say localhost, that is why (#1252)."
+    fi
+}
+
 ldm_cmd() {
     local node_args=()
 
@@ -529,6 +615,7 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     echo "🧹 Removing any stale '$PROJECT_NAME' before build..."
     ldm_cmd rm "$PROJECT_NAME" --delete -y 2>/dev/null || true
     rm -rf "$PROJECT_NAME"
+    remove_stale_node_dxp_tree
 fi
 
 
@@ -1143,7 +1230,9 @@ capture_microservice_diagnostics() {
             dxp="${LIFERAY_ROUTES_DXP:-/etc/liferay/lxc/dxp-metadata}"
             for f in "$dxp"/*; do
                 [ -f "$f" ] || continue
-                printf "%s = %s\n" "$(basename "$f")" "$(cat "$f" 2>&1)"
+                printf "%s = %s   [written %s]\n" "$(basename "$f")" \
+                    "$(cat "$f" 2>&1)" \
+                    "$(date -r "$f" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "?")"
             done' 2>&1 \
             | perl -pe 's/((?:secret|password|api[._]?key|token)\W{0,3}).*/$1<redacted>/gi' \
             || echo "(DXP tree values unreadable)"
@@ -2457,6 +2546,7 @@ fi
 # good, so the environment the microservice actually received is on record
 # before anything can go wrong.
 capture_microservice_diagnostics pre-tests || true
+assert_dxp_domain_matches_host || true
 capture_proxy_diagnostics pre-tests || true
 
 echo "🎭 Phase 5: Running Playwright E2E tests..."
