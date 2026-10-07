@@ -49,7 +49,11 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
         'PROJECT_NAME=aica-e2e',
         'TARGET_HOST=aica-e2e.demo',
         'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
-        'ssh() { echo "SSH-ARGS: $*"; return 0; }',
+        // Fails on purpose, and echoes its argv to stderr: the function now
+        // CAPTURES stderr rather than discarding it, so the failure path is
+        // where the command it built becomes visible. On success nothing is
+        // printed, which is correct and makes success untestable this way.
+        'ssh() { echo "SSH-ARGS: $*" >&2; return 1; }',
       ].join('\n')
     );
 
@@ -90,6 +94,57 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
     );
 
     expect(out).not.toContain('SSH-ARGS');
+  });
+
+  it('says WHY it failed, not merely that it did', () => {
+    // Run 37624820282: the removal failed and the warning said only that it
+    // had, because the ssh call sent stderr to /dev/null. A diagnostic
+    // reporting a failure without reporting the failure — the family this
+    // repository keeps producing, written into the fix for an instance of it.
+    const out = run(
+      'remove_stale_node_dxp_tree',
+      [
+        'LDM_NODE_TARGET=aws-1',
+        'PROJECT_NAME=aica-e2e',
+        'TARGET_HOST=aica-e2e.demo',
+        'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
+        'ssh() { echo "Permission denied (publickey)." >&2; return 255; }',
+      ].join('\n')
+    );
+
+    expect(out).toContain('Permission denied (publickey).');
+    expect(out).toContain('255');
+    expect(out).toContain('user@10.0.0.1');
+    expect(out).toContain('exit=0');
+  });
+
+  it('distinguishes a silent failure from a reported one', () => {
+    // An ssh that fails with nothing on stderr must not produce a warning that
+    // looks like it carries a reason when it does not.
+    const out = run(
+      'remove_stale_node_dxp_tree',
+      [
+        'LDM_NODE_TARGET=aws-1',
+        'PROJECT_NAME=aica-e2e',
+        'TARGET_HOST=aica-e2e.demo',
+        'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
+        'ssh() { return 1; }',
+      ].join('\n')
+    );
+
+    expect(out).toContain('no output on stderr');
+  });
+
+  it('runs AFTER the project is synced to the node', () => {
+    // Before `ldm import` is too early: import syncs the project to the node,
+    // so a removal before it is undone by whatever import restores. That was
+    // wrong in the first version regardless of the ssh failure.
+    const source = script();
+    const imp = source.indexOf('ldm_cmd import .');
+    const remove = source.indexOf('    remove_stale_node_dxp_tree\n');
+
+    expect(imp).toBeGreaterThan(-1);
+    expect(remove).toBeGreaterThan(imp);
   });
 
   it('runs before the stack is built, not after', () => {
