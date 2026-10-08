@@ -1,10 +1,15 @@
 const {
   createERC,
-  buildStableERC,
   fromI18n,
   resolveErrorReference,
 } = require('../../utils/misc.cjs');
 const { ERC_PREFIX, WORKFLOW_STEPS } = require('../../utils/constants.cjs');
+const {
+  normaliseCategoryTree,
+  buildCategoryPathIndex,
+  categoryPathFor,
+} = require('../../utils/categoryTree.cjs');
+const { ensureCategoryPath } = require('../../utils/ensureCategoryPath.cjs');
 
 const S = WORKFLOW_STEPS;
 
@@ -138,6 +143,45 @@ async function runEnsureCategoriesStep(sessionId) {
       }
     }
 
+    // 3b. The configured hierarchy, read once.
+    //
+    // Products carry a category NAME; the tree turns that back into the
+    // ancestry Liferay needs. Failure here is non-fatal and leaves an empty
+    // index, under which every category resolves to a path of one - exactly
+    // the flat behaviour that shipped before #1204. A taxonomy refinement
+    // must not cost the product run.
+    let categoryPathIndex = new Map();
+
+    try {
+      const configured = await this.ctx?.config?.getCategories?.(config);
+      const { index, ambiguous } = buildCategoryPathIndex(
+        normaliseCategoryTree(configured)
+      );
+
+      categoryPathIndex = index;
+
+      if (ambiguous.length > 0) {
+        // Said out loud rather than resolved silently: the product carries a
+        // name, not a path, so nothing here can know which branch was meant.
+        this.logger.warn(
+          `${ambiguous.length} category name(s) appear under more than one parent; the first path wins`,
+          {
+            sessionId,
+            names: ambiguous.map((a) => ({
+              name: a.name,
+              used: a.kept.join(' > '),
+              ignored: a.ignored.join(' > '),
+            })),
+          }
+        );
+      }
+    } catch (treeError) {
+      this.logger.warn(
+        `Could not read the configured categories; falling back to flat categories: ${treeError.message}`,
+        { sessionId }
+      );
+    }
+
     // 4. Resolve/create categories
     const updatedProductDataList = [...productDataList];
     let processedCount = 0;
@@ -154,90 +198,67 @@ async function runEnsureCategoriesStep(sessionId) {
           : pd.category;
       const categoryName =
         fromI18n(categoryObj, defaultLocaleKey) || 'Default Category';
-      // No `|| 'CAT'` fallback. It read as a deliberate default and was not:
-      // ERC_PREFIX.CATEGORY did not exist, so the fallback was the only branch
-      // ever taken and a wrong-but-consistent prefix looked correct on every
-      // run. A missing constant must fail rather than silently degrade (#1206).
+      // The ERC is keyed by the full PATH, not the leaf name.
       //
-      // The hash covers the name alone. That is sound while the category list
-      // is a flat set of unique strings; it stops being sound under #1204,
-      // where two sub-categories sharing a name under different parents would
-      // collide on one ERC and the reuse map below would assign the first
-      // category's id to both. The parent must join this key when it exists.
-      const categoryERC = buildStableERC(ERC_PREFIX.CATEGORY, [categoryName]);
+      // Hashing the name alone was sound while categories were a flat set of
+      // unique strings. Under #1204 it is not: "Outdoor > Chairs" and
+      // "Indoor > Chairs" collide on one ERC and the reuse map hands the first
+      // category's id to both. A top-level path is [name], so its ERC is
+      // unchanged and existing data does not churn.
+      //
+      // utils/ensureCategoryPath.cjs also creates parent-first: Liferay posts
+      // a child to /taxonomy-categories/{parentId}/..., so the parent's id has
+      // to exist before the child can be created at all.
+      const categoryPath = categoryPathFor(categoryPathIndex, categoryName);
 
-      let categoryId =
-        categoryMap.get(categoryERC.toUpperCase()) ||
-        categoryMap.get(categoryName.toLowerCase());
-
-      if (!categoryId) {
-        this.logger.info(`Creating taxonomy category: ${categoryName}`, {
-          sessionId,
-          erc: categoryERC,
-        });
-
-        const localizedNameI18n = {};
-        for (const [lang, val] of Object.entries(categoryObj)) {
-          localizedNameI18n[lang.replace('-', '_')] = val;
-        }
-
-        const payload = {
-          name: categoryName,
-          name_i18n: localizedNameI18n,
-          externalReferenceCode: categoryERC,
-        };
-
-        try {
-          const created = await this.liferay.createTaxonomyCategory(
+      const { ids: categoryIds, failedAt } = await ensureCategoryPath({
+        path: categoryPath,
+        cache: categoryMap,
+        vocabularyId,
+        createCategory: (vocabId, payload, parentId) =>
+          this.liferay.createTaxonomyCategory(
             config,
-            vocabularyId,
-            payload
-          );
-          categoryId = created.id;
-          categoryMap.set(categoryERC.toUpperCase(), categoryId);
-          categoryMap.set(categoryName.toLowerCase(), categoryId);
-        } catch (createError) {
-          this.logger.warn(
-            `Failed to create taxonomy category ${categoryName}, falling back to reuse search: ${createError.message}`,
-            { sessionId }
-          );
-          // Double check if created concurrently
-          const refreshedCats = await this.liferay.getTaxonomyCategories(
-            config,
-            vocabularyId
-          );
-          const found = (refreshedCats?.items || refreshedCats || []).find(
-            (c) => {
-              const name =
-                typeof c.name === 'string'
-                  ? c.name
-                  : fromI18n(c.name_i18n || c.name);
-              return name && name.toLowerCase() === categoryName.toLowerCase();
-            }
-          );
-          if (found) {
-            categoryId = found.id;
-          } else {
-            throw createError;
+            vocabId,
+            payload,
+            parentId
+          ),
+        localise: (name) => {
+          // Only the leaf carries the product's localised names. An ancestor
+          // supplied by the tree has no translations to offer and must not
+          // borrow the leaf's.
+          if (name !== categoryName) return null;
+
+          const i18n = {};
+
+          for (const [lang, val] of Object.entries(categoryObj)) {
+            i18n[lang.replace('-', '_')] = val;
           }
-        }
+
+          return i18n;
+        },
+      });
+
+      if (failedAt) {
+        this.logger.warn(
+          `Could not create category '${failedAt.join(' > ')}'; the product keeps the ancestors that resolved`,
+          { sessionId, productERC: pd.externalReferenceCode }
+        );
       }
 
-      // Assigned only when it resolved. Assigning an undefined id put
+      // Assigned only when something resolved. An undefined id put
       // `[undefined]` on the product, which became `[{}]` in the payload and
       // cost the whole item. See #651.
-      if (
-        categoryId === null ||
-        categoryId === undefined ||
-        categoryId === ''
-      ) {
+      if (categoryIds.length === 0) {
         this.logger.warn(
           `Could not resolve a Liferay category for '${categoryName}'; the product will be created without one`,
           { sessionId, productERC: pd.externalReferenceCode }
         );
         pd.categories = [];
       } else {
-        pd.categories = [categoryId];
+        // Leaf AND ancestors. Liferay does not imply them, so a product under
+        // "Outdoor > Tents" carrying only the Tents id does not appear when
+        // browsing Outdoor - which is what faceted navigation does.
+        pd.categories = categoryIds;
       }
 
       processedCount++;
