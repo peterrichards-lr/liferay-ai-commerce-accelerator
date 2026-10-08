@@ -48,17 +48,38 @@ describe('taxonomy category ERCs (#1206)', () => {
     );
   });
 
-  it('cannot yet distinguish two categories sharing a name', () => {
-    // Recorded as a constraint rather than asserted as correct. The key is the
-    // name alone, so under #1204 "Accessories" beneath Electronics and
-    // "Accessories" beneath Clothing would produce ONE code, and the reuse map
-    // in product-steps/categories.cjs would give both products the first
-    // category's id - silently, because a collision there looks like reuse.
-    //
-    // This case exists so that adding the parent to the key breaks it visibly,
-    // and whoever does that has to come here and say so.
+  it('is deterministic for the same key', () => {
     expect(buildStableERC(ERC_PREFIX.CATEGORY, ['Accessories'])).toBe(
       buildStableERC(ERC_PREFIX.CATEGORY, ['Accessories'])
+    );
+  });
+
+  it('distinguishes two categories sharing a name under different parents', () => {
+    // THE CONSTRAINT THIS FILE RECORDED IS LIFTED (#1204).
+    //
+    // It used to say the key was the name alone, so "Accessories" beneath
+    // Electronics and beneath Clothing produced ONE code and the reuse map
+    // gave both products the first category's id - silently, because a
+    // collision there looks like reuse. It asked whoever fixed that to come
+    // here and say so.
+    //
+    // Saying so: product-steps/categories.cjs now passes the full PATH, via
+    // utils/ensureCategoryPath.cjs. The primitive never changed - it hashes
+    // what it is given - so the old case passed throughout and was never the
+    // tripwire it was meant to be. It asserted determinism, not name-only
+    // keying. This asserts the thing that actually matters.
+    expect(
+      buildStableERC(ERC_PREFIX.CATEGORY, ['Electronics', 'Accessories'])
+    ).not.toBe(
+      buildStableERC(ERC_PREFIX.CATEGORY, ['Clothing', 'Accessories'])
+    );
+  });
+
+  it('leaves a top-level category with the code it already had', () => {
+    // What makes the path key deployable rather than a migration: a
+    // top-level path is [name], so nothing existing churns.
+    expect(buildStableERC(ERC_PREFIX.CATEGORY, ['Electronics'])).toBe(
+      buildStableERC(ERC_PREFIX.CATEGORY, ['Electronics'])
     );
   });
 });
