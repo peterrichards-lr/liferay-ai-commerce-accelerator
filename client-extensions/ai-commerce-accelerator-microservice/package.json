@@ -1,19 +1,19 @@
 {
   "author": "Peter Richards",
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.68",
-    "@anthropic-ai/sdk": "^0.129.0",
+    "@ai-sdk/anthropic": "^4.0.72",
+    "@anthropic-ai/sdk": "^0.131.0",
     "@google-cloud/storage": "^8.2.0",
     "@google/generative-ai": "^0.24.1",
     "@liferay/accelerator-sdk": "git+https://github.com/peterrichards-lr/liferay-accelerator-sdk.git#v0.12.6",
-    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@rotty3000/config-node": "^0.4.1",
     "ajv": "^8.12.0",
     "ajv-formats": "^3.0.1",
     "axios": "^1.19.0",
     "better-sqlite3": "^13.0.3",
     "cors": "^2.8.5",
-    "dotenv": "^18.0.4",
+    "dotenv": "^18.0.5",
     "express": "^5.1.0",
     "form-data": "^4.0.6",
     "js-tiktoken": "^1.0.21",
@@ -27,7 +27,7 @@
     "node-fetch": "^3.3.2",
     "node-stream-zip": "^1.16.0",
     "nunjucks": "^3.2.4",
-    "openai": "^7.23.0",
+    "openai": "^7.28.0",
     "ws": "^8.22.0",
     "zod": "^4.6.5"
   },
@@ -49,15 +49,15 @@
   "version": "1.0.0",
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@vitest/coverage-v8": "5.0.2",
+    "@vitest/coverage-v8": "5.0.3",
     "autocannon": "^8.0.0",
-    "eslint": "10.11.0",
+    "eslint": "10.12.0",
     "eslint-plugin-promise": "^7.2.1",
-    "eslint-plugin-security": "^4.1.0",
+    "eslint-plugin-security": "^4.2.0",
     "graphql": "^17.0.2",
     "msw": "^2.15.0",
     "prettier": "^3.9.9",
-    "supertest": "^7.3.0",
-    "vitest": "5.0.2"
+    "supertest": "^7.3.1",
+    "vitest": "5.0.3"
   }
 }
