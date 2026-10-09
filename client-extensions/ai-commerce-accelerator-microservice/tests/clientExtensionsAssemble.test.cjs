@@ -2,6 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const YAML = require('yaml');
 
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * Every client extension must actually assemble something (#1164).
  *
@@ -51,10 +53,17 @@ function manifestOf(name) {
 // or one the extension's own build emits. Rather than run the build, ask its
 // configuration - esbuild's --outdir and vite's outDir both name it literally.
 function isDeclaredBuildOutput(cxDir, from) {
-  return ['package.json', 'vite.config.js', 'webpack.config.js']
-    .map((f) => path.join(cxDir, f))
-    .filter((f) => fs.existsSync(f))
-    .some((f) => fs.readFileSync(f, 'utf8').includes(from));
+  return (
+    ['package.json', 'vite.config.js', 'webpack.config.js']
+      .map((f) => path.join(cxDir, f))
+      .filter((f) => fs.existsSync(f))
+      // Stripped, because `from` is a bare directory name: a comment saying
+      // "output goes to build/" would otherwise stand in for the build actually
+      // emitting it (#1172). `package.json` has no comments to lose.
+      .some((f) =>
+        withoutSlashComments(fs.readFileSync(f, 'utf8')).includes(from)
+      )
+  );
 }
 
 describe('every client extension assembles something real (#1164)', () => {

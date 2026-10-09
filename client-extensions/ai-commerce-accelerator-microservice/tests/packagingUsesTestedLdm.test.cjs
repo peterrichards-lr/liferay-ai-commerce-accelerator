@@ -1,6 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * The release artifact must be built by the LDM the E2E verifies with.
  *
@@ -25,7 +27,14 @@ const WORKFLOWS = path.resolve(
   'workflows'
 );
 
-const read = (name) => fs.readFileSync(path.join(WORKFLOWS, name), 'utf8');
+/**
+ * The workflows are read with their `#` comments removed. Every case here
+ * scans YAML as text, and the third already hand-rolled the same filter for
+ * one of them - which is the defect #1172 is about: fixed where it bit, not
+ * as a class. The shared stripper does it once, for all three.
+ */
+const read = (name) =>
+  withoutHashComments(fs.readFileSync(path.join(WORKFLOWS, name), 'utf8'));
 
 describe('packaging and verification use the same LDM (#1148)', () => {
   test('both resolve it from vars.LDM_VERSION', () => {
@@ -48,7 +57,6 @@ describe('packaging and verification use the same LDM (#1148)', () => {
     // that silently means "newest stable" rather than "what we tested".
     const unconditional = installStep
       .split('\n')
-      .filter((line) => !line.trim().startsWith('#'))
       .filter((line) => line.includes('releases/latest/download'))
       .filter((line) => !line.includes('DOWNLOAD_URL='));
 

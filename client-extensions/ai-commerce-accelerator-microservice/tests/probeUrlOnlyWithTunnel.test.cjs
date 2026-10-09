@@ -2,6 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * `--probe-url` belongs to the tunnel, not to every run.
  *
@@ -66,7 +68,11 @@ describe('--probe-url is passed only when a tunnel justifies it (#1257)', () => 
   it('uses the same notion of "is there a tunnel" as open_node_tunnel', () => {
     // Two different answers to that question would drift apart, and the
     // symptom would be a 30-minute timeout rather than an error.
-    const source = fs.readFileSync(SCRIPT, 'utf8');
+    // Stripped, because this reads the guard out of the script as text. The
+    // same condition is quoted in a comment a few lines above it, and an
+    // unstripped read would find that one and pass with the code deleted.
+    // See #1172.
+    const source = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8'));
     const fn = source.slice(source.indexOf('open_node_tunnel() {'));
     const guard =
       '[ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ]';
