@@ -3,6 +3,7 @@ const path = require('path');
 const generateRoute = require('../routes/generate.cjs');
 const ProductGenerator = require('../generators/productGenerator.cjs');
 const { WORKFLOW_STEPS } = require('../utils/constants.cjs');
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
 const {
   pricingSteps,
   specificationSteps,
@@ -431,9 +432,11 @@ describe('Route parity for the gated steps', () => {
   it.each(['generate.cjs', 'mcp.cjs'])(
     '%s composes the optional product steps through productSubflow',
     (routeFile) => {
-      const source = fs.readFileSync(
-        path.join(__dirname, '..', 'routes', routeFile),
-        'utf8'
+      // Stripped: the comment above each composition names the helper it
+      // calls, so an unstripped read would be satisfied by the prose with the
+      // call deleted - the silent direction of #1172.
+      const source = withoutSlashComments(
+        fs.readFileSync(path.join(__dirname, '..', 'routes', routeFile), 'utf8')
       );
 
       expect(source).toContain('warehouseCreationSteps(options)');

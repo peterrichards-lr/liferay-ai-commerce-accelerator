@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { cases } = require('./fixtures/promptCorpus.cjs');
 const { PromptService } = require('../services/promptService.cjs');
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
 
 /**
  * The three list variables must be encoded exactly once.
@@ -53,8 +54,9 @@ for (const one of cases) {
 
 describe('the JSON list variables are encoded once', () => {
   it('aiService hands them over as values, not as strings', () => {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    const source = fs.readFileSync(AI_SERVICE, 'utf8');
+    // Source only. The prompt templates read below are content, not code,
+    // and must not be stripped - a `//` in a template is a URL. See #1172.
+    const source = withoutSlashComments(fs.readFileSync(AI_SERVICE, 'utf8'));
 
     const offenders = JSON_LIST_VARS.flatMap((name) => {
       // eslint-disable-next-line security/detect-non-literal-regexp
