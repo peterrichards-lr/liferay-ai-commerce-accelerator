@@ -1,5 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
+const { execFileSync } = require('node:child_process');
 const YAML = require('yaml');
 const picomatch = require('picomatch');
 
@@ -108,12 +110,69 @@ const WALK_EXCLUDED = new Set([
   '.git',
 ]);
 
+/**
+ * Files git ignores are generated locally; they are not part of what we ship,
+ * and asking whether a glob names them is meaningless.
+ *
+ * `data/` is the directory that proves it. `mock-image.json` and
+ * `mock-pdf.json` must be assembled; `workflows.db` is the SQLite store the
+ * service writes on its first run and must not be. Without this the scan
+ * demanded the database be assembled, so the suite was red on every machine
+ * that had run the service and green in CI, where the tree is pristine. The
+ * `FORBIDDEN` list above already asserts a `.db` is never assembled, so the
+ * two halves of this file contradicted each other. See #1264.
+ *
+ * `.gitignore` is asked directly rather than matched by extension, because a
+ * pattern is precisely what #1166 broke on: `prompts/*.md` and `data/README.md`
+ * are both markdown in an asset directory, and only one is documentation.
+ */
+function everyWalkableFile(dir, out = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (WALK_EXCLUDED.has(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) everyWalkableFile(full, out);
+    else out.push(full);
+  }
+  return out;
+}
+
+function gitIgnoredPaths(root = CX_ROOT) {
+  const candidates = everyWalkableFile(root);
+  if (candidates.length === 0) return new Set();
+
+  try {
+    const stdout = execFileSync('git', ['check-ignore', '--stdin', '-z'], {
+      cwd: root,
+      input: candidates.join('\0') + '\0',
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+
+    return new Set(
+      stdout
+        .split('\0')
+        .filter(Boolean)
+        .map((relative) => path.resolve(root, relative))
+    );
+  } catch {
+    // Exit 1 is `git check-ignore` saying nothing matched, which is an answer.
+    // Anything else - no git, not a work tree - lands here too, and both leave
+    // the set empty. That is the safe direction: a filter that cannot answer
+    // excludes nothing and the scan stays exactly as strict as it was, rather
+    // than emptying itself and passing by finding nothing (#1073).
+    return new Set();
+  }
+}
+
+const gitIgnored = gitIgnoredPaths();
+
 function filesUnder(dir, predicate, base = dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (WALK_EXCLUDED.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) filesUnder(full, predicate, base, out);
-    else if (predicate(entry.name)) out.push(path.relative(base, full));
+    else if (predicate(entry.name) && !gitIgnored.has(full))
+      out.push(path.relative(base, full));
   }
   return out;
 }
@@ -198,5 +257,66 @@ describe('every asset directory the code reads is assembled (#1164)', () => {
         `files are not assembled, ` +
         `so they will not exist in the container:\n  ${missing.join('\n  ')}`
     ).toEqual([]);
+  });
+});
+
+/**
+ * The filter above decides what the scan never sees, which makes it the one
+ * place a hole would be invisible: exclude too much and every case below
+ * passes by finding nothing. #1073's lesson, applied to the exclusion rather
+ * than to the walk.
+ */
+describe('a generated file is not mistaken for an unshipped asset (#1264)', () => {
+  const probe = path.join(CX_ROOT, 'data', '__ignore-probe__.db');
+
+  afterEach(() => {
+    if (fs.existsSync(probe)) fs.unlinkSync(probe);
+  });
+
+  test('a gitignored file inside an asset directory is excluded', () => {
+    fs.writeFileSync(probe, '');
+
+    // Recomputed rather than reusing the module-level set, which was built
+    // before the probe existed. `workflows.db` is the real case and cannot be
+    // relied on here - it exists only on a machine that has run the service,
+    // which is the asymmetry this whole issue is about.
+    expect(gitIgnoredPaths().has(probe)).toBe(true);
+  });
+
+  test('the assets beside it are not excluded', () => {
+    fs.writeFileSync(probe, '');
+    const ignored = gitIgnoredPaths();
+
+    for (const asset of [
+      'data/mock-image.json',
+      'data/mock-pdf.json',
+      'public/index.html',
+      'generation-schemas/product.json',
+    ]) {
+      expect(ignored.has(path.join(CX_ROOT, asset))).toBe(false);
+    }
+  });
+
+  test('the walk still reaches the assets once the filter has run', () => {
+    // The guard that catches over-exclusion: if the filter ever swallowed the
+    // tree, `missing` would be empty everywhere and every case above would
+    // pass without checking anything.
+    const found = filesUnder(path.join(CX_ROOT, 'data'), isAsset);
+    expect(found).toEqual(
+      expect.arrayContaining(['mock-image.json', 'mock-pdf.json'])
+    );
+  });
+
+  test('a work tree git cannot answer for excludes nothing', () => {
+    // Not a repository, so `git check-ignore` fails rather than answering. The
+    // set must come back empty - excluding nothing - and never everything.
+    const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), 'aica-scan-'));
+
+    try {
+      fs.writeFileSync(path.join(elsewhere, 'anything.db'), '');
+      expect(gitIgnoredPaths(elsewhere).size).toBe(0);
+    } finally {
+      fs.rmSync(elsewhere, { recursive: true, force: true });
+    }
   });
 });
