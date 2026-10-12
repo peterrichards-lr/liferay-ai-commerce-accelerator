@@ -147,4 +147,44 @@ export const handlers = [
       message: 'Logs cycled successfully',
     });
   }),
+
+  /**
+   * The CORS preflight, which msw 3 intercepts and msw 2 did not.
+   *
+   * The frontend is served by Liferay and calls the microservice on another
+   * origin, so happy-dom sends an `OPTIONS` before each of these. Under msw 2
+   * that never reached a handler; under msw 3 it does, and an unanswered
+   * preflight goes to the real network, where nothing is listening on 3001.
+   * The request that mattered then failed as a `NetworkError` and the
+   * component rendered its disconnected state - which is what #1233 saw.
+   *
+   * Answering it permissively is right for a mock: what the real microservice
+   * allows is its own concern and is covered on that side by
+   * `exposedHeaders.test.cjs`. This exists so the request under test survives
+   * its preflight, not to assert a policy.
+   */
+  http.options('http://localhost:3001/*', () => {
+    return new HttpResponse(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': '*',
+        'Access-Control-Allow-Headers': '*',
+      },
+    });
+  }),
+
+  /**
+   * The two below were added with `server.use()` inside `beforeAll` in
+   * `setupTests.js`, which meant `resetHandlers()` in `afterEach` removed them
+   * after the first test of every file. They belong in the initial set, which
+   * `resetHandlers()` restores to rather than clears.
+   */
+  http.get('*/api/v1/config/ai', () => {
+    return HttpResponse.json({ success: true, config: { ai: {} } });
+  }),
+
+  http.get('*/', () => {
+    return HttpResponse.json({});
+  }),
 ];
