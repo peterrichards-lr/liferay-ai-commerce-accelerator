@@ -148,9 +148,9 @@ describe('a lower value is a value (#1271)', () => {
     });
 
     it('lowers the default concurrency, the reason to open the panel', () => {
-      expect(1).toBeLessThan(queueService.config.defaults.concurrency);
+      expect(1).toBeLessThan(queueService.settings.defaults.concurrency);
       queueService.applyConfig({ concurrency: 1 });
-      expect(queueService.config.defaults.concurrency).toBe(1);
+      expect(queueService.settings.defaults.concurrency).toBe(1);
     });
 
     it('lowers every default at once', () => {
@@ -162,7 +162,7 @@ describe('a lower value is a value (#1271)', () => {
         cleanupInterval: 60000,
         jobTTL: 60000,
       };
-      const current = queueService.config.defaults;
+      const current = queueService.settings.defaults;
       expect(lowered.concurrency).toBeLessThan(current.concurrency);
       expect(lowered.maxRetries).toBeLessThan(current.maxRetries);
       expect(lowered.retryDelay).toBeLessThan(current.retryDelay);
@@ -172,47 +172,47 @@ describe('a lower value is a value (#1271)', () => {
 
       queueService.applyConfig(lowered);
 
-      expect(queueService.config.defaults).toMatchObject(lowered);
+      expect(queueService.settings.defaults).toMatchObject(lowered);
     });
 
     it('reads the same fields nested under `defaults`', () => {
-      expect(1).toBeLessThan(queueService.config.defaults.concurrency);
+      expect(1).toBeLessThan(queueService.settings.defaults.concurrency);
       queueService.applyConfig({ defaults: { concurrency: 1 } });
-      expect(queueService.config.defaults.concurrency).toBe(1);
+      expect(queueService.settings.defaults.concurrency).toBe(1);
     });
 
     it('lowers a single queue without touching the defaults', () => {
       queueService.applyConfig({
         queues: { 'data-generation': { concurrency: 9 } },
       });
-      expect(queueService.config.byQueue['data-generation'].concurrency).toBe(
+      expect(queueService.settings.byQueue['data-generation'].concurrency).toBe(
         9
       );
 
       queueService.applyConfig({
         queues: { 'data-generation': { concurrency: 1 } },
       });
-      expect(queueService.config.byQueue['data-generation'].concurrency).toBe(
+      expect(queueService.settings.byQueue['data-generation'].concurrency).toBe(
         1
       );
     });
 
     it('holds a default below the floor at the floor', () => {
       queueService.applyConfig({ retryDelay: 1 });
-      expect(queueService.config.defaults.retryDelay).toBe(1000);
+      expect(queueService.settings.defaults.retryDelay).toBe(1000);
     });
 
     it('leaves a field the panel did not fill in alone', () => {
-      const { concurrency, jobTTL } = queueService.config.defaults;
+      const { concurrency, jobTTL } = queueService.settings.defaults;
       queueService.applyConfig({ concurrency: null, jobTTL: '' });
-      expect(queueService.config.defaults.concurrency).toBe(concurrency);
-      expect(queueService.config.defaults.jobTTL).toBe(jobTTL);
+      expect(queueService.settings.defaults.concurrency).toBe(concurrency);
+      expect(queueService.settings.defaults.jobTTL).toBe(jobTTL);
     });
 
     it('leaves every default alone when the read came back empty', () => {
-      const before = { ...queueService.config.defaults };
+      const before = { ...queueService.settings.defaults };
       queueService.applyConfig({});
-      expect(queueService.config.defaults).toEqual(before);
+      expect(queueService.settings.defaults).toEqual(before);
     });
   });
 });
