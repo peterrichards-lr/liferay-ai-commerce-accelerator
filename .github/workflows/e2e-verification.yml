@@ -572,7 +572,33 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         timeout-minutes: 5
 
+      # Bounded, because nothing else ends a stall.
+      #
+      # Step durations, measured rather than estimated (the job is 3-4 minutes
+      # longer; the bound applies to the step):
+      #
+      #   37475461909  39m   reached the specs
+      #   37614369122  39m   reached the specs
+      #   37624820282  38m   reached the specs
+      #   37903519072  33m   reached the specs
+      #   37435455079  108m  hung, cancelled by hand
+      #   37590585149  199m  hung, cancelled by hand
+      #
+      # 39 and 108 with nothing between them, so 60 is well clear of the
+      # largest real run and well inside both hangs. Not tighter: a cold image
+      # build with no layer cache is the legitimate worst case, and a bound
+      # firing during a slow-but-real build would be a new failure mode.
+      #
+      # This does NOT replace LDM's LDM_BRINGUP_TIMEOUT, and is not the better
+      # fix for a hung bring-up. That bound returns control to
+      # run-e2e-ldm.sh, which then runs its teardown captures; this one kills
+      # the step, so those captures are lost exactly as they are on a manual
+      # cancel - run 37435455079's e2e-logs artifact was 166 bytes against
+      # 347 KB for a run that failed normally. It is a backstop against
+      # unbounded cost, covering the stalls LDM's bound does not: a wedged
+      # spec, a hung teardown, anything after bring-up. See #1246, #1174.
       - name: Start LDM and run tests
+        timeout-minutes: 60
         run: |
           NODE_FLAG=""
           if [ "$E2E_TARGET_NODE" != "local" ] && [ -n "$E2E_TARGET_NODE" ]; then
