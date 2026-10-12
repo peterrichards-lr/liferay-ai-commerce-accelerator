@@ -1,4 +1,4 @@
-const { spawnSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -69,28 +69,48 @@ case "$1" in
     ;;
   port) echo "80/tcp -> 0.0.0.0:80" ;;
   logs)
-    ${
-      proxyLogSilent
-        ? // Nothing on stdout, nothing on stderr, exit 0 - what run
-          // 36433590783 got back while every other docker call against this
-          // same container in the same function answered normally.
-          'exit 0'
-        : proxyLogHuge
-          ? // A DEBUG-level proxy over a long run. The line that matters is
-            // near the START, as it is in reality - the provider reacts to
-            // the container at bring-up - and is followed by thousands of
-            // lines that do not name it. Any positional selection drops it.
-            // The escapes are real: traefik:v3.6.1 at the default `common`
-            // format writes them between key and value.
-            `printf '\\033[90m2026-09-30T07:57:05Z\\033[0m DBG \\033[36mcontainer=\\033[0maica-e2e-ai-commerce-accelerator-microservice Filtering disabled container\\n'
-    for i in $(seq 1 3000); do
-      echo "2026-09-30T07:57:06Z DBG unrelated chatter line $i providerName=docker"
+    ${proxyLogSilent ? 'exit 0' : ''}
+    # --tail is honoured, as the real docker honours it.
+    #
+    # Without this the stub hands back the whole log whatever window the
+    # capture asks for, so the #1201 cases below passed just as happily
+    # against '--tail 400' - a window that could not have reached the planted
+    # line in reality. The capture's correctness rests on two things, a window
+    # that reaches bring-up and a selection that is not positional, and only
+    # the second was guarded. Measured by reverting the window and watching
+    # 19/19 stay green.
+    tail_n=all
+    prev=
+    for a in "$@"; do
+      case "$a" in
+        --tail=*) tail_n="\${a#--tail=}" ;;
+      esac
+      [ "$prev" = "--tail" ] && tail_n="$a"
+      prev="$a"
     done
-    echo '2026-09-30T08:42:00Z WRN Could not find network named "x" for container "/other"'`
-          : `# What Traefik actually writes when it discards a container's config.
-    echo 'time="..." level=error msg="Unable to obtain a router for container" providerName=docker container=aica-e2e-ai-commerce-accelerator-microservice'
-    echo 'time="..." level=info msg="Configuration loaded from flags."'`
-    } ;;
+
+    emit() {
+    ${
+      proxyLogHuge
+        ? // A DEBUG-level proxy over a long run. The line that matters is
+          // near the START, as it is in reality - the provider reacts to
+          // the container at bring-up - and is followed by thousands of
+          // lines that do not name it. Any positional selection drops it.
+          // The escapes are real: traefik:v3.6.1 at the default `common`
+          // format writes them between key and value.
+          `printf '\\033[90m2026-09-30T07:57:05Z\\033[0m DBG \\033[36mcontainer=\\033[0maica-e2e-ai-commerce-accelerator-microservice Filtering disabled container\\n'
+      for i in $(seq 1 3000); do
+        echo "2026-09-30T07:57:06Z DBG unrelated chatter line $i providerName=docker"
+      done
+      echo '2026-09-30T08:42:00Z WRN Could not find network named "x" for container "/other"'`
+        : `# What Traefik actually writes when it discards a container's config.
+      echo 'time="..." level=error msg="Unable to obtain a router for container" providerName=docker container=aica-e2e-ai-commerce-accelerator-microservice'
+      echo 'time="..." level=info msg="Configuration loaded from flags."'`
+    }
+    }
+
+    if [ "$tail_n" = all ]; then emit; else emit | tail -n "$tail_n"; fi
+    ;;
   exec)
     # The routers query runs inside a container on the proxy's network.
     if [[ "$*" == *rawdata* || "$*" == *PROXY_HOST* ]]; then
@@ -533,6 +553,52 @@ describe('proxy routing diagnostics (#1168)', () => {
         // capture that never ran - the defect #1193 closed, one layer on.
         expect(facts).toMatch(/read \d{4,} lines/);
         expect(facts).toContain('lines at ERR or WRN');
+      });
+    });
+
+    test('asks for a window that reaches bring-up, not the last few seconds', () => {
+      sandbox((dir) => {
+        const { facts } = runCapture(dir, { proxyLogHuge: true });
+
+        // Stated rather than left implicit. The three cases above happen to
+        // fail if the window shrinks, but none of them says the window is the
+        // thing under test, and someone fixing one of them could satisfy it
+        // without restoring the window.
+        const read = Number(/read (\d+) lines/.exec(facts)?.[1]);
+
+        expect(read).toBeGreaterThanOrEqual(3000);
+      });
+    });
+
+    test('the stub honours --tail, or none of this proves anything', () => {
+      // The fixture, guarded. The stub used to ignore every argument and
+      // return the whole log, so all three cases above passed against
+      // `--tail 400` - a window that could never have read the planted line.
+      // A capture needs a window that reaches the event AND a selection that
+      // is not positional; only the second was being tested.
+      //
+      // Asserted by running the stub rather than by reading it, so a comment
+      // cannot satisfy it (#1172).
+      sandbox((dir) => {
+        stubs(dir, { proxyLogHuge: true });
+        const docker = path.join(dir, 'bin', 'docker');
+
+        const windowed = execFileSync(
+          docker,
+          ['logs', '--tail', '5', 'liferay-proxy-global'],
+          { encoding: 'utf8' }
+        );
+        const whole = execFileSync(docker, ['logs', 'liferay-proxy-global'], {
+          encoding: 'utf8',
+        });
+
+        expect(windowed.trimEnd().split('\n')).toHaveLength(5);
+        expect(whole.trimEnd().split('\n').length).toBeGreaterThan(3000);
+
+        // And the planted line is genuinely outside a small window, which is
+        // what makes the cases above meaningful.
+        expect(whole).toContain('Filtering disabled container');
+        expect(windowed).not.toContain('Filtering disabled container');
       });
     });
   });
