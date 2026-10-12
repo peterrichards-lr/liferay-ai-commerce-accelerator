@@ -28,7 +28,7 @@ const ContractValidator = require('./services/contractValidator.cjs');
 // discarded. See #925.
 const { OAuthService } = require('@liferay/accelerator-sdk');
 const { startDxpConfigTreeWatcher } = require('./utils/lxcReadiness.cjs');
-const { startOAuthConfigRefresh } = require('./utils/oauthConfigRefresh.cjs');
+const { startConfigRefresh } = require('./utils/configRefresh.cjs');
 const HealthService = require('./services/healthService.cjs');
 const {
   ClientExtensionEntryService,
@@ -149,7 +149,26 @@ module.exports = async (ws) => {
    * which is right here: Liferay is often not up yet, and the interval below
    * picks it up when it is.
    */
-  ctx.oauthConfigRefresh = startOAuthConfigRefresh(ctx);
+  ctx.oauthConfigRefresh = startConfigRefresh(ctx, {
+    service: ctx.oauth,
+    subject: 'OAuth settings',
+    operation: 'oauth-config-refresh',
+  });
+
+  /**
+   * The Cache settings panel, connected to the cache.
+   *
+   * The same defect one service earlier in this file: `CacheService` reads
+   * `cache-config` in its constructor through `this.ctx.config`, and it is
+   * built at the top of this function, long before `ctx.config` exists. The
+   * guard short-circuited and maxSize, defaultTTL and cleanupInterval reached
+   * nothing. See #1270.
+   */
+  ctx.cacheConfigRefresh = startConfigRefresh(ctx, {
+    service: ctx.cache,
+    subject: 'Cache settings',
+    operation: 'cache-config-refresh',
+  });
 
   ctx.liferay = new LiferayService({
     oauth: ctx.oauth,
@@ -275,6 +294,22 @@ module.exports = async (ws) => {
     persistence: ctx.persistence,
   });
 
+  /**
+   * The Queue settings panel, connected to the queue.
+   *
+   * Unlike the two above, the ordering here was always right - `ctx.config`
+   * exists well before this line. `QueueService` held the config service and
+   * its own settings under one name and the settings won, so the read was
+   * made against an object that never had `getQueueConfigCached`. The field
+   * is `this.settings` now; this keeps it following the panel afterwards.
+   * See #1270.
+   */
+  ctx.queueConfigRefresh = startConfigRefresh(ctx, {
+    service: ctx.queue,
+    subject: 'Queue settings',
+    operation: 'queue-config-refresh',
+  });
+
   registerDataGenerationWorkers({
     queue: ctx.queue,
     logger,
@@ -306,6 +341,8 @@ module.exports = async (ws) => {
     mediaGenerator: ctx.media,
     mockDataGenerator: ctx.mockDataGenerator,
     oauthConfigRefresh: ctx.oauthConfigRefresh,
+    cacheConfigRefresh: ctx.cacheConfigRefresh,
+    queueConfigRefresh: ctx.queueConfigRefresh,
     oauthService: ctx.oauth,
     orderGenerator: ctx.orderGenerator,
     productGenerator: ctx.productGenerator,

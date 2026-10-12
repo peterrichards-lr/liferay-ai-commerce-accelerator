@@ -106,9 +106,9 @@ describe('QueueService - Hardening, Persistence & Worker Loops', () => {
         },
       });
 
-      expect(queueService.config.defaults.concurrency).toBe(5);
-      expect(queueService.config.defaults.maxRetries).toBe(10);
-      expect(queueService.config.defaults.jobTimeout).toBe(400000);
+      expect(queueService.settings.defaults.concurrency).toBe(5);
+      expect(queueService.settings.defaults.maxRetries).toBe(10);
+      expect(queueService.settings.defaults.jobTimeout).toBe(400000);
     });
 
     it('should apply configuration from a valid JSON string', () => {
@@ -121,39 +121,39 @@ describe('QueueService - Hardening, Persistence & Worker Loops', () => {
         })
       );
 
-      expect(queueService.config.defaults.concurrency).toBe(8);
-      expect(queueService.config.byQueue['custom-queue'].concurrency).toBe(12);
+      expect(queueService.settings.defaults.concurrency).toBe(8);
+      expect(queueService.settings.byQueue['custom-queue'].concurrency).toBe(
+        12
+      );
     });
 
     it('should ignore invalid configuration inputs safely', () => {
-      const originalConcurrency = queueService.config.defaults.concurrency;
+      const originalConcurrency = queueService.settings.defaults.concurrency;
 
       queueService.applyConfig(null);
       queueService.applyConfig('invalid-json{');
       queueService.applyConfig(12345);
 
-      expect(queueService.config.defaults.concurrency).toBe(
+      expect(queueService.settings.defaults.concurrency).toBe(
         originalConcurrency
       );
     });
 
     it('should refresh configuration from remote config service', async () => {
       mockConfig.getQueueConfig.mockResolvedValue({ concurrency: 9 });
-      queueService.config.getQueueConfig = mockConfig.getQueueConfig;
 
       await queueService.refreshConfigFromRemote({ requestHeader: 'abc' });
 
       expect(mockConfig.getQueueConfig).toHaveBeenCalledWith({
         requestHeader: 'abc',
       });
-      expect(queueService.config.defaults.concurrency).toBe(9);
+      expect(queueService.settings.defaults.concurrency).toBe(9);
     });
 
     it('should log warning if remote config fetch throws an error', async () => {
       mockConfig.getQueueConfig.mockRejectedValue(
         new Error('Connection timeout')
       );
-      queueService.config.getQueueConfig = mockConfig.getQueueConfig;
 
       await queueService.refreshConfigFromRemote({});
 
@@ -233,7 +233,7 @@ describe('QueueService - Hardening, Persistence & Worker Loops', () => {
       expect(mockCache.set).toHaveBeenCalledWith(
         `job:${job.id}`,
         job,
-        queueService.config.defaults.jobTTL
+        queueService.settings.defaults.jobTTL
       );
     });
 
@@ -393,7 +393,7 @@ describe('QueueService - Hardening, Persistence & Worker Loops', () => {
   describe('Cleanup Routines', () => {
     it('should clean up completed and failed jobs past TTL in cleanupCompletedJobs', () => {
       const now = Date.now();
-      const ttl = queueService.config.defaults.jobTTL;
+      const ttl = queueService.settings.defaults.jobTTL;
 
       const job1 = {
         id: 'j1',

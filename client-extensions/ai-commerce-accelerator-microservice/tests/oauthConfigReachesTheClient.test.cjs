@@ -1,6 +1,6 @@
 const OAuthService = require('@liferay/accelerator-sdk/src/liferay/oauth.cjs');
 
-const { startOAuthConfigRefresh } = require('../utils/oauthConfigRefresh.cjs');
+const { startConfigRefresh } = require('../utils/configRefresh.cjs');
 const { ENV } = require('../utils/constants.cjs');
 
 /**
@@ -21,6 +21,16 @@ const { ENV } = require('../utils/constants.cjs');
  */
 const quiet = () => ({ debug() {}, warn() {}, error() {}, trace() {} });
 
+// The helper became shared in #1270, when the cache and queue panels turned
+// out to be disconnected too. These cases are about the OAuth one.
+const startOAuthRefresh = (ctx, options = {}) =>
+  startConfigRefresh(ctx, {
+    service: ctx.oauth,
+    subject: 'OAuth settings',
+    operation: 'oauth-config-refresh',
+    ...options,
+  });
+
 function fakeConfigService(oauthConfig) {
   return {
     getOAuthConfig: async () => oauthConfig,
@@ -40,7 +50,7 @@ describe('the OAuth panel reaches the OAuth client (#1243)', () => {
       expect(oauth.ctx.config).toBeUndefined();
 
       const config = fakeConfigService({});
-      const handle = startOAuthConfigRefresh(
+      const handle = startOAuthRefresh(
         { oauth, config, logger: quiet() },
         { intervalMs: 60_000 }
       );
@@ -55,7 +65,7 @@ describe('the OAuth panel reaches the OAuth client (#1243)', () => {
     test('says so rather than doing nothing quietly, if it cannot refresh', () => {
       // Silence here would look exactly like the defect being fixed.
       const warnings = [];
-      const handle = startOAuthConfigRefresh({
+      const handle = startOAuthRefresh({
         oauth: {},
         logger: { ...quiet(), warn: (m) => warnings.push(m) },
       });
@@ -96,7 +106,7 @@ describe('the OAuth panel reaches the OAuth client (#1243)', () => {
         ).toBeLessThan(oauth.settings[field]);
       }
 
-      const handle = startOAuthConfigRefresh(
+      const handle = startOAuthRefresh(
         { oauth, config: fakeConfigService(LOWERED), logger: quiet() },
         { intervalMs: 60_000 }
       );
@@ -118,7 +128,7 @@ describe('the OAuth panel reaches the OAuth client (#1243)', () => {
         oauthApplicationExternalReferenceCode: 'X',
       });
 
-      const handle = startOAuthConfigRefresh(
+      const handle = startOAuthRefresh(
         { oauth, config: fakeConfigService(LOWERED), logger: quiet() },
         { intervalMs: 60_000 }
       );
@@ -136,7 +146,7 @@ describe('the OAuth panel reaches the OAuth client (#1243)', () => {
     test('matches the TTL of the cache it reads through', () => {
       // Faster re-reads the same cached value and reaches Liferay no sooner;
       // slower leaves the cache expired while the settings have not moved.
-      const handle = startOAuthConfigRefresh({
+      const handle = startOAuthRefresh({
         oauth: { ctx: {}, refreshConfigFromRemote: async () => {} },
         config: fakeConfigService({}),
         logger: quiet(),
@@ -153,7 +163,7 @@ describe('the OAuth panel reaches the OAuth client (#1243)', () => {
       // Bootstrap does not await the first refresh; an unhandled rejection
       // here would take the process down at boot on an unreachable Liferay.
       const warnings = [];
-      const handle = startOAuthConfigRefresh(
+      const handle = startOAuthRefresh(
         {
           oauth: {
             ctx: {},

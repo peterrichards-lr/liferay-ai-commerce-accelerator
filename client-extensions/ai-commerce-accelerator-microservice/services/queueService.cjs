@@ -26,7 +26,6 @@ class QueueService {
     this.ctx = ctx;
     this.logger = ctx.logger;
     this.cache = ctx.cache;
-    this.config = ctx.config;
     this.persistence = ctx.persistence;
 
     this.queues = new Map();
@@ -34,7 +33,12 @@ class QueueService {
     this.workers = new Map();
     this.defaultQueue = 'data-generation';
 
-    this.config = {
+    // Not `this.config`. That name used to hold the config service and then
+    // this object, and the second assignment won, so every later read of it -
+    // the cached read below, `refreshConfigFromRemote` - got the settings and
+    // silently did nothing. The config service is `this.ctx.config` now, and
+    // there is no name with two meanings left to confuse. See #1270.
+    this.settings = {
       defaults: {
         concurrency: normalizeNumber(QUEUE_CONFIG.DEFAULT_CONCURRENCY, {
           min: 1,
@@ -64,8 +68,8 @@ class QueueService {
       byQueue: {},
     };
 
-    if (this.config?.getQueueConfigCached) {
-      const cached = this.config.getQueueConfigCached();
+    if (this.ctx.config?.getQueueConfigCached) {
+      const cached = this.ctx.config.getQueueConfigCached();
       this.applyConfig(cached);
     }
 
@@ -165,7 +169,7 @@ class QueueService {
     }
     if (!cfg || typeof cfg !== 'object') return;
 
-    const d = this.config.defaults;
+    const d = this.settings.defaults;
 
     const nextDefaults = {
       concurrency: normalizeOptionalNumber(
@@ -197,48 +201,51 @@ class QueueService {
     // What was asked for, not the larger of it and what is already set.
     // Lowering `concurrency` is the usual reason to touch this panel at all,
     // and the `min` floors above are the lower bound. See #1271.
-    this.config.defaults = nextDefaults;
+    this.settings.defaults = nextDefaults;
 
     const queuesCfg =
       cfg.queues && typeof cfg.queues === 'object' ? cfg.queues : {};
 
     for (const [name, qc] of Object.entries(queuesCfg)) {
-      const current = this.config.byQueue[name] || {};
-      this.config.byQueue[name] = {
+      const current = this.settings.byQueue[name] || {};
+      this.settings.byQueue[name] = {
         concurrency: normalizeOptionalNumber(qc.concurrency, {
           min: 1,
-          defaultValue: current.concurrency ?? this.config.defaults.concurrency,
+          defaultValue:
+            current.concurrency ?? this.settings.defaults.concurrency,
         }),
         maxRetries: normalizeOptionalNumber(qc.maxRetries, {
           min: 1,
-          defaultValue: current.maxRetries ?? this.config.defaults.maxRetries,
+          defaultValue: current.maxRetries ?? this.settings.defaults.maxRetries,
         }),
         retryDelay: normalizeOptionalNumber(qc.retryDelay, {
           min: 1000,
-          defaultValue: current.retryDelay ?? this.config.defaults.retryDelay,
+          defaultValue: current.retryDelay ?? this.settings.defaults.retryDelay,
         }),
         jobTimeout: normalizeOptionalNumber(qc.jobTimeout, {
           min: 10000,
-          defaultValue: current.jobTimeout ?? this.config.defaults.jobTimeout,
+          defaultValue: current.jobTimeout ?? this.settings.defaults.jobTimeout,
         }),
         jobTTL: normalizeOptionalNumber(qc.jobTTL, {
           min: 60000,
-          defaultValue: current.jobTTL ?? this.config.defaults.jobTTL,
+          defaultValue: current.jobTTL ?? this.settings.defaults.jobTTL,
         }),
       };
     }
 
+    this._setCleanupTimer(this.settings.defaults.cleanupInterval);
+
     this.logger?.debug?.('QueueService config applied', {
       operation: 'queue-config-apply',
-      defaults: this.config.defaults,
-      byQueue: this.config.byQueue,
+      defaults: this.settings.defaults,
+      byQueue: this.settings.byQueue,
     });
   }
 
   async refreshConfigFromRemote(requestConfig) {
-    if (!this.config?.getQueueConfig) return;
+    if (!this.ctx.config?.getQueueConfig) return;
     try {
-      const remote = await this.config.getQueueConfig(requestConfig);
+      const remote = await this.ctx.config.getQueueConfig(requestConfig);
       this.applyConfig(remote);
     } catch (e) {
       const err = withErrorRef(e, 'queue-config-refresh');
@@ -251,8 +258,8 @@ class QueueService {
   }
 
   resolveQueueOptions(name, overrides = {}) {
-    const d = this.config.defaults;
-    const q = this.config.byQueue[name] || {};
+    const d = this.settings.defaults;
+    const q = this.settings.byQueue[name] || {};
     return {
       name,
       concurrency: normalizeNumber(
@@ -384,7 +391,7 @@ class QueueService {
       correlationId: job.correlationId,
     });
 
-    this.cache?.set(`job:${jobId}`, job, this.config.defaults.jobTTL);
+    this.cache?.set(`job:${jobId}`, job, this.settings.defaults.jobTTL);
 
     return job;
   }
@@ -423,10 +430,23 @@ class QueueService {
       this._loopQueue(queueName);
     }
 
-    setInterval(
+    this._setCleanupTimer(this.settings.defaults.cleanupInterval);
+  }
+
+  /**
+   * Re-armable, because the interval is a panel setting.
+   *
+   * The handle used to be dropped on the floor in `startProcessing`, so the
+   * period was whatever it happened to be at boot for the life of the process
+   * and `applyConfig` changing the number could not move it. See #1270.
+   */
+  _setCleanupTimer(intervalMs) {
+    if (this._cleanupTimer) clearInterval(this._cleanupTimer);
+    this._cleanupTimer = setInterval(
       () => this.cleanupCompletedJobs(),
-      this.config.defaults.cleanupInterval
+      intervalMs
     );
+    this._cleanupTimer.unref?.();
   }
 
   async _loopQueue(queueName) {
@@ -559,7 +579,7 @@ class QueueService {
       correlationId: job.correlationId,
     });
 
-    this.cache?.set(`job:${job.id}`, job, this.config.defaults.jobTTL);
+    this.cache?.set(`job:${job.id}`, job, this.settings.defaults.jobTTL);
   }
 
   failJob(job, err, queue) {
@@ -574,7 +594,7 @@ class QueueService {
     if (job.attempts < job.maxAttempts) {
       const base = normalizeNumber(queue.retryDelay, {
         min: 1000,
-        defaultValue: this.config.defaults.retryDelay,
+        defaultValue: this.settings.defaults.retryDelay,
       });
 
       const delayMs = Math.min(base * Math.pow(2, job.attempts - 1), 300000);
@@ -624,7 +644,7 @@ class QueueService {
       }
     }
 
-    this.cache?.set(`job:${job.id}`, job, this.config.defaults.jobTTL);
+    this.cache?.set(`job:${job.id}`, job, this.settings.defaults.jobTTL);
   }
 
   updateJobProgress(job, progress) {
@@ -638,7 +658,7 @@ class QueueService {
       correlationId: job.correlationId,
     });
 
-    this.cache?.set(`job:${job.id}`, job, this.config.defaults.jobTTL);
+    this.cache?.set(`job:${job.id}`, job, this.settings.defaults.jobTTL);
   }
 
   getJobProcessor(jobType) {
@@ -655,7 +675,7 @@ class QueueService {
   }
 
   cleanupCompletedJobs() {
-    const ttl = this.config.defaults.jobTTL;
+    const ttl = this.settings.defaults.jobTTL;
     const cutoff = new Date(Date.now() - ttl);
 
     let cleaned = 0;
