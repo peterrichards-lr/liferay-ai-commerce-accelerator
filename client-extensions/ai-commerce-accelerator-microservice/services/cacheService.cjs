@@ -2,6 +2,7 @@ const { ENV } = require('../utils/constants.cjs');
 const { sanitizeCacheEntry } = require('../utils/normalize.cjs');
 const {
   normalizeNumber,
+  normalizeOptionalNumber,
   isJSON,
   tryParseJSON,
   createERC,
@@ -69,26 +70,26 @@ class CacheService {
       if (!src || typeof src !== 'object') return;
 
       const next = {
-        maxSize: normalizeNumber(src.maxSize, {
+        maxSize: normalizeOptionalNumber(src.maxSize, {
           min: 100,
           defaultValue: this.maxSize,
         }),
-        defaultTTL: normalizeNumber(src.defaultTTL, {
+        defaultTTL: normalizeOptionalNumber(src.defaultTTL, {
           min: 1000,
           defaultValue: this.defaultTTL,
         }),
-        cleanupIntervalMs: normalizeNumber(src.cleanupInterval, {
+        cleanupIntervalMs: normalizeOptionalNumber(src.cleanupInterval, {
           min: 5000,
           defaultValue: this.cleanupIntervalMs,
         }),
       };
 
-      this.maxSize = Math.max(this.maxSize, next.maxSize);
-      this.defaultTTL = Math.max(this.defaultTTL, next.defaultTTL);
-      this.cleanupIntervalMs = Math.max(
-        this.cleanupIntervalMs,
-        next.cleanupIntervalMs
-      );
+      // What was asked for, not the larger of it and what is already set.
+      // A cache someone deliberately made smaller is a setting, and the `min`
+      // floors above are the lower bound, not these assignments. See #1271.
+      this.maxSize = next.maxSize;
+      this.defaultTTL = next.defaultTTL;
+      this.cleanupIntervalMs = next.cleanupIntervalMs;
 
       this._setCleanupTimer(this.cleanupIntervalMs);
 
