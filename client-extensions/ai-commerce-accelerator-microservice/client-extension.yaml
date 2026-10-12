@@ -26,6 +26,23 @@ assemble:
       - data/*.json
       - resources/seed-packs/*.json
       - public/**
+  # The root lockfile, which is outside this directory.
+  #
+  # The Dockerfile does `COPY . /opt/liferay` and then `yarn install`, and the
+  # build context is this assembled zip. This is a yarn workspaces monorepo
+  # with a single `yarn.lock` at the root, so without this the container had no
+  # lockfile at all and resolved every semver range fresh from the registry on
+  # every build: `info No lockfile found.` then `success Saved lockfile.`
+  #
+  # That is how the same commit built on 2 October and failed on the 3rd, 4th
+  # and 5th with nothing changed here, and why the image did not necessarily
+  # run what CI tested. See #1235.
+  - from: ../..
+    include:
+      - yarn.lock
+    # The zip root, beside package.json, which is where `yarn install` looks.
+    # `scripts/validate-cx.js` requires an `into` whenever `from` is present.
+    into: .
 ai-commerce-accelerator-microservice:
   .serviceAddress: localhost:3001
   .serviceScheme: http

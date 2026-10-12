@@ -24,4 +24,23 @@ RUN apt-get update && apt-get install -y git build-essential python3 && npm inst
 USER liferay
 COPY --chown=liferay:liferay . /opt/liferay
 
-RUN yarn install
+# The context is the assembled zip, and `**/*.cjs` in client-extension.yaml
+# reaches into node_modules: it swept in exactly one file,
+# node_modules/openai/internal/auth/x509-transport-state.cjs, leaving a
+# node_modules/openai holding one file and no package.json. `exclude:` is not
+# a key the client-extension assembler honours - tried, no effect - and
+# narrowing the include to a list of directories is how #1131 and #1166
+# happened, where a glob that missed one directory shipped an extension with
+# the files silently absent.
+#
+# So it is cleared here instead, where it cannot be got wrong: whatever the
+# zip carries, the install below starts from nothing. What the image contains
+# then does not depend on what the build machine had installed. See #1235.
+RUN rm -rf /opt/liferay/node_modules
+
+# --frozen-lockfile, so a lockfile that does not describe this manifest fails
+# here instead of being silently rewritten. Without it yarn "fixes" the
+# mismatch by resolving around it, which is the behaviour that let three
+# nightlies install something CI had never seen. The lockfile reaches this
+# context through the `assemble` block in client-extension.yaml. See #1235.
+RUN yarn install --frozen-lockfile

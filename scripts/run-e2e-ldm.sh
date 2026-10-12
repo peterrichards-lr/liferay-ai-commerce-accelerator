@@ -213,6 +213,21 @@ assert_build_output_captured() {
         return 0
     fi
 
+    # A build that FAILED must never read as a build that did not happen.
+    #
+    # Run 38123432243 did exactly that: the log held `failed to solve` and the
+    # Dockerfile frame for `RUN yarn install`, no BuildKit progress lines
+    # survived LDM's own capture, and this function reported "No image build
+    # this run (nothing to rebuild)". The one line a reader needed was the one
+    # it printed over. Checked before the healthy-cache case because the two
+    # share the bring-up markers that case matches on.
+    if grep -qE 'failed to solve|did not complete successfully|ERROR \[[a-z]' "$log" 2>/dev/null ||
+        { [ -s "$trace" ] && grep -qE 'failed to solve|did not complete successfully' "$trace" 2>/dev/null; }; then
+        echo "::warning::The image build FAILED and BuildKit's step output did not survive LDM's capture, so the reason is not here. The Dockerfile frame in ${log} names the failing step. See #1235."
+        grep -E 'failed to solve|did not complete successfully|^Dockerfile:|^ +[0-9]+ \|' "$log" 2>/dev/null | head -20 || true
+        return 0
+    fi
+
     if grep -qE 'Pulling|Pulled|Container .* (Created|Started)|Starting Container Stack' "$log"; then
         echo "🔎 No image build this run (nothing to rebuild); bring-up output captured in ${log}."
         return 0
