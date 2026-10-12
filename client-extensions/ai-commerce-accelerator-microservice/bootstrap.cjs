@@ -28,6 +28,7 @@ const ContractValidator = require('./services/contractValidator.cjs');
 // discarded. See #925.
 const { OAuthService } = require('@liferay/accelerator-sdk');
 const { startDxpConfigTreeWatcher } = require('./utils/lxcReadiness.cjs');
+const { startOAuthConfigRefresh } = require('./utils/oauthConfigRefresh.cjs');
 const HealthService = require('./services/healthService.cjs');
 const {
   ClientExtensionEntryService,
@@ -126,6 +127,29 @@ module.exports = async (ws) => {
     persistence: ctx.persistence,
   });
   ctx.configService = ctx.config;
+
+  /**
+   * The OAuth settings panel, connected to the OAuth client.
+   *
+   * `OAuthService` reads `oauth-config` in its constructor, from
+   * `this.ctx.config`. It is built twenty lines above this, before
+   * `ctx.config` exists, so that read has always resolved `undefined` and the
+   * five values the panel saves - httpTimeoutMs, maxRetries, backoffBaseMs,
+   * tokenSkewSec, tokenCacheTtlMs - reached nothing. They were invisible
+   * because the seeded values equal the SDK's own defaults, so changing one
+   * was the only way to notice. See #1243.
+   *
+   * The order cannot simply be swapped: ConfigService takes `oauth` (#1175),
+   * so each needs the other. This is the same late-wiring the file already
+   * does for `setLiferayService` on the line below's neighbour.
+   *
+   * A refresh rather than the constructor's cached read, because at boot that
+   * cache is cold - `getOAuthConfigCached()` returns `{}` and applies
+   * nothing. `refreshConfigFromRemote` fetches, and swallows its own failure,
+   * which is right here: Liferay is often not up yet, and the interval below
+   * picks it up when it is.
+   */
+  ctx.oauthConfigRefresh = startOAuthConfigRefresh(ctx);
 
   ctx.liferay = new LiferayService({
     oauth: ctx.oauth,
@@ -281,6 +305,7 @@ module.exports = async (ws) => {
     liferayService: ctx.liferay,
     mediaGenerator: ctx.media,
     mockDataGenerator: ctx.mockDataGenerator,
+    oauthConfigRefresh: ctx.oauthConfigRefresh,
     oauthService: ctx.oauth,
     orderGenerator: ctx.orderGenerator,
     productGenerator: ctx.productGenerator,
