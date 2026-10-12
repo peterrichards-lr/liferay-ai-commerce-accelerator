@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * A header a browser cannot read is a header that reads as zero.
  *
@@ -17,14 +19,16 @@ const path = require('path');
 describe('The headers a package reports itself with', () => {
   const microservice = path.join(__dirname, '..');
 
-  const declared = fs.readFileSync(
-    path.join(microservice, 'server.cjs'),
-    'utf8'
+  // Both sides are scanned as source: the header names are harvested from one
+  // file and looked for in the other. A commented-out `setHeader` would invent
+  // a header to require, and a comment listing one in `server.cjs` would
+  // satisfy the requirement with the exposure deleted. See #1172.
+  const declared = withoutSlashComments(
+    fs.readFileSync(path.join(microservice, 'server.cjs'), 'utf8')
   );
 
-  const routes = fs.readFileSync(
-    path.join(microservice, 'routes', 'export.cjs'),
-    'utf8'
+  const routes = withoutSlashComments(
+    fs.readFileSync(path.join(microservice, 'routes', 'export.cjs'), 'utf8')
   );
 
   const setHeaders = [

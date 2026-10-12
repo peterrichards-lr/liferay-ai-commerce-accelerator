@@ -6,6 +6,7 @@ const {
   listSchemaNames,
 } = require('../utils/configurationAssets.cjs');
 const { DEFAULT_MAX_TOKENS } = require('../utils/aiRequestOptions.cjs');
+const { withoutSlashComments } = require('./fixtures/sourceComments.cjs');
 const {
   IMAGE_CAPABLE_PROVIDERS,
   providerLabel,
@@ -191,7 +192,12 @@ describe('Microservice Configuration Integrity', () => {
   });
 
   it('should offer the same default token cap in the configuration panel', () => {
-    const source = fs.readFileSync(AI_CONFIG_PANEL, 'utf8');
+    // A commented-out declaration must not answer for the live one: this
+    // reads a number out of the panel and compares it, so prose carrying an
+    // old default would make the guard report the wrong value (#1172).
+    const source = withoutSlashComments(
+      fs.readFileSync(AI_CONFIG_PANEL, 'utf8')
+    );
     const declared = source.match(/maxTokens: \{\s*default: (\d+)/);
 
     expect(

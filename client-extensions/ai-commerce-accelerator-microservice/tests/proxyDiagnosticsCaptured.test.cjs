@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
+
 /**
  * The proxy capture must actually capture the proxy.
  *
@@ -25,7 +27,13 @@ const SCRIPT = path.resolve(
   'scripts',
   'run-e2e-ldm.sh'
 );
-const lines = fs.readFileSync(SCRIPT, 'utf8').split('\n');
+/**
+ * Comments are removed before any guard here reads the script, so no guard can
+ * be failed - or satisfied - by prose. `functionSource` slices out of `lines`,
+ * so every scan in this file inherits it. The capture's *output* stays raw: a
+ * `#` in a captured log line is data. See #1172.
+ */
+const lines = withoutHashComments(fs.readFileSync(SCRIPT, 'utf8')).split('\n');
 
 function functionSource(name) {
   const start = lines.findIndex((l) => l.startsWith(`${name}() {`));
