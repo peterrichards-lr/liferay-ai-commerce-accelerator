@@ -436,6 +436,20 @@ function normalizeNumber(value, { min, max, defaultValue = 0 } = {}) {
   return n;
 }
 
+/**
+ * The same clamp, for a field the configuration panel may have left empty.
+ *
+ * `Number(null)`, `Number('')` and `Number('   ')` are all a finite 0, so a
+ * blank field reaches `normalizeNumber` as a real number and lands on `min`
+ * rather than on the `defaultValue` that carries the current setting. Nobody
+ * saw it while the callers could only raise a value. See #1271.
+ */
+function normalizeOptionalNumber(value, options) {
+  const blank =
+    value == null || (typeof value === 'string' && value.trim() === '');
+  return normalizeNumber(blank ? undefined : value, options);
+}
+
 function isJSON(value) {
   if (typeof value !== 'string') return false;
   const trimmed = value.trim();
@@ -565,6 +579,7 @@ module.exports = {
   isoToday,
   isValidUrl,
   normalizeNumber,
+  normalizeOptionalNumber,
   normalizeSpecificationKey,
   now,
   parseDataUrl,

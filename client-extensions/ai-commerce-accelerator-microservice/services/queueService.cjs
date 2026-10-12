@@ -3,6 +3,7 @@ const {
   delay,
   delayCall,
   normalizeNumber,
+  normalizeOptionalNumber,
   tryParseJSON,
   createERC,
 } = require('../utils/misc.cjs');
@@ -167,78 +168,63 @@ class QueueService {
     const d = this.config.defaults;
 
     const nextDefaults = {
-      concurrency: normalizeNumber(
+      concurrency: normalizeOptionalNumber(
         cfg.concurrency ?? cfg.defaults?.concurrency,
         { min: 1, defaultValue: d.concurrency }
       ),
-      maxRetries: normalizeNumber(cfg.maxRetries ?? cfg.defaults?.maxRetries, {
-        min: 1,
-        defaultValue: d.maxRetries,
-      }),
-      retryDelay: normalizeNumber(cfg.retryDelay ?? cfg.defaults?.retryDelay, {
-        min: 1000,
-        defaultValue: d.retryDelay,
-      }),
-      jobTimeout: normalizeNumber(cfg.jobTimeout ?? cfg.defaults?.jobTimeout, {
-        min: 10000,
-        defaultValue: d.jobTimeout,
-      }),
-      cleanupInterval: normalizeNumber(
+      maxRetries: normalizeOptionalNumber(
+        cfg.maxRetries ?? cfg.defaults?.maxRetries,
+        { min: 1, defaultValue: d.maxRetries }
+      ),
+      retryDelay: normalizeOptionalNumber(
+        cfg.retryDelay ?? cfg.defaults?.retryDelay,
+        { min: 1000, defaultValue: d.retryDelay }
+      ),
+      jobTimeout: normalizeOptionalNumber(
+        cfg.jobTimeout ?? cfg.defaults?.jobTimeout,
+        { min: 10000, defaultValue: d.jobTimeout }
+      ),
+      cleanupInterval: normalizeOptionalNumber(
         cfg.cleanupInterval ?? cfg.defaults?.cleanupInterval,
         { min: 60000, defaultValue: d.cleanupInterval }
       ),
-      jobTTL: normalizeNumber(cfg.jobTTL ?? cfg.defaults?.jobTTL, {
+      jobTTL: normalizeOptionalNumber(cfg.jobTTL ?? cfg.defaults?.jobTTL, {
         min: 60000,
         defaultValue: d.jobTTL,
       }),
     };
 
-    this.config.defaults = {
-      concurrency: Math.max(d.concurrency, nextDefaults.concurrency),
-      maxRetries: Math.max(d.maxRetries, nextDefaults.maxRetries),
-      retryDelay: Math.max(d.retryDelay, nextDefaults.retryDelay),
-      jobTimeout: Math.max(d.jobTimeout, nextDefaults.jobTimeout),
-      cleanupInterval: Math.max(
-        d.cleanupInterval,
-        nextDefaults.cleanupInterval
-      ),
-      jobTTL: Math.max(d.jobTTL, nextDefaults.jobTTL),
-    };
+    // What was asked for, not the larger of it and what is already set.
+    // Lowering `concurrency` is the usual reason to touch this panel at all,
+    // and the `min` floors above are the lower bound. See #1271.
+    this.config.defaults = nextDefaults;
 
     const queuesCfg =
       cfg.queues && typeof cfg.queues === 'object' ? cfg.queues : {};
 
     for (const [name, qc] of Object.entries(queuesCfg)) {
       const current = this.config.byQueue[name] || {};
-      const merged = {
-        concurrency: normalizeNumber(qc.concurrency, {
+      this.config.byQueue[name] = {
+        concurrency: normalizeOptionalNumber(qc.concurrency, {
           min: 1,
           defaultValue: current.concurrency ?? this.config.defaults.concurrency,
         }),
-        maxRetries: normalizeNumber(qc.maxRetries, {
+        maxRetries: normalizeOptionalNumber(qc.maxRetries, {
           min: 1,
           defaultValue: current.maxRetries ?? this.config.defaults.maxRetries,
         }),
-        retryDelay: normalizeNumber(qc.retryDelay, {
+        retryDelay: normalizeOptionalNumber(qc.retryDelay, {
           min: 1000,
           defaultValue: current.retryDelay ?? this.config.defaults.retryDelay,
         }),
-        jobTimeout: normalizeNumber(qc.jobTimeout, {
+        jobTimeout: normalizeOptionalNumber(qc.jobTimeout, {
           min: 10000,
           defaultValue: current.jobTimeout ?? this.config.defaults.jobTimeout,
         }),
-        jobTTL: normalizeNumber(qc.jobTTL, {
+        jobTTL: normalizeOptionalNumber(qc.jobTTL, {
           min: 60000,
           defaultValue: current.jobTTL ?? this.config.defaults.jobTTL,
         }),
-      };
-
-      this.config.byQueue[name] = {
-        concurrency: Math.max(current.concurrency ?? 0, merged.concurrency),
-        maxRetries: Math.max(current.maxRetries ?? 0, merged.maxRetries),
-        retryDelay: Math.max(current.retryDelay ?? 0, merged.retryDelay),
-        jobTimeout: Math.max(current.jobTimeout ?? 0, merged.jobTimeout),
-        jobTTL: Math.max(current.jobTTL ?? 0, merged.jobTTL),
       };
     }
 
