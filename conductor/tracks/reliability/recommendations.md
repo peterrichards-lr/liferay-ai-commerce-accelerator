@@ -27,7 +27,7 @@ Currently, validation occurs in two disconnected silos:
   - Identifies the target schema based on the URL path.
   - Validates the body and query parameters.
   - Throws a descriptive `ContractViolationError` if the payload is invalid.
-- **Strict MSW Handlers**: Update `tests/mocks/handlers.cjs` to perform this validation. If a test sends invalid data, the mock should return a `400 Bad Request` with schema diffs, forcing the test to fail.
+- **Strict MSW Handlers**: Update `tests/mocks/handlers.mjs` to perform this validation. If a test sends invalid data, the mock should return a `400 Bad Request` with schema diffs, forcing the test to fail.
 
 ---
 

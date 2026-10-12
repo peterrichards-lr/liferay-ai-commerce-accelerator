@@ -34,20 +34,14 @@ updates:
           - '*'
     ignore:
       - dependency-name: 'codemirror'
-      # Majors only. A grouped PR is all-or-nothing, so one breaking change
-      # holds back every safe update beside it - #1230 carried twenty bumps
-      # and failed on one: msw 3.0.0 changed request interception, the
-      # frontend handlers stopped matching, and AdminApp.test.jsx got
-      # `ECONNREFUSED ::1:3001` where it expected a mocked response.
-      #
-      # Deliberately not ignoring msw outright. Patches and minors still
-      # arrive; a major needs a handler migration, which belongs in its own PR
-      # against its own issue rather than inside a dependency bump. The same
-      # applies to any dev dependency the test suite mocks THROUGH rather than
-      # merely uses - that is what makes a major breaking for us even when it
-      # is not breaking for the application.
-      - dependency-name: 'msw'
-        update-types: ['version-update:semver-major']
+      # msw was held here between #1231 and #1233, and the hold is gone
+      # because the migration it was waiting for has landed. The rule it was
+      # written for has not: a dev dependency the suite mocks THROUGH, rather
+      # than merely uses, is breaking for us on a major even when it is not
+      # breaking for the application, and a grouped PR is all-or-nothing, so
+      # one of those holds back every safe update beside it. #1230 carried
+      # twenty bumps and failed on one. Hold the next such major the same way,
+      # by update-type rather than outright, so patches still arrive.
       # The SDK is pinned by git tag, and Dependabot compares those tags as
       # strings: it read v0.8.7 as newer than v0.8.20 and opened #907, a
       # thirteen-release downgrade. The pin only ever moves deliberately, as

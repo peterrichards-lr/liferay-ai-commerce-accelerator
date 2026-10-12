@@ -58,21 +58,31 @@ describe('dependabot matches the workspace layout (#1231)', () => {
     expect(labels).toContain('no-issue-needed');
   });
 
-  it('holds back a major for a dependency the suite mocks through', () => {
-    // A grouped PR is all-or-nothing. #1230 carried twenty bumps and failed on
-    // one: msw 3.0.0 changed request interception, the frontend handlers
-    // stopped matching, and AdminApp.test.jsx got `ECONNREFUSED ::1:3001`
-    // where it expected a mocked response. Nineteen safe updates were held
-    // back by a breaking change that needs its own migration.
+  it('no longer holds msw back, now that the migration has landed', () => {
+    // The hold existed between #1231 and #1233 so that one breaking change
+    // could not keep nineteen safe updates out of a grouped PR. #1233 did the
+    // handler migration and took the major, so leaving the hold in place
+    // would now stop msw updating at all.
     //
-    // Asserts the shape, not the package: majors held, patches and minors
-    // still arriving. An outright ignore would also pass a weaker test and is
-    // the wrong fix - it stops security patches too.
+    // Asserted rather than merely deleted: a hold that outlives its migration
+    // is silent, and this is the only place that would notice.
     const ignore = npmEcosystems()[0].ignore || [];
-    const msw = ignore.find((e) => e['dependency-name'] === 'msw');
 
-    expect(msw).toBeDefined();
-    expect(msw['update-types']).toContain('version-update:semver-major');
+    expect(ignore.find((e) => e['dependency-name'] === 'msw')).toBeUndefined();
+  });
+
+  it('holds a major by update-type, never a package outright', () => {
+    // The rule #1231 was written for outlives msw: a dev dependency the suite
+    // mocks THROUGH rather than merely uses is breaking for us on a major
+    // even when it is not breaking for the application. When the next one
+    // needs holding, it is held this way - majors only - because an outright
+    // ignore stops security patches too.
+    const ignore = npmEcosystems()[0].ignore || [];
+    const held = ignore.filter((e) => e['update-types']);
+
+    for (const entry of held) {
+      expect(entry['update-types']).toContain('version-update:semver-major');
+    }
   });
 
   it('keeps the labels dependabot applied by default', () => {
