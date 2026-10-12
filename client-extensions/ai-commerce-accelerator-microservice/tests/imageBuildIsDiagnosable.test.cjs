@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const YAML = require('yaml');
 const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
 
 /**
@@ -208,12 +209,130 @@ describe("LDM's trace log survives long enough to be copied (#1250)", () => {
   });
 });
 
-describe('the base image does not float (#1235)', () => {
-  it('is pinned by digest, not a tag', () => {
+describe('a failed build is never called a warm cache (#1235)', () => {
+  // Verbatim from run 38123432243, 11 October. LDM captures the compose
+  // output itself and re-emits this summary, so no BuildKit progress line
+  // survives - and the capture answered "No image build this run (nothing to
+  // rebuild)" over the top of a build that had failed at `RUN yarn install`.
+  const REAL_FAILING_LOG = [
+    "ℹ  The LDM project 'aica-e2e' already exists and this command will reconfigure it.",
+    '▶  Synchronizing Assets',
+    '▶  Starting Container Stack',
+    '❌  Command failed (Exit 1): /usr/bin/docker --context aws-2 compose up -d --remove-orphans',
+    'Error Details: http2: server: error reading preface from client dummy-1',
+    '',
+    'Dockerfile:27',
+    '--------------------',
+    '  25 |     COPY --chown=liferay:liferay . /opt/liferay',
+    '  27 | >>> RUN yarn install --frozen-lockfile',
+    '--------------------',
+    'failed to solve: process "/bin/sh -c yarn install --frozen-lockfile" did not complete successfully: exit code: 1',
+    '',
+  ].join('\n');
+
+  it('names the failure instead of reporting nothing to rebuild', () => {
+    const out = runAssertion(REAL_FAILING_LOG);
+
+    expect(out).toMatch(/::warning::/);
+    expect(out).toMatch(/build FAILED/);
+    expect(out).not.toMatch(/No image build this run/);
+  });
+
+  it('puts the failing step in front of the reader', () => {
+    // The Dockerfile frame is the whole diagnosis available to us, because
+    // the yarn output itself does not survive LDM's capture. Echoing it beats
+    // naming a log the reader then has to download.
+    const out = runAssertion(REAL_FAILING_LOG);
+
+    expect(out).toMatch(/Dockerfile:27/);
+    expect(out).toMatch(/failed to solve/);
+  });
+
+  it('still calls a genuine warm cache a warm cache', () => {
+    // The failure check runs first and matches on strings a healthy run does
+    // not contain, so it must not have swallowed the healthy case.
+    const out = runAssertion(
+      'Pulling liferay...\nStarting Container Stack\nContainer aica-e2e Started\n'
+    );
+
+    expect(out).toMatch(/No image build this run/);
+    expect(out).not.toMatch(/::warning::/);
+  });
+
+  it('never fails the run, even on a failed build', () => {
+    expect(() => runAssertion(REAL_FAILING_LOG)).not.toThrow();
+  });
+});
+
+describe('the image build does not float (#1235)', () => {
+  it('pins the base image by digest, not a tag', () => {
     const from = dockerfile().match(/^FROM\s+(\S+)/m);
 
     expect(from).not.toBeNull();
     expect(from[1]).toMatch(/@sha256:[0-9a-f]{64}$/);
     expect(from[1]).not.toMatch(/:latest$/);
+  });
+
+  it('installs from the lockfile rather than resolving around it', () => {
+    // Without --frozen-lockfile yarn "fixes" a mismatch by resolving fresh
+    // and saving a new lockfile, which is how three nightlies installed
+    // something CI had never seen.
+    const run = dockerfile().match(/^RUN\s+yarn\s+install.*$/m);
+
+    expect(run).not.toBeNull();
+    expect(run[0]).toMatch(/--frozen-lockfile/);
+  });
+
+  it('assembles the root lockfile into the build context', () => {
+    // The Dockerfile's context is the assembled zip, and this is a yarn
+    // workspaces monorepo whose only lockfile is at the root - outside this
+    // extension's directory. Without this entry the container reported
+    // `info No lockfile found.` and resolved every range from the registry.
+    const manifest = YAML.parse(
+      fs.readFileSync(
+        path.join(
+          ROOT,
+          'client-extensions',
+          'ai-commerce-accelerator-microservice',
+          'client-extension.yaml'
+        ),
+        'utf8'
+      )
+    );
+
+    const lockfileEntry = (manifest.assemble || []).find((entry) =>
+      (entry.include || []).includes('yarn.lock')
+    );
+
+    expect(lockfileEntry, 'no assemble entry includes yarn.lock').toBeDefined();
+    expect(lockfileEntry.from).toBe('../..');
+    // The zip root, beside package.json. An `into` naming a subdirectory
+    // would validate, build, and leave yarn with no lockfile where it looks.
+    expect(lockfileEntry.into).toBe('.');
+  });
+
+  it('starts the install from nothing the build machine left behind', () => {
+    // `**/*.cjs` in client-extension.yaml reaches into node_modules and swept
+    // in one file, so the zip - and therefore the image - carried a
+    // node_modules/openai with no package.json, and what shipped depended on
+    // what the build machine had installed. Order matters: clearing it after
+    // the install would delete the install.
+    const text = dockerfile();
+    const clear = text.search(
+      /^RUN\s+rm\s+-rf\s+\/opt\/liferay\/node_modules/m
+    );
+    const install = text.search(/^RUN\s+yarn\s+install/m);
+
+    expect(
+      clear,
+      'nothing clears node_modules before the install'
+    ).toBeGreaterThan(-1);
+    expect(clear).toBeLessThan(install);
+  });
+
+  it('assembles a lockfile that is actually there', () => {
+    // `from: ../..` is the repository root. A guard naming a file that moved
+    // would pass while the image went back to resolving fresh.
+    expect(fs.existsSync(path.join(ROOT, 'yarn.lock'))).toBe(true);
   });
 });
