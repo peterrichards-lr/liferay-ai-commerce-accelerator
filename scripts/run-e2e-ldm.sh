@@ -352,6 +352,79 @@ remove_stale_node_dxp_tree() {
     fi
 }
 
+# The node builds the image. Nothing measured the node.
+#
+# resource-monitor.log watches the GitHub runner, and on run 38276108860 it
+# reported 15989MB of memory and 145G at 44% - entirely healthy - while
+# /mnt/docker-data on the machine actually doing the building sat at 98MB free
+# of 30GB. Every nightly from 4 October died at `RUN yarn install` and no
+# capture said why, because the one number that explained it was never taken.
+# Nine days, and the answer was a `df` away on a host nothing ever asked.
+#
+# Measured THROUGH A CONTAINER, not over SSH. Three reasons, in order of how
+# badly each alternative failed when tried:
+#
+#   1. The daemon's storage is not on a predictable path. `Docker Root Dir` is
+#      /mnt/docker-data/docker on aws-2 and /var/lib/docker elsewhere. Reading
+#      the wrong one is not hypothetical: the first pass at this diagnosis read
+#      `/` at 81% and called the node healthy while the mount that mattered was
+#      at 100%.
+#   2. A container's own `/` IS an overlay on that storage, so `df` inside one
+#      reports the filesystem the build writes to, whatever its path.
+#   3. The SSH user cannot be relied on for anything here. It is uid 1001 and
+#      much of the node is uid 1000; #1252 is an entire issue about what that
+#      account cannot read. The daemon runs as root.
+#
+# See #1278.
+NODE_MIN_BUILD_HEADROOM_GB="${NODE_MIN_BUILD_HEADROOM_GB:-5}"
+
+# Held as a constant so the test can run the real parser against real `df`
+# output. Asserting that this script *contains* a df call would pass on a
+# capture that silently produced nothing, which is the mistake
+# imageBuildIsDiagnosable.test.cjs exists to record (#1247).
+# shellcheck disable=SC2016
+NODE_DF_AVAILABLE_AWK='NR == 2 { print $4 }'
+
+node_build_headroom_kb() {
+    docker run --rm --label com.liferay.ldm.managed=true alpine \
+        df -P / 2>/dev/null | awk "$NODE_DF_AVAILABLE_AWK"
+}
+
+assert_node_build_headroom() {
+    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
+
+    local free_kb min_kb
+    free_kb="$(node_build_headroom_kb)" || free_kb=""
+    min_kb=$((NODE_MIN_BUILD_HEADROOM_GB * 1024 * 1024))
+
+    # Unknown is not "fine". It is also not proof of a full disk - the probe
+    # fails on a broken transport too - so it warns rather than ending the run,
+    # and names the reading it could not take.
+    case "$free_kb" in
+    '' | *[!0-9]*)
+        echo "::warning::Could not measure free space on '${LDM_NODE_TARGET}'. The probe container did not report a usable figure, which happens when the transport is down AND when the disk is too full to start a container - the second being the condition this check exists to catch. The build may fail with no reason captured. See #1278."
+        return 0
+        ;;
+    esac
+
+    local free_gb=$((free_kb / 1024 / 1024))
+
+    if [ "$free_kb" -lt "$min_kb" ]; then
+        echo "::error::The target node '${LDM_NODE_TARGET}' has ${free_gb}GB free where the image build needs ${NODE_MIN_BUILD_HEADROOM_GB}GB. The build would fail inside BuildKit at 'RUN yarn install' with its output swallowed, which is what every nightly from 4 October did. Failing here instead, because the reason is legible here and is not legible there. See #1278."
+        echo "    What is holding the space:"
+        docker system df 2>&1 | sed 's/^/      /' || true
+        echo "    To clear it:  ldm prune --node ${LDM_NODE_TARGET}"
+        return 1
+    fi
+
+    if [ "$free_kb" -lt $((min_kb * 2)) ]; then
+        echo "::warning::The target node '${LDM_NODE_TARGET}' has ${free_gb}GB free, above the ${NODE_MIN_BUILD_HEADROOM_GB}GB floor but not by much. Nothing prunes this node, so it only moves one way. See #1278."
+        return 0
+    fi
+
+    echo "💽 Node '${LDM_NODE_TARGET}' has ${free_gb}GB free for the build."
+}
+
 ldm_cmd() {
     local node_args=()
 
@@ -636,6 +709,16 @@ capture_ssh_accept_count() {
 }
 
 if ! route_docker_to_node; then
+    exit 1
+fi
+
+# Here, at the first moment the node is reachable, and not later.
+#
+# Everything below this line costs something on a node that cannot build:
+# removing the previous project, syncing the client extensions, waking
+# Liferay. A run that is going to die at `RUN yarn install` forty minutes from
+# now should die here instead, where the reason is one line and legible.
+if ! assert_node_build_headroom; then
     exit 1
 fi
 
