@@ -237,6 +237,75 @@ assert_build_output_captured() {
     return 0
 }
 
+# How long the bring-up took, recorded whether it passed or failed.
+#
+# The compose gate that kills Liferay is roughly one site-initialiser step
+# wide: 5m53s cleared it on 30 September and 7m17s did not on 1 October, same
+# commit, same LDM, same node. The only difference was how long Liferay took,
+# and `addLayoutPageTemplates` alone accounts for 7.2s of that swing.
+#
+# #1218 deliberately proposes no new timeout, because raising one until the
+# symptom stops is how a margin gets re-consumed by the next slow step. What a
+# number needs is a distribution of real boot times, and nothing has ever
+# recorded one. This is that recording: one line per run, in the artifact,
+# green or red, so the margin is observable before it is exceeded again.
+BOOT_DURATION_LOG="logs/e2e-boot-duration.txt"
+
+record_bringup_duration() {
+    local seconds="$1" outcome="$2"
+
+    mkdir -p logs
+    printf '%s\t%s\t%ss\t%s\t%s\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        "${LDM_NODE_TARGET:-local}" \
+        "$seconds" \
+        "$outcome" \
+        "${LDM_VERSION_OUTPUT:-unknown}" \
+        >>"$BOOT_DURATION_LOG" 2>/dev/null || true
+
+    echo "⏱️  Bring-up took ${seconds}s (${outcome}); recorded in ${BOOT_DURATION_LOG}. See #1218."
+}
+
+# "Liferay is unhealthy" says it is broken. Usually it was still working.
+#
+# Run 36833980419 died with `dependency failed to start: container aica-e2e is
+# unhealthy`, and Liferay's console log for that run has ZERO errors - it shows
+# BundleSiteInitializer mid-run, `Invoking addLayoutPageTemplates took 7156 ms`
+# as its last line, and compose giving up twenty seconds later. A reader sent
+# to that message looks for a broken Liferay and finds nothing wrong, which is
+# the most expensive kind of wrong answer.
+#
+# Takes both logs as arguments so the classification can be run against real
+# captured output in a test rather than inferred from the shape of the code -
+# the distinction imageBuildIsDiagnosable.test.cjs exists to record.
+classify_bringup_failure() {
+    local ldm_log="$1" liferay_log="$2"
+
+    # Only the gate's own signature. Any other bring-up failure is a different
+    # question and must not be dressed as this one.
+    grep -qE 'dependency failed to start|container [^ ]+ is unhealthy' "$ldm_log" 2>/dev/null || return 0
+
+    if [ ! -s "$liferay_log" ]; then
+        echo "::warning::The bring-up gate fired, but Liferay's log was not captured, so whether it was still initialising or had actually failed cannot be told apart here. See #1218."
+        return 0
+    fi
+
+    local progress errors last
+    progress="$(grep -cE 'Invoking [A-Za-z]+ took|BundleSiteInitializer|Starting Liferay' "$liferay_log" 2>/dev/null || true)"
+    errors="$(grep -cE '\bERROR\b|\bSEVERE\b|Exception' "$liferay_log" 2>/dev/null || true)"
+
+    if [ "${progress:-0}" -gt 0 ] && [ "${errors:-0}" -eq 0 ]; then
+        last="$(grep -E 'Invoking [A-Za-z]+ took|BundleSiteInitializer' "$liferay_log" 2>/dev/null | tail -1)"
+        echo "::error::Liferay did not fail to start - it ran out of time. The compose healthcheck gate killed it with ${progress} initialisation steps logged and no errors at all. This is #1218, not a broken Liferay."
+        echo "    Last thing it did: ${last:-(no progress line)}"
+        echo "    A user running the quickstart meets the same gate on a slower machine."
+        return 0
+    fi
+
+    echo "::error::Liferay failed during bring-up: ${errors} error lines in its log, ${progress} initialisation steps logged. This is a real failure, not the #1218 timing gate."
+    return 0
+}
+
 # `ldm rm --delete` does not remove the project directory on the NODE.
 #
 # Its help says it will "permanently delete its directory from disk", and for a
@@ -1419,6 +1488,35 @@ capture_microservice_diagnostics() {
             | perl -pe 's/((?:secret|password|api[._]?key|token)\W{0,3}).*/$1<redacted>/gi' \
             || echo "(DXP tree values unreadable)"
         echo
+        # The company's virtual host, beside the tree that disagrees with it.
+        #
+        # Run 38379364632 wrote all three domain keys as `localhost` at 10:27,
+        # 31 minutes after the stale tree was successfully removed, while the
+        # container's own LIFERAY_LXC_DXP_MAIN_DOMAIN said aica-e2e.demo
+        # throughout. So the writer is not reading that variable, and the tree
+        # is not a fossil - it is freshly written and wrong.
+        #
+        # Nothing in this repository sets a virtual host (`git grep -i
+        # virtualhost` finds nothing), so the default company keeps DXP's own
+        # `localhost`. That is the one value nobody sets and it equals the one
+        # the tree publishes - which is suggestive and not proof. A writer
+        # deriving its domain from the request, or from the portal's own
+        # listener, would produce `localhost` just as readily on a container
+        # listening on 8080.
+        #
+        # This is what separates them. Move together -> the fix is to set it.
+        # Virtual host already correct while the tree says localhost -> the
+        # virtual host is exonerated and the writer reads something else.
+        #
+        # Queried through the db container's OWN environment, so no credential
+        # is written here or printed. See #1283.
+        echo "=== the company's virtual host (#1283: does it move with the tree?) ==="
+        docker exec "${PROJECT_NAME:-aica-e2e}-db" sh -c \
+            'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+                "select virtualhostid, companyid, layoutsetid, hostname from virtualhost order by virtualhostid"' \
+            2>&1 | head -20 \
+            || echo "(virtual host unreadable - the db container may not be up at this stage)"
+        echo
         # Where LDM actually binds ext-init-metadata.
         #
         # Liferay writes routes/default/<ext_id> and the container reads an
@@ -2315,8 +2413,12 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # block exists to fix.
     LDM_RUN_LOG="logs/e2e-ldm-run.txt"
     mkdir -p logs
+    # Timed on both sides of the call, so the figure covers exactly what the
+    # compose healthcheck gate is racing against. See #1218.
+    bringup_started=$SECONDS
     ldm_cmd "${RUN_ARGS[@]}" 2>&1 | tee "$LDM_RUN_LOG"
     ldm_run_status=${PIPESTATUS[0]}
+    bringup_seconds=$((SECONDS - bringup_started))
 
     # IMMEDIATELY, before anything else runs `ldm`.
     #
@@ -2348,7 +2450,28 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
 
     assert_build_output_captured "$LDM_RUN_LOG"
 
+    # Recorded on BOTH paths. A distribution made only of failures says
+    # nothing about the margin, and one made only of successes says nothing
+    # about where it was exceeded. See #1218.
     if [ "$ldm_run_status" -ne 0 ]; then
+        record_bringup_duration "$bringup_seconds" "failed"
+    else
+        record_bringup_duration "$bringup_seconds" "cleared"
+    fi
+
+    if [ "$ldm_run_status" -ne 0 ]; then
+        # Liferay's log, captured here rather than at teardown: the containers
+        # are about to be torn down, and the question "was it still working?"
+        # can only be answered from what it had written by the moment it was
+        # killed.
+        # NOT $LIFERAY_CONTAINER: that is assigned inside
+        # capture_microservice_diagnostics, which has not run at this point in
+        # the script, so it would be empty here and `docker logs ""` would ask
+        # about nothing. LDM names the Liferay service after the project.
+        docker logs --tail "${LIFERAY_LOG_TAIL:-20000}" "${PROJECT_NAME:-aica-e2e}" \
+            >logs/e2e-liferay-bringup.log 2>&1 || true
+        classify_bringup_failure "$LDM_RUN_LOG" logs/e2e-liferay-bringup.log
+
         echo "::error::ldm run exited ${ldm_run_status}; see ${LDM_RUN_LOG}"
         exit "$ldm_run_status"
     fi
