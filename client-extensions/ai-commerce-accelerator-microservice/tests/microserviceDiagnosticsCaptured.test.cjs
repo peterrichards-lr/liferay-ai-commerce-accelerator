@@ -315,14 +315,63 @@ describe('microservice container diagnostics', () => {
     // prose would make this pass or fail on the wording rather than on the
     // command - so `functionSource` hands back code only. #1073 is the same
     // lesson: a guard that counted comments as reads.
+    // Ends at the virtual-host probe that now follows it (#1283), not at the
+    // mounts block further down: slicing past an unrelated probe would make
+    // this test pass or fail on that probe's contents.
     const values = body.slice(
       body.indexOf('DXP config tree values'),
-      body.indexOf('mounts, as Docker records them')
+      body.indexOf("the company's virtual host")
     );
     // It reads file contents, so the directory it reads is the whole safety
     // argument. ext-init-metadata holds generated OAuth2 client secrets.
     expect(values).toMatch(/LIFERAY_ROUTES_DXP/);
     expect(values).not.toMatch(/LIFERAY_ROUTES_CLIENT_EXTENSION|ext-init/);
+  });
+
+  // #1283: the tree is written fresh and still says `localhost`, while the
+  // container's own LIFERAY_LXC_DXP_MAIN_DOMAIN says the real host. Nothing in
+  // this repository sets a virtual host, so the default company keeps DXP's
+  // `localhost` - the one value nobody sets, equal to the one the tree
+  // publishes. Capturing both together is what tells a shared cause from a
+  // coincidence.
+  describe("the company's virtual host, beside the tree (#1283)", () => {
+    const probe = () => {
+      const body = functionSource('capture_microservice_diagnostics');
+      return body.slice(
+        body.indexOf("the company's virtual host"),
+        body.indexOf('mounts, as Docker records them')
+      );
+    };
+
+    test('reads the virtual host from the database', () => {
+      expect(probe()).toMatch(/from virtualhost/i);
+    });
+
+    test('is captured beside the tree values, not in a separate run', () => {
+      // The whole point is comparing the two from one artifact. Captured a
+      // run apart, they answer a different question.
+      const body = functionSource('capture_microservice_diagnostics');
+
+      expect(body.indexOf('DXP config tree values')).toBeLessThan(
+        body.indexOf("the company's virtual host")
+      );
+    });
+
+    test('hardcodes no database credential', () => {
+      // Read from the db container's own environment. A password written here
+      // would reach the artifact, and the artifact is kept.
+      const values = probe();
+
+      expect(values).toMatch(/\$POSTGRES_USER/);
+      expect(values).not.toMatch(/-U\s+[a-z]/i);
+      expect(values).not.toMatch(/PGPASSWORD=\S/);
+    });
+
+    test('cannot fail the run if the database is not up', () => {
+      // #1238: a diagnostic must not become a second way for the run to die.
+      // At this stage the db container may legitimately be gone.
+      expect(probe()).toMatch(/\|\| echo/);
+    });
   });
 
   test('counts the app route handlers as a shadowing canary', () => {

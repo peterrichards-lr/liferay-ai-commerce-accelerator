@@ -1488,6 +1488,35 @@ capture_microservice_diagnostics() {
             | perl -pe 's/((?:secret|password|api[._]?key|token)\W{0,3}).*/$1<redacted>/gi' \
             || echo "(DXP tree values unreadable)"
         echo
+        # The company's virtual host, beside the tree that disagrees with it.
+        #
+        # Run 38379364632 wrote all three domain keys as `localhost` at 10:27,
+        # 31 minutes after the stale tree was successfully removed, while the
+        # container's own LIFERAY_LXC_DXP_MAIN_DOMAIN said aica-e2e.demo
+        # throughout. So the writer is not reading that variable, and the tree
+        # is not a fossil - it is freshly written and wrong.
+        #
+        # Nothing in this repository sets a virtual host (`git grep -i
+        # virtualhost` finds nothing), so the default company keeps DXP's own
+        # `localhost`. That is the one value nobody sets and it equals the one
+        # the tree publishes - which is suggestive and not proof. A writer
+        # deriving its domain from the request, or from the portal's own
+        # listener, would produce `localhost` just as readily on a container
+        # listening on 8080.
+        #
+        # This is what separates them. Move together -> the fix is to set it.
+        # Virtual host already correct while the tree says localhost -> the
+        # virtual host is exonerated and the writer reads something else.
+        #
+        # Queried through the db container's OWN environment, so no credential
+        # is written here or printed. See #1283.
+        echo "=== the company's virtual host (#1283: does it move with the tree?) ==="
+        docker exec "${PROJECT_NAME:-aica-e2e}-db" sh -c \
+            'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+                "select virtualhostid, companyid, layoutsetid, hostname from virtualhost order by virtualhostid"' \
+            2>&1 | head -20 \
+            || echo "(virtual host unreadable - the db container may not be up at this stage)"
+        echo
         # Where LDM actually binds ext-init-metadata.
         #
         # Liferay writes routes/default/<ext_id> and the container reads an
