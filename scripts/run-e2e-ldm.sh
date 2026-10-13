@@ -321,35 +321,91 @@ remove_stale_node_dxp_tree() {
     endpoint="$(node_ssh_endpoint)"
     [ -n "$endpoint" ] || return 0
 
-    # stderr CAPTURED, not discarded. The first version of this sent it to
-    # /dev/null, so when the removal failed on run 37624820282 the warning said
-    # only that it had - a diagnostic reporting a failure without reporting the
-    # failure, which is the exact family this repository keeps producing, in
-    # the fix for an instance of it. The reason is the whole value here.
-    # `|| status=$?`, NOT a bare assignment followed by `status=$?`.
+    # THIS CANNOT BE DONE OVER SSH. Do not "simplify" it back.
     #
-    # `set -e` is on from line 4. A plain `err="$(cmd)"` whose command fails
-    # ABORTS THE SCRIPT at the assignment - `status=$?` never runs. That is not
-    # theory: it is what run 37632331741 did. The script died here and went
-    # straight to cleanup without reaching the removal, so a diagnostic became
-    # a second way for the run to die, which is #1238 exactly, committed while
-    # fixing a diagnostic.
+    # The previous version was `ssh … rm -rf …`, and it failed on every single
+    # run between merging and being replaced - seven for seven, with not one
+    # success in the history. Not flakiness. `routes/default` is drwxr-x----
+    # owned by uid 1000; the SSH user is uid 1001. A different uid cannot
+    # traverse a 750 directory, so nothing running as that account can touch
+    # it: not `rm`, not `chmod`, not `sudo chmod` (it has no sudo rights), and
+    # not rsync's own `-p`/`-g`/`-o`, which ATTEMPTED exactly this repair and
+    # was refused:
     #
-    # `if ! err="$(cmd)"` survives but is also wrong: inside the branch $? is
-    # the negation's status, always 0, so the message would report `ssh exit 0`
-    # for a failure. `|| status=$?` is the one form that both survives errexit
-    # and keeps the real code. All three were tested, not reasoned about.
-    local err status=0
-    err="$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
-        "rm -rf \"\$HOME/.liferay-docker/projects/${PROJECT_NAME}/routes/default/dxp\"" \
-        2>&1)" || status=$?
+    #     rsync: [generator] chgrp ".../routes/default" failed: Operation not permitted (1)
+    #     rsync: [generator] opendir ".../routes/default" failed: Permission denied (13)
+    #
+    # The repair has to run as root. The node's docker daemon does, and this
+    # script already holds a transport to it by now (route_docker_to_node).
+    # So the helper container is not a preference - it is the only class of
+    # fix that can work here, and an SSH version of it would reintroduce the
+    # same silent no-op looking like a fresh defect. See #1252 and LDM-#2144.
+    #
+    # Mounted at the PROJECT directory, never at routes/default/dxp. `docker
+    # run -v` creates a missing host path as root, so mounting the target
+    # directly would manufacture a root-owned directory exactly where
+    # ldm-automation needs to write - a worse version of the bug being fixed.
+    # The `mkdir -p` below is what guarantees the mount point exists, and it
+    # runs as the SSH user in its own $HOME, which is the one thing that
+    # account can reliably do.
+    # stderr to a FILE, not merged into stdout and not discarded.
+    #
+    # Merging would put the reason inside $remote_home and send it to `docker
+    # -v` as part of a mount path. Discarding is what the first version of
+    # this did, so when the removal failed on run 37624820282 the warning said
+    # only that it had - a diagnostic reporting a failure without reporting
+    # the failure. The reason is the whole value here.
+    #
+    # `|| status=$?`, NOT a bare assignment followed by `status=$?`. `set -e`
+    # is on from line 4, and a plain `x="$(cmd)"` whose command fails ABORTS
+    # THE SCRIPT at the assignment - `status=$?` never runs. That is what run
+    # 37632331741 did: the script died here and went straight to cleanup, so a
+    # diagnostic became a second way for the run to die (#1238). `if ! x=...`
+    # survives but reports $? as the negation's status, always 0.
+    local remote_home err stderr_file status=0
+    stderr_file="$(mktemp)"
+    remote_home="$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
+        "mkdir -p \"\$HOME/.liferay-docker/projects/${PROJECT_NAME}\" && printf %s \"\$HOME\"" \
+        2>"$stderr_file")" || status=$?
+    err="$(cat "$stderr_file" 2>/dev/null)" || err=""
+    rm -f "$stderr_file"
 
-    if [ $status -eq 0 ]; then
-        echo "🧹 Removed any stale DXP config tree on '${LDM_NODE_TARGET}' so Liferay rewrites it for ${TARGET_HOST}."
-    else
-        echo "⚠️  Could not remove the node's stale DXP config tree (ssh exit ${status} to ${endpoint}): ${err:-no output on stderr}"
-        echo "    If OAuth redirect URIs say localhost, that is why (#1252)."
+    if [ $status -ne 0 ] || [ -z "$remote_home" ]; then
+        echo "::warning::Could not resolve the project directory on '${LDM_NODE_TARGET}' (ssh exit ${status} to ${endpoint}): ${err:-no output on stderr}. The stale DXP config tree was not cleared; if OAuth redirect URIs say localhost, that is why. See #1252."
+        return 0
     fi
+
+    # One container does the removal and reports whether it worked, because a
+    # removal that says nothing about its result is what #1253 shipped.
+    local verdict
+    verdict="$(docker run --rm --label com.liferay.ldm.managed=true \
+        -v "${remote_home}/.liferay-docker/projects/${PROJECT_NAME}:/project" \
+        alpine sh -c '
+            rm -rf /project/routes/default/dxp 2>/dev/null
+            if [ -e /project/routes/default/dxp ]; then echo SURVIVED; else echo GONE; fi
+        ' 2>&1)" || verdict=""
+
+    case "$verdict" in
+    *GONE*)
+        echo "🧹 Removed any stale DXP config tree on '${LDM_NODE_TARGET}' so Liferay rewrites it for ${TARGET_HOST}."
+        return 0
+        ;;
+    *SURVIVED*)
+        # Proof the suite cannot pass. Liferay will publish the stale domain,
+        # every OAuth redirect URI will be registered against the wrong host,
+        # and twelve browser specs will fail ninety minutes from now on
+        # elements that never render. Ending it here costs a node cycle and
+        # names the reason; carrying on costs the cycle anyway and buries it.
+        echo "::error::The stale DXP config tree survived removal on '${LDM_NODE_TARGET}'. Liferay will publish its old domain, so no OAuth redirect URI will match ${TARGET_HOST} and the browser specs cannot pass. See #1252."
+        return 1
+        ;;
+    esac
+
+    # Neither token: the container did not run. That is not proof the tree is
+    # still there, so it must not end the run - and not proof it is gone, so
+    # it must not read as success either.
+    echo "::warning::Could not confirm the stale DXP config tree was cleared on '${LDM_NODE_TARGET}': ${verdict:-the helper container produced no output}. If OAuth redirect URIs say localhost, that is why. See #1252."
+    return 0
 }
 
 # The node builds the image. Nothing measured the node.
@@ -2193,7 +2249,9 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # removal before it is undone by whatever import restores. This is the only
     # window that is both after the node's directory reaches its final state
     # and before Liferay starts and reads it. See #1252.
-    remove_stale_node_dxp_tree
+    if ! remove_stale_node_dxp_tree; then
+        exit 1
+    fi
 
     write_signal "STARTING"
     # Make BuildKit emit the build line by line instead of redrawing a frame.
