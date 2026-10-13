@@ -46,39 +46,117 @@ function extract(name) {
  * never printed and execFileSync throws.
  */
 function run(name, preamble) {
+  // Called as the condition of an `if`, because `remove_stale_node_dxp_tree`
+  // can now legitimately return non-zero - a tree that survives removal ends
+  // the run (#1252). A bare call would be aborted by errexit before `exit=$?`
+  // could record the status, so the one outcome most worth asserting would be
+  // indistinguishable from the abort this harness exists to detect.
   return execFileSync(
     'bash',
     [
       '-c',
-      `set -eu\n${preamble}\n${extract(name)}\n${name}\necho "exit=$?"\necho "SURVIVED"`,
+      // fd 3 is the harness's own stdout, opened before anything runs. A stub
+      // that echoes its argv to stdout OR stderr is swallowed by the
+      // function's own `2>&1` capture - and worse, the captured text then
+      // contains the container script, which includes the literal `echo
+      // GONE`, so a SURVIVED verdict matched the success case. The stub
+      // reports through 3; the function never sees it.
+      `set -eu\nexec 3>&1\n${preamble}\n${extract(name)}\nif ${name}; then echo "exit=0"; else echo "exit=$?"; fi\necho "SURVIVED"`,
     ],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
   );
 }
 
+/** A `docker` stub whose helper container reports `verdict`. */
+const dockerSaying = (verdict) =>
+  `docker() { echo "DOCKER-ARGS: $*" >&3; ${
+    verdict === null ? 'return 1' : `echo "${verdict}"`
+  }; }`;
+
+/** An `ssh` stub that resolves $HOME the way the real node does. */
+const SSH_OK = 'ssh() { printf %s /home/ldm-automation; }';
+
 describe('the stale DXP tree is removed before the build (#1252)', () => {
-  it('removes it, scoped to this project, on the node', () => {
-    const out = run(
+  const removal = (stubs) =>
+    run(
       'remove_stale_node_dxp_tree',
       [
         'LDM_NODE_TARGET=aws-1',
         'PROJECT_NAME=aica-e2e',
         'TARGET_HOST=aica-e2e.demo',
         'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
-        // Fails on purpose, and echoes its argv to stderr: the function now
-        // CAPTURES stderr rather than discarding it, so the failure path is
-        // where the command it built becomes visible. On success nothing is
-        // printed, which is correct and makes success untestable this way.
-        'ssh() { echo "SSH-ARGS: $*" >&2; return 1; }',
+        ...stubs,
       ].join('\n')
     );
 
-    // The exact remote path, and nothing broader. $HOME stays unexpanded
-    // locally so the node resolves its own.
-    expect(out).toMatch(
-      /rm -rf "\$HOME\/\.liferay-docker\/projects\/aica-e2e\/routes\/default\/dxp"/
-    );
+  it('removes it as root, scoped to this project, on the node', () => {
+    // NOT over SSH, and this is not a preference.
+    //
+    // The first version was `ssh … rm -rf …` and failed on every run between
+    // merging and being replaced - seven for seven, never once succeeding.
+    // `routes/default` is drwxr-x--- owned by uid 1000 and the SSH user is
+    // 1001, so that account cannot traverse it to remove anything: not with
+    // `rm`, not with `chmod`, not with `sudo` (it has none), and not through
+    // rsync's own -p/-g/-o, which attempted the same repair in the same run
+    // and was refused with `chgrp … Operation not permitted`. The node's
+    // docker daemon runs as root and is the only identity available that can.
+    const out = removal([SSH_OK, dockerSaying('GONE')]);
+
+    expect(out).toMatch(/rm -rf \/project\/routes\/default\/dxp/);
+    expect(out).toMatch(/Removed any stale DXP config tree/);
     expect(out).toContain('exit=0');
+  });
+
+  it('mounts the project directory, never the tree itself', () => {
+    // `docker run -v` creates a missing host path as root. Mounting
+    // routes/default/dxp would create it root-owned exactly where
+    // ldm-automation needs to write - the bug, manufactured by its own fix.
+    // Liferay's _deleteRoutes deltrees that directory and recreates it, so it
+    // is routinely absent at this point (LDM-#1944).
+    const out = removal([SSH_OK, dockerSaying('GONE')]);
+
+    expect(out).toMatch(
+      /-v \/home\/ldm-automation\/\.liferay-docker\/projects\/aica-e2e:\/project/
+    );
+    expect(out).not.toMatch(/-v [^ ]*routes\/default\/dxp:/);
+  });
+
+  it('ends the run when the tree survives removal', () => {
+    // #1253 warned here instead, seven times, and the warning is why nobody
+    // noticed its fix had never once worked. A surviving tree is proof the
+    // suite cannot pass: Liferay publishes the stale domain, no OAuth
+    // redirect URI matches, and twelve specs fail ninety minutes later on
+    // elements that never render.
+    const out = removal([SSH_OK, dockerSaying('SURVIVED')]);
+
+    expect(out).toContain('::error::');
+    expect(out).toMatch(/exit=[^0]/);
+    expect(out).toContain('SURVIVED');
+  });
+
+  it('neither succeeds nor fails when the helper container did not run', () => {
+    // No output is not proof the tree is there, and not proof it is gone.
+    // Ending the run on it would make a broken daemon indistinguishable from
+    // the defect; reporting success would be the #1253 failure again.
+    const out = removal([SSH_OK, dockerSaying(null)]);
+
+    expect(out).toContain('::warning::');
+    expect(out).toContain('exit=0');
+    expect(out).not.toMatch(/Removed any stale DXP config tree/);
+  });
+
+  it('does not attempt the removal over SSH', () => {
+    // The regression that matters: the obvious "simplification" of the above
+    // is the version that cannot work.
+    const source = withoutHashComments(extract('remove_stale_node_dxp_tree'))
+      .replace(/\\\n\s*/g, ' ')
+      .split('\n')
+      .filter((line) => /\bssh\b/.test(line))
+      .join('\n');
+
+    expect(source).not.toBe('');
+    expect(source).not.toMatch(/rm\s+-rf/);
+    expect(source).not.toMatch(/routes\/default/);
   });
 
   it('builds no rm -rf path from an empty project name', () => {
@@ -195,7 +273,7 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
     // wrong in the first version regardless of the ssh failure.
     const source = script();
     const imp = source.indexOf('ldm_cmd import .');
-    const remove = source.indexOf('    remove_stale_node_dxp_tree\n');
+    const remove = source.indexOf('if ! remove_stale_node_dxp_tree; then');
 
     expect(imp).toBeGreaterThan(-1);
     expect(remove).toBeGreaterThan(imp);
@@ -203,7 +281,7 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
 
   it('runs before the stack is built, not after', () => {
     const source = script();
-    const remove = source.indexOf('remove_stale_node_dxp_tree\n');
+    const remove = source.indexOf('if ! remove_stale_node_dxp_tree; then');
     const run_ = source.indexOf('Starting Liferay container with tag');
 
     expect(remove).toBeGreaterThan(-1);
