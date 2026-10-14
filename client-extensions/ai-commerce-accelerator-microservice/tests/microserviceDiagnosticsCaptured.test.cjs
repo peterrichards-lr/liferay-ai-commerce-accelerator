@@ -337,9 +337,12 @@ describe('microservice container diagnostics', () => {
   describe("the company's virtual host, beside the tree (#1283)", () => {
     const probe = () => {
       const body = functionSource('capture_microservice_diagnostics');
+      // Ends at the portal-ext probe that now follows it, not at the mounts
+      // block further down. A slice that spanned both would let either
+      // probe satisfy an assertion written for the other.
       return body.slice(
         body.indexOf("the company's virtual host"),
-        body.indexOf('mounts, as Docker records them')
+        body.indexOf('as the running Liferay reads them')
       );
     };
 
@@ -374,6 +377,105 @@ describe('microservice container diagnostics', () => {
     });
   });
 
+  // The refusal names two mismatches, not one: `http://localhost/...` against
+  // an origin of `https://aica-e2e.demo`. LDM-#2154 moves the host. Nothing
+  // yet explains the scheme, and five proposed mechanisms were eliminated -
+  // two of them only ever questions about a file read in the wrong copy.
+  // Hence this probe, and hence every assertion below about WHERE it reads.
+  describe('web.server.* as the running Liferay reads them', () => {
+    const probe = () => {
+      const body = functionSource('capture_microservice_diagnostics');
+      return body.slice(
+        body.indexOf('as the running Liferay reads them'),
+        body.indexOf('mounts, as Docker records them')
+      );
+    };
+
+    test('reads inside the Liferay container, never a file in this tree', () => {
+      // The whole defect this answers: a checked-in source quoted as a fact
+      // about the running project. `files/portal-ext.properties` is tracked
+      // here and overwritten at render; reading it proves nothing.
+      const values = probe();
+
+      expect(values).toMatch(/docker exec "\$LIFERAY_CONTAINER"/);
+      expect(values).toMatch(/\/opt\/liferay\/portal-ext\.properties/);
+    });
+
+    test('reads both copies and prints the path beside each value', () => {
+      // /mnt/liferay/files is what LDM rendered; /opt/liferay is what Liferay
+      // copied at boot and actually reads. They can differ, and a value with
+      // no path cannot say which one it came from.
+      const values = probe();
+
+      expect(values).toMatch(/\/mnt\/liferay\/files\/portal-ext\.properties/);
+      expect(values).toMatch(/echo "--- \$f /);
+    });
+
+    test('reads the environment too, not only the file', () => {
+      // A portal service can carry these as LIFERAY_WEB_PERIOD_SERVER_...,
+      // which outranks the file - that is how LDM-#2154 sets the virtual host
+      // name. A probe that read only the file would report `(absent)` for a
+      // value that was set all along.
+      expect(probe()).toMatch(/LIFERAY_\(WEB_PERIOD_SERVER/);
+    });
+
+    test('says a key is absent rather than printing nothing', () => {
+      // These keys ARE the difference between composer's https branch and its
+      // empty-string branch, and the empty-string branch is what produces
+      // `http://localhost`. Silence would read exactly like the https branch
+      // having run. Same lesson as #1286.
+      const values = probe();
+
+      expect(values).toMatch(/\(absent - Liferay default applies\)/);
+      expect(values).toMatch(/\(commented out - Liferay default applies\)/);
+      expect(values).toMatch(/\(none set/);
+    });
+
+    test('captures the scheme keys, which are what the refusal turns on', () => {
+      const values = probe();
+
+      expect(values).toMatch(/web\.server\.protocol/);
+      expect(values).toMatch(/web\.server\.https\.port/);
+      expect(values).toMatch(/web\.server\.host/);
+      expect(values).toMatch(/virtual\.hosts\.valid\.hosts/);
+    });
+
+    test('greps named keys and never reads the whole file', () => {
+      // portal-ext.properties carries the JDBC password. A fixed grep list
+      // cannot emit it; a `cat` would, into an artifact that is uploaded on
+      // green runs too.
+      const values = probe();
+
+      expect(values).toMatch(/grep/);
+      expect(values).not.toMatch(/\b(cat|head|tail)\s+"\$f"/);
+      expect(values).not.toMatch(/jdbc/i);
+    });
+
+    test('cannot fail the run if Liferay is not up', () => {
+      // #1238: a diagnostic must not become a second way for the run to die.
+      expect(probe()).toMatch(/\|\| echo/);
+    });
+
+    test('is captured beside the virtual host, in the same artifact', () => {
+      // The row, the tree and what Liferay reads answer one question between
+      // them. A run apart, they answer a different one.
+      const body = functionSource('capture_microservice_diagnostics');
+
+      expect(body.indexOf("the company's virtual host")).toBeLessThan(
+        body.indexOf('as the running Liferay reads them')
+      );
+    });
+
+    test('the section reaches the artifact', () => {
+      // Not that the command was issued - that the heading lands on disk, in
+      // the file that is uploaded. #1125 kept 166 bytes while claiming to
+      // hold the logs.
+      sandbox((dir) => {
+        const { facts } = runCapture(dir);
+        expect(facts).toMatch(/web\.server\.\* and valid hosts/);
+      });
+    });
+  });
   test('counts the app route handlers as a shadowing canary', () => {
     sandbox((dir) => {
       const { facts } = runCapture(dir);

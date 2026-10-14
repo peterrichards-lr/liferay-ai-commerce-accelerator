@@ -1542,6 +1542,75 @@ capture_microservice_diagnostics() {
             2>&1 | head -20 \
             || echo "(virtual host unreadable - the db container may not be up at this stage)"
         echo
+        # What the running Liferay reads for `web.server.*`, and the hosts it
+        # will accept.
+        #
+        # The refusal is `No redirectURI in http://localhost/o/oauth2/redirect
+        # matching origin https://aica-e2e.demo` - TWO mismatches, host and
+        # scheme. LDM-#2154 moves the host from v2.26.6. Nothing yet explains
+        # the scheme. Five mechanisms were proposed for it and none survived:
+        # SSL off (refuted - the proxy labels say tls=true, websecure),
+        # tunnel-managed CORS (refuted - no tunnel, fresh runner), LDM's
+        # redirect-URI rewriter (does not apply - our URI is relative), ssl
+        # resolving differently at run and import (refuted upstream by
+        # measuring the parser), and a package `web.server.*` shadowing at
+        # layer 5 (ruled out - all four keys are commented out in the source).
+        #
+        # A sixth was withdrawn, and it is why this block exists. Twice in one
+        # day a file in THIS TREE was quoted as a fact about the running
+        # project, and both times it was the wrong copy. There are three
+        # portal-ext.properties in play - the one checked in here, the one LDM
+        # renders at /mnt/liferay/files, and the one Liferay copied into
+        # /opt/liferay at boot - and only the last is the one it reads. So the
+        # path is printed beside every value, and the reading is taken inside
+        # the container or not at all.
+        #
+        # Both mechanisms, because only one of them is known to be used.
+        # `composer.update_portal_ext` writes the properties file; a portal
+        # service can equally carry `LIFERAY_WEB_PERIOD_SERVER_...` in its
+        # environment, which is how LDM-#2154 sets the virtual host name. A
+        # probe that read only the file would report `(absent)` for a value
+        # that was present all along - this run's version of an oracle that
+        # cannot see its own subject.
+        #
+        # An absent key is the finding, not a blank. These keys ARE the
+        # difference between composer's `elif` branch (https/443/host_name)
+        # and its `else` (all three empty, so Liferay defaults to http and no
+        # port) - and `http://localhost` is exactly what the else branch
+        # produces. So the probe says `(absent - Liferay default applies)`
+        # rather than printing nothing and reading like a clean run (#1286).
+        #
+        # Named keys only, and `grep` of a fixed list cannot emit the JDBC
+        # password that shares the file. Redacted on the way out regardless,
+        # for the reason the credential-fingerprint block records: this
+        # artifact is uploaded wholesale, including on green runs.
+        echo "=== web.server.* and valid hosts, as the running Liferay reads them ==="
+        docker exec "$LIFERAY_CONTAINER" sh -c '
+            keys="web.server.protocol web.server.host web.server.http.port
+                  web.server.https.port virtual.hosts.valid.hosts"
+            for f in /opt/liferay/portal-ext.properties \
+                     /mnt/liferay/files/portal-ext.properties; do
+                if [ ! -f "$f" ]; then
+                    echo "--- $f: (not present) ---"
+                    continue
+                fi
+                echo "--- $f ($(wc -c < "$f" | tr -d " ") bytes, written $(date -r "$f" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "?")) ---"
+                for k in $keys; do
+                    live=$(grep "^[[:space:]]*${k}=" "$f" 2>/dev/null | tail -1)
+                    if [ -n "$live" ]; then
+                        echo "  $live"
+                    elif grep -q "^[[:space:]]*#[[:space:]]*${k}=" "$f" 2>/dev/null; then
+                        echo "  $k = (commented out - Liferay default applies)"
+                    else
+                        echo "  $k = (absent - Liferay default applies)"
+                    fi
+                done
+            done
+            echo "--- the same keys as environment variables, which outrank the file ---"
+            env | grep -E "^LIFERAY_(WEB_PERIOD_SERVER|VIRTUAL_PERIOD_HOSTS|COMPANY_PERIOD_DEFAULT)" \
+                || echo "  (none set - the file above is the only source)"' 2>&1 \
+            || echo "(portal-ext unreadable - the Liferay container may not be up at this stage)"
+        echo
         # Where LDM actually binds ext-init-metadata.
         #
         # Liferay writes routes/default/<ext_id> and the container reads an
