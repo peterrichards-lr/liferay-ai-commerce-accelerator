@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../fixtures/diagnostics.js';
 import path from 'path';
 import { injectAndConnectApp } from './test-helper.js';
 

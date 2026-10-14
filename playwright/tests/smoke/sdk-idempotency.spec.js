@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../fixtures/diagnostics.js';
 
 // Dynamically construct Basic Auth header from environment variables as the default security context
 const username = process.env.LIFERAY_API_USERNAME || 'test@liferay.com';

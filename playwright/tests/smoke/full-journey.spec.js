@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../fixtures/diagnostics.js';
 import { AICA_SITE_PATHS } from '../e2e/test-helper.js';
 
 /**
@@ -25,12 +25,40 @@ test.describe('AI Commerce Accelerator Foundations', () => {
       '/group/control_panel/manage?p_p_id=com_liferay_configuration_admin_web_portlet_InstanceSettingsPortlet'
     );
 
-    // Verify the accelerator section link exists and is clickable
-    const acceleratorLink = page.getByRole('link', {
+    // The entry is a Control Panel PANEL APP, not an Instance Settings
+    // category, so it has never appeared in the Instance Settings body. From
+    // its own definition:
+    //
+    //     panelCategoryKey: control_panel.configuration
+    //     panelAppOrder: 700
+    //
+    // This asserted `getByRole('link')` against Instance Settings until #1285.
+    // Run 38410417089's page snapshot has 67 link roles there - Commerce,
+    // Platform, Security, Content and Data, Other - and no AICA among them,
+    // while the product menu carries
+    // `menuitem "Liferay AI Commerce Accelerator Configuration"`. The panel
+    // app registration (c6c84f09, 2026-05-01) predates this assertion
+    // (2a7c3b17, 2026-08-14) by three months, so the spec never passed and
+    // the DXP version is a red herring.
+    //
+    // The menu is expanded on this page in practice; opening it is guarded
+    // rather than assumed, because a collapsed menu would otherwise fail as
+    // "element not found" and read as a missing entry.
+    const openProductMenu = page.getByRole('tab', {
+      name: 'Open Product Menu',
+    });
+    if (await openProductMenu.isVisible().catch(() => false)) {
+      await openProductMenu.click();
+    }
+
+    const acceleratorEntry = page.getByRole('menuitem', {
       name: /AI Commerce Accelerator/i,
     });
-    await expect(acceleratorLink).toBeVisible({ timeout: 10000 });
-    await acceleratorLink.click();
+    await expect(acceleratorEntry).toBeVisible({ timeout: 10000 });
+
+    // The click-through is the point: the test is that the entry is reachable
+    // and leads somewhere, not that a string is present.
+    await acceleratorEntry.click();
     await expect(page).toHaveURL(/ai-commerce-accelerator/);
   });
 

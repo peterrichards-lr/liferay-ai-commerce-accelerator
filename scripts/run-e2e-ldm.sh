@@ -325,10 +325,25 @@ classify_bringup_failure() {
 # Every OAuth user-agent application then gets redirect.uris of
 # http://localhost/o/oauth2/redirect, so a browser on the real host can never
 # complete a handshake, and twelve specs fail on elements that never render.
-# The container's own LIFERAY_LXC_DXP_MAIN_DOMAIN is correct throughout;
-# config-node reads config TREES before individual environment variables, so the
-# stale tree outranks it. That is why --host-name looks correctly plumbed and
-# changes nothing.
+# The container's own LIFERAY_LXC_DXP_MAIN_DOMAIN is correct throughout, and
+# config-node resolves individual env vars BEFORE config trees - an env var
+# beats a tree, not the reverse. An earlier version of this comment had that
+# backwards and used it to explain the symptom; it never explained anything,
+# because the tree shadows nothing.
+#
+# The tree is where Liferay RECORDS its own notion of its domain, and that
+# notion comes from the default company's virtual host - which run 38410417089
+# measured as `localhost`, alone in the table, layoutsetid 0 (#1283). That is
+# why --host-name looked correctly plumbed and changed nothing: it set the
+# environment, and nothing anywhere set the virtual host.
+#
+# LDM-#2154 now does, from v2.26.6: --host-name also sets
+# LIFERAY_COMPANY_PERIOD_DEFAULT_PERIOD_VIRTUAL_PERIOD_HOST_PERIOD_NAME and
+# ..._SYNC_PERIOD_ON_PERIOD_STARTUP=true on the portal. The sync flag is the
+# load-bearing half: the name alone is ignored once the company exists, which
+# is every seeded, imported or snapshot-restored project. So LDM owns this
+# value now - nothing here should set it, and anything that did would be
+# overwritten on the next boot.
 #
 # Narrow on purpose: the dxp subtree only, not the whole remote project. The
 # proven defect is these four files, and removing more would be a larger change
@@ -1504,9 +1519,19 @@ capture_microservice_diagnostics() {
         # listener, would produce `localhost` just as readily on a container
         # listening on 8080.
         #
-        # This is what separates them. Move together -> the fix is to set it.
-        # Virtual host already correct while the tree says localhost -> the
-        # virtual host is exonerated and the writer reads something else.
+        # ANSWERED by run 38410417089: they move together. The table holds
+        # one row - `20101|39731164813230|0|localhost`, layoutsetid 0, the
+        # company's own - and the tree published `localhost` beside it. The
+        # fix is LDM-#2154, shipping in LDM v2.26.6; this repository sets
+        # nothing. The probe stays, because it is how a run proves the row
+        # moved and the tree followed - and LDM asked for that confirmation,
+        # since this is the only place the whole chain is counted.
+        #
+        # The chain it completes, counted rather than argued: 70 refusals of
+        # `No redirectURI in http://localhost/o/oauth2/redirect matching
+        # origin https://aica-e2e.demo`, and 70 `/test-connection` requests
+        # rejected as unsigned - the browser cannot sign, and cannot take the
+        # req.user exemption it was meant to take.
         #
         # Queried through the db container's OWN environment, so no credential
         # is written here or printed. See #1283.
@@ -1516,6 +1541,75 @@ capture_microservice_diagnostics() {
                 "select virtualhostid, companyid, layoutsetid, hostname from virtualhost order by virtualhostid"' \
             2>&1 | head -20 \
             || echo "(virtual host unreadable - the db container may not be up at this stage)"
+        echo
+        # What the running Liferay reads for `web.server.*`, and the hosts it
+        # will accept.
+        #
+        # The refusal is `No redirectURI in http://localhost/o/oauth2/redirect
+        # matching origin https://aica-e2e.demo` - TWO mismatches, host and
+        # scheme. LDM-#2154 moves the host from v2.26.6. Nothing yet explains
+        # the scheme. Five mechanisms were proposed for it and none survived:
+        # SSL off (refuted - the proxy labels say tls=true, websecure),
+        # tunnel-managed CORS (refuted - no tunnel, fresh runner), LDM's
+        # redirect-URI rewriter (does not apply - our URI is relative), ssl
+        # resolving differently at run and import (refuted upstream by
+        # measuring the parser), and a package `web.server.*` shadowing at
+        # layer 5 (ruled out - all four keys are commented out in the source).
+        #
+        # A sixth was withdrawn, and it is why this block exists. Twice in one
+        # day a file in THIS TREE was quoted as a fact about the running
+        # project, and both times it was the wrong copy. There are three
+        # portal-ext.properties in play - the one checked in here, the one LDM
+        # renders at /mnt/liferay/files, and the one Liferay copied into
+        # /opt/liferay at boot - and only the last is the one it reads. So the
+        # path is printed beside every value, and the reading is taken inside
+        # the container or not at all.
+        #
+        # Both mechanisms, because only one of them is known to be used.
+        # `composer.update_portal_ext` writes the properties file; a portal
+        # service can equally carry `LIFERAY_WEB_PERIOD_SERVER_...` in its
+        # environment, which is how LDM-#2154 sets the virtual host name. A
+        # probe that read only the file would report `(absent)` for a value
+        # that was present all along - this run's version of an oracle that
+        # cannot see its own subject.
+        #
+        # An absent key is the finding, not a blank. These keys ARE the
+        # difference between composer's `elif` branch (https/443/host_name)
+        # and its `else` (all three empty, so Liferay defaults to http and no
+        # port) - and `http://localhost` is exactly what the else branch
+        # produces. So the probe says `(absent - Liferay default applies)`
+        # rather than printing nothing and reading like a clean run (#1286).
+        #
+        # Named keys only, and `grep` of a fixed list cannot emit the JDBC
+        # password that shares the file. Redacted on the way out regardless,
+        # for the reason the credential-fingerprint block records: this
+        # artifact is uploaded wholesale, including on green runs.
+        echo "=== web.server.* and valid hosts, as the running Liferay reads them ==="
+        docker exec "$LIFERAY_CONTAINER" sh -c '
+            keys="web.server.protocol web.server.host web.server.http.port
+                  web.server.https.port virtual.hosts.valid.hosts"
+            for f in /opt/liferay/portal-ext.properties \
+                     /mnt/liferay/files/portal-ext.properties; do
+                if [ ! -f "$f" ]; then
+                    echo "--- $f: (not present) ---"
+                    continue
+                fi
+                echo "--- $f ($(wc -c < "$f" | tr -d " ") bytes, written $(date -r "$f" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "?")) ---"
+                for k in $keys; do
+                    live=$(grep "^[[:space:]]*${k}=" "$f" 2>/dev/null | tail -1)
+                    if [ -n "$live" ]; then
+                        echo "  $live"
+                    elif grep -q "^[[:space:]]*#[[:space:]]*${k}=" "$f" 2>/dev/null; then
+                        echo "  $k = (commented out - Liferay default applies)"
+                    else
+                        echo "  $k = (absent - Liferay default applies)"
+                    fi
+                done
+            done
+            echo "--- the same keys as environment variables, which outrank the file ---"
+            env | grep -E "^LIFERAY_(WEB_PERIOD_SERVER|VIRTUAL_PERIOD_HOSTS|COMPANY_PERIOD_DEFAULT)" \
+                || echo "  (none set - the file above is the only source)"' 2>&1 \
+            || echo "(portal-ext unreadable - the Liferay container may not be up at this stage)"
         echo
         # Where LDM actually binds ext-init-metadata.
         #
