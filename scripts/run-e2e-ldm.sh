@@ -325,10 +325,25 @@ classify_bringup_failure() {
 # Every OAuth user-agent application then gets redirect.uris of
 # http://localhost/o/oauth2/redirect, so a browser on the real host can never
 # complete a handshake, and twelve specs fail on elements that never render.
-# The container's own LIFERAY_LXC_DXP_MAIN_DOMAIN is correct throughout;
-# config-node reads config TREES before individual environment variables, so the
-# stale tree outranks it. That is why --host-name looks correctly plumbed and
-# changes nothing.
+# The container's own LIFERAY_LXC_DXP_MAIN_DOMAIN is correct throughout, and
+# config-node resolves individual env vars BEFORE config trees - an env var
+# beats a tree, not the reverse. An earlier version of this comment had that
+# backwards and used it to explain the symptom; it never explained anything,
+# because the tree shadows nothing.
+#
+# The tree is where Liferay RECORDS its own notion of its domain, and that
+# notion comes from the default company's virtual host - which run 38410417089
+# measured as `localhost`, alone in the table, layoutsetid 0 (#1283). That is
+# why --host-name looked correctly plumbed and changed nothing: it set the
+# environment, and nothing anywhere set the virtual host.
+#
+# LDM-#2154 now does, from v2.26.6: --host-name also sets
+# LIFERAY_COMPANY_PERIOD_DEFAULT_PERIOD_VIRTUAL_PERIOD_HOST_PERIOD_NAME and
+# ..._SYNC_PERIOD_ON_PERIOD_STARTUP=true on the portal. The sync flag is the
+# load-bearing half: the name alone is ignored once the company exists, which
+# is every seeded, imported or snapshot-restored project. So LDM owns this
+# value now - nothing here should set it, and anything that did would be
+# overwritten on the next boot.
 #
 # Narrow on purpose: the dxp subtree only, not the whole remote project. The
 # proven defect is these four files, and removing more would be a larger change
@@ -1504,9 +1519,19 @@ capture_microservice_diagnostics() {
         # listener, would produce `localhost` just as readily on a container
         # listening on 8080.
         #
-        # This is what separates them. Move together -> the fix is to set it.
-        # Virtual host already correct while the tree says localhost -> the
-        # virtual host is exonerated and the writer reads something else.
+        # ANSWERED by run 38410417089: they move together. The table holds
+        # one row - `20101|39731164813230|0|localhost`, layoutsetid 0, the
+        # company's own - and the tree published `localhost` beside it. The
+        # fix is LDM-#2154, shipping in LDM v2.26.6; this repository sets
+        # nothing. The probe stays, because it is how a run proves the row
+        # moved and the tree followed - and LDM asked for that confirmation,
+        # since this is the only place the whole chain is counted.
+        #
+        # The chain it completes, counted rather than argued: 70 refusals of
+        # `No redirectURI in http://localhost/o/oauth2/redirect matching
+        # origin https://aica-e2e.demo`, and 70 `/test-connection` requests
+        # rejected as unsigned - the browser cannot sign, and cannot take the
+        # req.user exemption it was meant to take.
         #
         # Queried through the db container's OWN environment, so no credential
         # is written here or printed. See #1283.
