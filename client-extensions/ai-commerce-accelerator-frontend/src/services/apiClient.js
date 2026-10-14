@@ -1,5 +1,37 @@
 import { CORRELATION_ID_HEADER } from '../utils/sharedConstants';
-import { getOAuth2AccessToken } from './oauth2Service';
+import { acquireOAuth2AccessToken, NO_LIFERAY } from './oauth2Service';
+
+/**
+ * The credential, or an error that names what is actually missing (#1287).
+ *
+ * A failed acquisition used to remove the Authorization header and send the
+ * request anyway, so the failure surfaced one layer down as `Unsigned request
+ * rejected` - a true statement about a mechanism the browser was never meant
+ * to use, and the reason #1109 spent its time on the signing gate.
+ *
+ * NO_LIFERAY is the one reason that is not a fault: the element renders
+ * outside the portal during local development, against the mock handlers, and
+ * must keep working. Every other reason means the page should have had a
+ * token and does not, and continuing only moves the error somewhere less
+ * informative.
+ */
+async function authorizationHeader() {
+  const { token, reason, detail } = await acquireOAuth2AccessToken();
+
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  if (reason === NO_LIFERAY) {
+    return {};
+  }
+
+  throw new Error(
+    `No OAuth2 access token for the microservice (${reason})` +
+      (detail ? `: ${detail}` : '') +
+      '. The request was not sent. See AICA#1287.'
+  );
+}
 
 export function createApiClient({
   baseUrl,
@@ -33,11 +65,11 @@ export function createApiClient({
             sessionStorage.getItem('correlationId')) ||
           null;
 
-    const oauthToken = await getOAuth2AccessToken();
+    const auth = await authorizationHeader();
 
     const h = {
       Accept: 'application/json, */*;q=0.1',
-      ...(oauthToken ? { Authorization: `Bearer ${oauthToken}` } : {}),
+      ...auth,
       ...(!isFormData && body ? { 'Content-Type': 'application/json' } : {}),
       ...(headers || {}),
       ...(cid ? { [CORRELATION_ID_HEADER]: cid } : {}),
@@ -103,14 +135,14 @@ export function createApiClient({
             sessionStorage.getItem('correlationId')) ||
           null;
 
-    const oauthToken = await getOAuth2AccessToken();
+    const auth = await authorizationHeader();
 
     const res = await fetch(url, {
       method,
       credentials: withCredentials ? 'include' : 'same-origin',
       headers: {
         Accept: 'application/zip, application/json;q=0.9, */*;q=0.1',
-        ...(oauthToken ? { Authorization: `Bearer ${oauthToken}` } : {}),
+        ...auth,
         ...(body ? { 'Content-Type': 'application/json' } : {}),
         ...(headers || {}),
         ...(cid ? { [CORRELATION_ID_HEADER]: cid } : {}),
