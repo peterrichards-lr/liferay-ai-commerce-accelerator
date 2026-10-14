@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../fixtures/diagnostics.js';
 import { AICA_SITE_PATHS } from '../e2e/test-helper.js';
 
 /**

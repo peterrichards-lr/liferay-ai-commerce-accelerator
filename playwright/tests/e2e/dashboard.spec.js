@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../fixtures/diagnostics.js';
 import { injectAndConnectApp } from './test-helper.js';
 
 test.describe('AICA End-to-End Verification', () => {

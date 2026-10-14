@@ -17,23 +17,11 @@ export async function injectAndConnectApp(page) {
     '>>> Navigating to standard Guest page to inject React application...'
   );
 
-  // Log all browser console messages for debugging
-  page.on('console', (msg) => {
-    console.log(`[Browser Console] ${msg.type().toUpperCase()}: ${msg.text()}`);
-  });
-  page.on('pageerror', (exception) =>
-    console.log(`[Browser Exception] ${exception}`)
-  );
-  page.on('requestfailed', (request) => {
-    console.log(
-      `[Network Error] ${request.url()} - ${request.failure()?.errorText}`
-    );
-  });
-  page.on('response', (response) => {
-    if (response.status() >= 400) {
-      console.log(`[Network 4xx/5xx] ${response.status()} - ${response.url()}`);
-    }
-  });
+  // The browser console, page errors, failed requests and 4xx/5xx responses
+  // used to be wired up here. They now live in
+  // `playwright/fixtures/diagnostics.js` as an `auto` fixture, because only
+  // three of five suites call this helper and the other two produced no
+  // console output at all - which reads exactly like a clean run. See #1286.
 
   // Force all microservice API traffic to hit our local test server, completely
   // bypassing Browser Mixed Content and CORS restrictions.
