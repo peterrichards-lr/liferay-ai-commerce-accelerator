@@ -7,11 +7,15 @@
  * docs/assets/stylesheets/liferay-blue.css (LDM-#1822), which in turn ports
  * lfr-tunnel's portal palette (pkg/server/static/themes/liferay.css).
  *
- *   Primary: #0B5FFF -- Liferay standard blue (foreground / accent)
- *   Shell:   #1a1f35 -- deep navy (header, footer, dark background)
+ *   Primary: #0B5FFF -- Liferay standard blue (light-scheme header and tabs,
+ *                         links and accents in both schemes)
+ *   Shell:   #1a1f35 -- deep navy (footers in both schemes; header and tabs
+ *                         in the dark scheme, where a bright blue bar is harsh)
  *
- * Two roles, kept separate: --lfr-blue is a FOREGROUND (links, icons);
- * the navy is the brand chrome. Collapsing them makes one of them fail contrast.
+ * Two roles, kept separate: --lfr-blue on white is 5.13:1 and carries white
+ * text at AA; the navy is the dark-scheme chrome. Collapsing them makes one of
+ * them fail contrast -- #0B5FFF on navy is 3.17:1, which is why dark-scheme
+ * links use --lfr-blue-light instead.
  *
  * Requires in mkdocs.yml:  theme.palette[*].primary: custom / accent: custom
  */
@@ -31,13 +35,13 @@
   --lfr-danger: #ff4d6a;
 }
 
-/* ---- Light scheme: white page, navy chrome, blue accent ------------------ */
+/* ---- Light scheme: white page, Liferay blue chrome, blue accent ---------- */
 [data-md-color-scheme="default"] {
-  --md-primary-fg-color: var(--lfr-navy-deep);
-  --md-primary-fg-color--light: var(--lfr-navy-raised);
-  --md-primary-fg-color--dark: #0d1020;
-  --md-primary-bg-color: var(--lfr-text-main);
-  --md-primary-bg-color--light: var(--lfr-text-secondary);
+  --md-primary-fg-color: var(--lfr-blue);
+  --md-primary-fg-color--light: #4a86ff;
+  --md-primary-fg-color--dark: var(--lfr-blue-hover);
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
 
   --md-accent-fg-color: var(--lfr-blue-hover);
   --md-accent-fg-color--transparent: rgba(11, 95, 255, 0.1);
@@ -91,10 +95,12 @@
   --md-typeset-del-color: var(--lfr-danger);
 }
 
-/* Header and tabs stay navy in both schemes: the one element that reads as
-   brand chrome. Header logo = the *-logo-light.svg variant. */
-.md-header { background-color: var(--lfr-navy-deep); color: var(--lfr-text-main); }
-.md-tabs   { background-color: var(--lfr-navy);      color: var(--lfr-text-main); }
+/* Header and tabs are navy in the DARK scheme only. A bright blue bar is harsh
+   on a dark page, while in light mode the header carries Liferay blue (#0B5FFF
+   with white text, 5.13:1, passes AA). Footers stay navy in both.
+   Header logo = the *-logo-light.svg variant, which suits either. */
+[data-md-color-scheme="slate"] .md-header { background-color: var(--lfr-navy-deep); color: var(--lfr-text-main); }
+[data-md-color-scheme="slate"] .md-tabs   { background-color: var(--lfr-navy);      color: var(--lfr-text-main); }
 
 ::selection { background-color: rgba(11, 95, 255, 0.3); }
 
