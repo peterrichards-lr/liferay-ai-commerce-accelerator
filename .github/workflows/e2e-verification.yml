@@ -74,7 +74,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -230,10 +230,10 @@ jobs:
           echo "Target is $DESCRIBED; ${{ matrix.shardTotal }} shard(s), as planned."
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -243,7 +243,7 @@ jobs:
           cache: 'gradle'
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: 'yarn'
@@ -661,7 +661,7 @@ jobs:
         run: kill "$(cat resource-monitor.pid)" 2>/dev/null || true
 
       - name: Upload resource monitor log
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: resource-monitor-log-shard-${{ matrix.shardIndex }}
@@ -675,7 +675,7 @@ jobs:
       # run that first goes green is the one we most want to read, and it was
       # the one guaranteed to be discarded. See #1169.
       - name: Upload E2E captures
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: e2e-logs-shard-${{ matrix.shardIndex }}
@@ -696,7 +696,7 @@ jobs:
       # no workflow uses download-artifact - so the split is invisible to
       # tooling. See #1169.
       - name: Upload Playwright report on failure
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: e2e-playwright-shard-${{ matrix.shardIndex }}

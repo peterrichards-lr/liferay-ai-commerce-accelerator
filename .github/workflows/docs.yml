@@ -32,8 +32,8 @@ jobs:
     outputs:
       docs: ${{ steps.changes.outputs.docs }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
         id: changes
         with:
           filters: |
@@ -51,7 +51,7 @@ jobs:
     name: docs/review
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The changed-file check below diffs this branch against its base,
           # so the base commit has to be present.
@@ -93,7 +93,7 @@ jobs:
     if: needs.filter.outputs.docs == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # mkdocs-git-revision-date-localized reads each file's commit history
           # to generate "Last updated". A shallow clone has none, so the plugin
@@ -102,7 +102,7 @@ jobs:
           # while the build stayed green.
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -121,7 +121,7 @@ jobs:
       # means a reviewer can download exactly what the deploy would publish
       # rather than inferring it from a green tick.
       - name: Upload the site as a Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
@@ -154,4 +154,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
