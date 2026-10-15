@@ -40,6 +40,11 @@ jobs:
             docs:
               - 'docs/**'
               - 'mkdocs.yml'
+              # The theme's custom_dir. A Jinja error here, or a deleted
+              # verification tag, breaks every page's <head> with no docs/
+              # change at all - and without this line the strict build would
+              # be skipped and the broken site deployed anyway. See #1312.
+              - 'overrides/**'
               - 'README.md'
               - 'CONTRIBUTING.md'
               - 'CODE_OF_CONDUCT.md'
@@ -116,6 +121,13 @@ jobs:
       # it a link rots and the build stays green.
       - name: Build the site
         run: mkdocs build --strict
+
+      # --strict asserts the build did not warn. It says nothing about what
+      # landed in the output, and the ownership token is rendered only when its
+      # key is set - so deleting the key builds clean and silently unverifies
+      # the property. This reads the built HTML instead. See #1312.
+      - name: Check the rendered output
+        run: bash scripts/check-docs-rendered.sh site
 
       # Uploaded on pull requests too, deliberately. It costs one step, and it
       # means a reviewer can download exactly what the deploy would publish
