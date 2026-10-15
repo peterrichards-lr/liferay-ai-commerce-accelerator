@@ -7,6 +7,8 @@ Everything here documents the **Liferay AI Commerce Accelerator (AICA)**: how to
     Not an official Liferay product and not covered by Liferay Support.
     [About this project](./about.md)
 
+AICA generates data **for** Liferay Commerce; it is not a commerce platform in its own right. If the platform itself is new to you, start with the [Liferay Commerce documentation](https://learn.liferay.com/w/dxp/commerce).
+
 New to the project? Start with the **[Quick Start Guide](./QUICKSTART.md)**.
 
 ## I want to…
