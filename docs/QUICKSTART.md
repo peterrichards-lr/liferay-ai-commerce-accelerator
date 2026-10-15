@@ -21,6 +21,20 @@ sudo curl -L https://github.com/peterrichards-lr/liferay-docker-manager/releases
 
 _(For Windows, Linux, or Intel Macs, refer to the [Official LDM Repository](https://github.com/peterrichards-lr/liferay-docker-manager))._
 
+> **What has actually been exercised.** AICA's automated verification runs on
+> Linux (`ubuntu-latest`), and the release package is built there. Interactive
+> verification is done on macOS (Apple Silicon). **No part of this path has been
+> exercised on Windows or on an Intel Mac**, and `ldm quickstart` itself is not
+> yet covered by our CI on any platform — our suite exercises `ldm import` and
+> `ldm run` against a checked-out tree, which is a different entry point from
+> the one above.
+>
+> Nothing here is known to be broken. If you are on Windows or an Intel Mac you
+> are the first to walk it, so please
+> [open an issue](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues)
+> with what you hit rather than assuming it is your setup. See
+> [#1292](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1292).
+
 ### 2. Import & Launch AICA
 
 Run the following command to automatically download the latest release package and launch the DXP container stack:
