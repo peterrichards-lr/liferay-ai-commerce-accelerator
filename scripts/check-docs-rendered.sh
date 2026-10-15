@@ -115,6 +115,83 @@ if [ -n "$configured" ]; then
     fi
 fi
 
+# 3. Footer "About these docs" link, resolved per page.
+#
+#    This is the failure that motivated the check. `copyright:` is raw HTML and
+#    MkDocs emits it verbatim, so a relative href in it is NOT rewritten per
+#    page: `about/` worked at the site root and 404'd on all 25 pages below it.
+#    Nothing could see it - check-docs-links.cjs walks markdown, and the link
+#    only ever existed in mkdocs.yml and the built HTML.
+#
+#    The anchor is found by its TEXT, not its href: on the About page itself the
+#    `url` filter renders a self-link as `./`, which no href-matching pattern
+#    would recognise. The href is then resolved against the page's own directory
+#    and the target must exist, so a wrong depth fails rather than only a
+#    missing link. python3 does the resolving: `realpath -m` is GNU and absent
+#    on macOS, and python is already required to build the site at all.
+base_path=$(sed -n 's|^[[:space:]]*site_url:[[:space:]]*||p' "$CONFIG" | head -1 \
+    | sed -e 's|^https\{0,1\}://[^/]*||' -e 's|/*$|/|')
+
+if ! python3 - "$SITE" "$base_path" <<'PYCHECK'; then
+import os, re, sys
+
+site, base_path = sys.argv[1], sys.argv[2]
+block_re = re.compile(r"md-copyright__highlight.*?</div>", re.S)
+# The anchor whose visible text is the About link, however it is cased.
+# Prettier formats the partial whitespace-sensitively and puts a newline
+# INSIDE the closing tag - `</a\n>` - so a literal `</a>` matches nothing and
+# every page reads as having no link. Hence `</a\s*>`.
+anchor_re = re.compile(
+    r'<a\b[^>]*?href="([^"]*)"[^>]*?>\s*About these docs\s*</a\s*>', re.I | re.S)
+
+missing, unlinked = [], []
+for root, _, files in os.walk(site):
+    for name in files:
+        if not name.endswith(".html"):
+            continue
+        path = os.path.join(root, name)
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            html = fh.read()
+        block = block_re.search(html)
+        if block is None:
+            continue  # no footer rendered on this page at all
+        anchor = anchor_re.search(block.group(0))
+        if anchor is None:
+            unlinked.append(os.path.relpath(path, site))
+            continue
+        href = anchor.group(1).split("#")[0].split("?")[0]
+        if href.startswith(("http://", "https://", "//", "mailto:")):
+            continue  # absolute: nothing local to resolve
+        if href.startswith("/"):
+            # Material's 404 page uses root-absolute URLs on purpose, because it
+            # is served from any depth. They carry the deployed subpath, which
+            # is the site root on disk, so strip it before resolving.
+            rel = href[len(base_path):] if href.startswith(base_path) else href.lstrip("/")
+            target = os.path.normpath(os.path.join(site, rel))
+        else:
+            target = os.path.normpath(os.path.join(root, href))
+        if os.path.isdir(target):
+            target = os.path.join(target, "index.html")
+        if not os.path.exists(target):
+            missing.append((os.path.relpath(path, site), anchor.group(1),
+                            os.path.relpath(target, site)))
+
+if unlinked:
+    print(f"[NO-ABOUT-LINK] {len(unlinked)} page(s) render a footer with no About link.")
+    for page in unlinked[:10]:
+        print(f"    {page}")
+if missing:
+    print(f"[BROKEN-ABOUT-LINK] {len(missing)} page(s) link to an About page that is not there.")
+    print("  A relative href in `copyright:` is raw HTML and is not resolved per")
+    print("  page; overrides/partials/copyright.html uses the `url` filter instead.")
+    for page, href, target in missing[:10]:
+        print(f'    {page}: href="{href}" -> {target} (missing)')
+if unlinked or missing:
+    sys.exit(1)
+PYCHECK
+    fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
     echo
     echo "The published output does not match what the source asks for."

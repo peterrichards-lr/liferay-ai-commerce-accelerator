@@ -76,10 +76,12 @@ extra:
 # Rendered as HTML in the site footer, on every page. Material has no dedicated
 # slot for a disclosure link, and a theme override would be a whole custom
 # partial to carry one anchor.
+# The About link is NOT here. A relative href inside this string is raw HTML:
+# MkDocs emits it verbatim on every page, so `about/` resolved against
+# /QUICKSTART/ and 404'd on all 25 nested pages. overrides/partials/copyright.html
+# appends it through the `url` filter instead, which resolves per page. See #1321.
 copyright: >-
-  Liferay AI Commerce Accelerator is a community project and is not an official
-  Liferay product &mdash;
-  <a href="about/">about these docs</a>
+  A community project &mdash; not an official Liferay product
 
 plugins:
   - search

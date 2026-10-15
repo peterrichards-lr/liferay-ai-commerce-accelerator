@@ -1,0 +1,22 @@
+{#- Material's partials/copyright.html (mkdocs-material 9.7.7) plus an About
+link on every page. `url` resolves it relative to the current page, so it works
+on nested pages and under `mkdocs serve` -- unlike a relative href inside the
+`copyright:` string, which is raw HTML and 404s below the site root. Ported from
+lfr-tunnel (#2383). -#}
+<div class="md-copyright">
+  <div class="md-copyright__highlight">
+    {% if config.copyright %}{{ config.copyright }} · {% endif %}<a
+      href="{{ 'about/' | url }}"
+      >About these docs</a
+    >
+  </div>
+  {% if not config.extra.generator == false %} Made with
+  <a
+    href="https://squidfunk.github.io/mkdocs-material/"
+    target="_blank"
+    rel="noopener"
+  >
+    Material for MkDocs
+  </a>
+  {% endif %}
+</div>
