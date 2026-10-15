@@ -39,6 +39,25 @@ FOOTER_REGEX = re.compile(
     r"[\*_]Last Reviewed: ([\d\-]+)[\*_]"
 )
 
+def _last_authored_date(root_dir, base_ref, name):
+    """Authoring date of the newest commit in this diff to touch `name`.
+
+    Wall-clock `today` is the wrong comparison: a branch written on Monday and
+    merged on Friday would start failing on Tuesday for a footer that was
+    correct when it was written.
+    """
+    try:
+        out = subprocess.run(
+            ['git', '-C', str(root_dir), 'log', '-1', '--format=%ad',
+             '--date=short', f'{base_ref}..HEAD', '--', name],
+            capture_output=True,
+            check=True,
+        ).stdout.decode('utf-8').strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return out or None
+
+
 def check_changed_files_were_reviewed(root_dir, base_ref):
     """A markdown file changed in this branch must bump its own review date.
 
@@ -86,11 +105,50 @@ def check_changed_files_were_reviewed(root_dir, base_ref):
         new_match = FOOTER_REGEX.search(md_file.read_text(encoding='utf-8'))
         if not new_match:
             stale.append((md_file, "changed, and has no review footer"))
-        elif old_match and old_match.group(2) == new_match.group(2):
+            continue
+        if not old_match:
+            continue
+
+        old_date, new_date = old_match.group(2), new_match.group(2)
+
+        if new_date > old_date:
+            continue
+
+        # Moving the date BACKWARDS is not a review, and the first version of
+        # this check accepted it: any inequality counted as "moved". Only
+        # --max-review-days would have caught it, and only once the wrong date
+        # was itself six months old. Found by a control written for the
+        # same-day case below.
+        if new_date != old_date:
             stale.append((
                 md_file,
-                f"changed, but Last Reviewed is still {new_match.group(2)}",
+                f"changed, and Last Reviewed moved BACKWARDS from "
+                f"{old_date} to {new_date}",
             ))
+            continue
+
+        # The date did not move. That is only a fault if a later date exists
+        # to move it to.
+        #
+        # A document edited twice in one day has none. #1304 set README.md to
+        # 2026-10-15 in the morning; #1312 edited it again that afternoon, and
+        # this check demanded a bump whose only satisfying value was tomorrow -
+        # a date that would have been false. The rule is "the review date
+        # reflects the day the content changed", not "the number must differ
+        # from last time".
+        #
+        # Compared against the authoring date of the newest commit in the diff
+        # to touch this file, not wall-clock now, so a branch written on Monday
+        # and merged on Friday is judged by when it was written. Ported from
+        # the SDK's scripts/check-footer-bump.py, which had this right first.
+        # See #1313.
+        if new_date == _last_authored_date(root_dir, base_ref, name):
+            continue
+
+        stale.append((
+            md_file,
+            f"changed, but Last Reviewed is still {new_date}",
+        ))
     return stale
 
 
