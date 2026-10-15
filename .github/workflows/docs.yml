@@ -52,6 +52,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The changed-file check below diffs this branch against its base,
+          # so the base commit has to be present.
+          fetch-depth: 0
 
       # Backs "each page shows when it was last reviewed" and "reviews are
       # carried out by the agents as part of keeping the docs current".
@@ -66,6 +70,22 @@ jobs:
       # It needs no dependencies, only node builtins.
       - name: Check documentation links
         run: node scripts/check-docs-links.cjs
+
+      # --max-review-days catches a page nobody has looked at for months. It
+      # cannot catch a file edited today whose footer still shows last month,
+      # because that date is not yet stale - which is exactly what happened in
+      # #1298: the commit adding the README disclaimer changed five lines and
+      # left the footer at 2026-09-18, and every check passed.
+      #
+      # Pull requests only. On a push to master the branch and the base are the
+      # same commit, so there is nothing to compare.
+      - name: Check changed documentation was re-reviewed
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=0 origin "$BASE" 2>/dev/null || true
+          python3 scripts/check_docs_review.py --changed-since "origin/$BASE"
+        env:
+          BASE: ${{ github.base_ref }}
 
   build:
     name: docs/build
