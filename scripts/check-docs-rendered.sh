@@ -341,6 +341,98 @@ PYNOTICE
     fail=1
 fi
 
+# 7. The shared home-page layout.
+#
+#    The three Liferay tools sites agreed one structure so a reader moving
+#    between them lands in the same place: the same H1 shape, the same anchors
+#    in the same order, the same two table formats, and the same related-tools
+#    table with the current tool unlinked. See #1330.
+#
+#    Asserted on the BUILT page because that is where the anchors exist. The
+#    ids are generated from the heading text, so renaming a heading silently
+#    moves an anchor that other pages and other sites may link to.
+if ! python3 - "$SITE" <<'PYHOME'; then
+import html as htmllib
+import os, re, sys
+
+home = os.path.join(sys.argv[1], "index.html")
+if not os.path.exists(home):
+    print("[NO-HOME-PAGE] nothing to check the layout on.")
+    sys.exit(1)
+with open(home, encoding="utf-8", errors="replace") as fh:
+    page = fh.read()
+
+# Material wraps the content; headings outside it (nav, footer) are not ours.
+body = re.search(r'<article[^>]*>(.*?)</article>', page, re.S)
+body = body.group(1) if body else page
+
+def text(fragment):
+    # Drop the permalink anchor Material appends, then tags, then entities.
+    fragment = re.sub(r'<a[^>]*class="headerlink".*?</a>', "", fragment, flags=re.S)
+    return htmllib.unescape(re.sub(r"<[^>]+>", "", fragment)).strip()
+
+problems = []
+
+h1 = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.S)
+WANT_H1 = "Liferay AI Commerce Accelerator documentation"
+if h1 is None or text(h1.group(1)) != WANT_H1:
+    problems.append(f"H1 is {text(h1.group(1))!r} if present; expected {WANT_H1!r}")
+
+ids = re.findall(r'<h2[^>]*id="([^"]+)"', body)
+WANT_IDS = ["i-want-to", "by-subject", "related-liferay-tools"]
+present = [i for i in ids if i in WANT_IDS]
+if present != WANT_IDS:
+    problems.append(f"H2 anchors are {present}; expected {WANT_IDS} in that order")
+
+tables = re.findall(r"<table>(.*?)</table>", body, re.S)
+def headers(tbl):
+    head = re.search(r"<thead>(.*?)</thead>", tbl, re.S)
+    return [text(c) for c in re.findall(r"<th[^>]*>(.*?)</th>", head.group(1) if head else "", re.S)]
+
+routing = next((t for t in tables if headers(t)[:1] == ["I want to\u2026"]), None)
+if routing is None:
+    found = [headers(t) for t in tables]
+    problems.append(f"no table headed 'I want to\u2026' / 'Go to'; found {found}")
+elif headers(routing) != ["I want to\u2026", "Go to"]:
+    problems.append(f"routing table headers are {headers(routing)}; expected ['I want to\u2026', 'Go to']")
+
+related = next((t for t in tables if headers(t) == ["Tool", "What it does"]), None)
+if related is None:
+    problems.append("no related-tools table headed 'Tool' / 'What it does'")
+else:
+    rows = re.findall(r"<tr>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>", related, re.S)
+    names = [text(a) for a, _ in rows]
+    WANT = ["Liferay Docker Manager", "Liferay AI Commerce Accelerator", "Liferay Tunnel"]
+    if names != WANT:
+        problems.append(f"related-tools rows are {names}; expected {WANT}")
+    here = [i for i, (_, d) in enumerate(rows) if text(d).startswith("You are here.")]
+    if len(here) != 1:
+        problems.append(f"{len(here)} rows start 'You are here.'; expected exactly 1")
+    else:
+        # The current tool must be the unlinked one.
+        if "<a " in rows[here[0]][0]:
+            problems.append("the 'You are here.' row is a link; the current tool must be unlinked")
+        for i, (cell, _) in enumerate(rows):
+            if i != here[0] and "<a " not in cell:
+                problems.append(f"row {names[i]!r} is not a link; only the current tool is unlinked")
+
+EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2190-\u2BFF\u2139\uFE0F]")
+for level in ("h1", "h2", "h3"):
+    for m in re.finditer(r"<%s[^>]*>(.*?)</%s>" % (level, level), body, re.S):
+        t = text(m.group(1))
+        if EMOJI.search(t):
+            problems.append(f"{level} contains an emoji: {t!r}")
+
+if problems:
+    print("[HOME-LAYOUT] the home page does not match the shared layout.")
+    for problem in problems:
+        print(f"    {problem}")
+    sys.exit(1)
+print("  home page: shared layout OK (H1, anchor order, both tables, no emoji in h1-h3).")
+PYHOME
+    fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
     echo
     echo "The published output does not match what the source asks for."
