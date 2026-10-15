@@ -60,6 +60,7 @@ jobs:
               # The build-time hook. It rewrites page markdown, so a change
               # here changes every page of the published site.
               - 'scripts/mkdocs_github_alerts.py'
+              - 'scripts/check-shared-files.sh'
 
   # The two guards the docs About page publicly commits to. Not gated: see the
   # note at the top of this file.
@@ -86,6 +87,13 @@ jobs:
       # It needs no dependencies, only node builtins.
       - name: Check documentation links
         run: node scripts/check-docs-links.cjs
+
+      # Ungated on purpose, like the guards above it. The canonical copies live
+      # in another repository, so this one can drift without any file here
+      # changing - a `prettier --write`, a well-meant comment fix, or lfr-tunnel
+      # moving on. A paths filter would hide exactly those cases. See #1329.
+      - name: The shared files match lfr-tunnel master
+        run: bash scripts/check-shared-files.sh
 
       # --max-review-days catches a page nobody has looked at for months. It
       # cannot catch a file edited today whose footer still shows last month,

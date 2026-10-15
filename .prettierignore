@@ -14,10 +14,15 @@ client-extensions/ai-commerce-accelerator-batch/batch/
 **/coverage/
 aica-e2e/
 
-# The shared Liferay tools docs kit. STANDARD.md requires these to be
-# byte-identical across liferay-docker-manager, this repo and lfr-tunnel, and
-# Prettier rewrites all three - the stylesheet most heavily. Formatting them
-# here would silently break the parity the standard exists to hold. See #1321.
+# The four canonical shared files. The copy of record is lfr-tunnel master;
+# these are copies and must stay byte-identical, which the sync step in
+# .github/workflows/docs.yml enforces. Prettier rewrites three of them - the
+# stylesheet most heavily - so formatting them here would break that parity
+# silently, on the next unrelated `prettier --write`. The hook is listed too:
+# Prettier does not format Python today, and the list is the record of what
+# must not be touched rather than a list of what Prettier would reach.
+# See #1321 and #1329.
 docs/assets/stylesheets/liferay-blue.css
+scripts/mkdocs_github_alerts.py
 overrides/main.html
 overrides/partials/copyright.html
