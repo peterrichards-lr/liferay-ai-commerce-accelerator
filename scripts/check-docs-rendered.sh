@@ -477,6 +477,189 @@ PYLABELS
     fail=1
 fi
 
+# 9. The shared top-level navigation.
+#
+#    The three Liferay tools sites publish the same shelves in the same order
+#    with the same sentence-case labels, so a reader moving between them knows
+#    where to look. A site omits a section it has no pages for; it never renames
+#    or reorders one. See #1333.
+#
+#    Read from the BUILT nav rather than from `nav:` in the config, because the
+#    config is not what ships: `navigation.indexes` folds an index page into its
+#    section, a theme override could reorder, and the labels are what a reader
+#    actually sees. Nothing else here can fail on this - `--strict` has no
+#    opinion about the order of the nav or the case of a label, and the controls
+#    on #1333 confirm it stays green through every mutation below.
+if ! python3 - "$SITE" <<'PYNAV'; then
+import os, re, sys
+from html.parser import HTMLParser
+
+# The shared shelves, in the one order all three Liferay tools sites use. A site
+# OMITS a section it has no pages for; it never renames or reorders one, so the
+# labels a site does publish must appear here in this sequence. See #1333.
+STANDARD = ["Home", "Tutorials", "How-to guides", "Reference", "Explanation",
+            "Troubleshooting", "Showcase", "Project and contributing",
+            "About these docs"]
+
+# Sentence case governs the ORDINARY words of a label; a name keeps its capitals.
+# Each entry here is a deliberate claim that the phrase is a name - "JSON Web
+# Services" is Liferay's own name for the API, Traefik is the proxy's - so the
+# list is short on purpose. The phrase is masked out before the remaining words
+# are judged, which is why it does not also excuse the words around it.
+PROPER = ("JSON Web Services", "Traefik")
+
+# A word that is Capitalised-then-lowercase anywhere but the first position is
+# the signature of title case: "Quick Start", "Code of Conduct". An acronym
+# (API, UI, NPE, SDK) and a bracketed one are untouched, as is the first word,
+# which sentence case capitalises.
+ORDINARY = re.compile(r"^[A-Z][a-z]+$")
+
+VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+        "meta", "param", "source", "track", "wbr"}
+
+
+class Nav(HTMLParser):
+    """Reads the labels out of Material's primary navigation.
+
+    Depth is counted by hand rather than matched with a regular expression,
+    because the nav is nested lists and a regex cannot tell a top-level entry
+    from one three levels down. Two details are easy to get wrong and silently
+    halve the result: void elements (`<img>`, `<input>`) never close, so they
+    must not move the depth counter; and Material nests the ACTIVE page's table
+    of contents inside its own nav item, so a plain walk collects that page's
+    headings as if they were navigation and reports them as title-cased labels.
+    """
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.inside = self.done = False
+        self.depth = 0
+        self.ul = self.skip = self.item = None
+        self.top = self.grab = False
+        self.buf = []
+        self.items = []
+
+    def handle_starttag(self, tag, attrs):
+        cls = dict(attrs).get("class", "")
+        if not self.inside:
+            if not self.done and tag == "nav" and "md-nav--primary" in cls:
+                self.inside, self.depth = True, 0
+            return
+        if tag in VOID:
+            return
+        self.depth += 1
+        if self.skip is not None:
+            return
+        if tag == "nav" and "md-nav--secondary" in cls:
+            self.skip = self.depth
+        elif tag == "ul" and self.ul is None and "md-nav__list" in cls:
+            self.ul = self.depth
+        elif tag == "li" and self.ul is not None and self.item is None:
+            self.item, self.top, self.buf = self.depth, self.depth == self.ul + 1, []
+        elif tag == "span" and self.item is not None and "md-ellipsis" in cls:
+            self.grab = True
+
+    def handle_endtag(self, tag):
+        if not self.inside or tag in VOID:
+            return
+        if tag == "nav" and self.depth == 0:
+            self.inside, self.done = False, True
+            return
+        if self.skip is None:
+            if self.grab and tag == "span":
+                self.grab, self.item = False, None
+                self.items.append((self.top, " ".join("".join(self.buf).split())))
+            elif self.item is not None and tag == "li" and self.depth == self.item:
+                self.item = None
+        elif self.depth == self.skip and tag == "nav":
+            self.skip = None
+        self.depth -= 1
+
+    def handle_data(self, data):
+        if self.grab:
+            self.buf.append(data)
+
+
+def title_cased(label):
+    masked = label
+    for phrase in PROPER:
+        masked = masked.replace(phrase, "\u0000")
+    return [w for w in masked.split()[1:] if ORDINARY.match(w.strip("()[]{}:,.&/"))]
+
+
+site = sys.argv[1]
+by_page = {}
+for root, _, files in os.walk(site):
+    for name in sorted(files):
+        if name.endswith(".html"):
+            page = os.path.relpath(os.path.join(root, name), site)
+            parser = Nav()
+            parser.feed(open(os.path.join(root, name), encoding="utf-8", errors="replace").read())
+            by_page[page] = parser.items
+
+problems = []
+empty = [p for p, items in by_page.items() if not items]
+if empty:
+    # Nothing to judge reads as nothing wrong, which is the vacuous pass this
+    # file exists to avoid. A page with no navigation is itself the defect.
+    problems.append(f"{len(empty)} page(s) render no primary navigation at all, "
+                    f"e.g. {empty[0]}")
+
+shapes = {}
+for page, items in by_page.items():
+    shapes.setdefault(tuple(items), []).append(page)
+if len(shapes) > 1:
+    problems.append(f"pages do not agree on the navigation: {len(shapes)} different "
+                    "shapes were published")
+    for items, pages in shapes.items():
+        problems.append(f"    {len(pages)} page(s) ({pages[0]}): "
+                        f"{[l for t, l in items if t]}")
+
+if by_page and not problems:
+    items = next(iter(shapes))
+    top = [label for is_top, label in items if is_top]
+
+    repeated = sorted({l for l in top if top.count(l) > 1})
+    if repeated:
+        # Two shelves with one name is not an ordering problem - the index
+        # comparison below reads [3, 3] as correctly ordered - so it is asked
+        # separately. A reader cannot tell the two apart, and neither can a link.
+        problems.append(f"top-level section(s) appear more than once: {repeated}")
+
+    unknown = [l for l in top if l not in STANDARD]
+    if unknown:
+        problems.append(f"top-level section(s) not in the shared list: {unknown}")
+        problems.append(f"    the shared list is {STANDARD}")
+    else:
+        order = [STANDARD.index(l) for l in top]
+        if order != sorted(order):
+            problems.append(f"top-level sections are out of the shared order: {top}")
+            problems.append(f"    the shared order is {STANDARD}")
+    if "About these docs" not in top:
+        problems.append("there is no 'About these docs' section; it is required and last")
+    elif top[-1] != "About these docs":
+        problems.append(f"the last top-level section is {top[-1]!r}; "
+                        "'About these docs' must be last")
+
+    for is_top, label in items:
+        offending = title_cased(label)
+        if offending:
+            problems.append(f"{'top-level ' if is_top else ''}label {label!r} is title "
+                            f"case: {', '.join(offending)}")
+
+if problems:
+    print(f"[NAV-NOT-SHARED] the published navigation does not match the shared standard.")
+    for problem in problems:
+        print(f"    {problem}")
+    sys.exit(1)
+
+shown = [label for is_top, label in next(iter(shapes)) if is_top]
+print(f"  navigation: shared order and sentence case OK on {len(by_page)} page(s).")
+print(f"    top level: {' > '.join(shown)}")
+PYNAV
+    fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
     echo
     echo "The published output does not match what the source asks for."

@@ -158,39 +158,53 @@ markdown_extensions:
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
 
+# The top-level sections, their order and their labels are shared with the other
+# two Liferay tools sites (liferay-docker-manager, lfr-tunnel) so a reader moving
+# between them finds the same shelves in the same order. The split is Diataxis:
+# Tutorials teach, How-to guides are recipes, Reference describes the machinery,
+# Explanation gives the background. Omit a section that has no pages; never
+# rename or reorder one. Asserted against the built nav by
+# scripts/check-docs-rendered.sh. See #1333.
+#
+# This is a NAV-ONLY arrangement: no file moved, so no published URL changed.
+# Several pages mix divisions and are filed by their dominant one - QUICKSTART
+# carries packaging and troubleshooting past its first-run path, LOCAL_EXECUTION
+# opens with an architecture overview, and SYSTEM_MAP ends with a WebSocket event
+# contract. Splitting those is a content change, not a nav change, and is noted
+# on #1333 instead.
 nav:
   - Home: index.md
-  - Getting Started:
-      - Quick Start: QUICKSTART.md
-      - Local Execution: LOCAL_EXECUTION.md
-      - SaaS Targeting: SaaS_TARGETING_GUIDE.md
-  - Using AICA:
-      - Features & Capabilities: FEATURES.md
-      - Prompt Templates: PROMPT_TEMPLATES.md
-      - MCP Server: MCP.md
-  - Architecture:
-      - Overview: ARCHITECTURE.md
-      - System Map: SYSTEM_MAP.md
-      - Deep Dives:
-          - Index: deep-dives/README.md
-          - Microservice: deep-dives/microservice-architecture.md
-          - Frontend & UI: deep-dives/frontend-and-ui.md
-          - Workflow & Batching: deep-dives/workflow-and-batching.md
-          - E2E & Orchestration: deep-dives/e2e-and-orchestration.md
-          - Liferay API Constraints: deep-dives/liferay-api-constraints.md
-      - Accelerator SDK (LDK): LDK_ARCHITECTURE.md
-  - Platform Reference:
+  - Tutorials:
+      - Quick start: QUICKSTART.md
+  - How-to guides:
+      - Local execution: LOCAL_EXECUTION.md
+      - SaaS targeting: SaaS_TARGETING_GUIDE.md
+  - Reference:
+      - Prompt templates: PROMPT_TEMPLATES.md
+      - MCP server: MCP.md
       - JSON Web Services: JSONWS_GUIDE.md
-      - Upstream Bugs:
+      - Upstream bugs:
           - Index: upstream-bugs/index.md
           - GraphQL index lag: upstream-bugs/LPD-95082-GRAPHQL-INDEX-LAG.md
           - Account group parameters: upstream-bugs/LPD-DRAFT-ACCOUNT-GROUP-ASSOCIATION-SWAPPED-PARAMS.md
           - LDM CLI Traefik patch: upstream-bugs/LPD-DRAFT-LDM-CLI-TRAEFIK-HEADLESS-PATCH-BUG.md
           - Site initializer boot NPE: upstream-bugs/LPS-DRAFT-SITE-INITIALIZER-BOOT-NPE.md
           - Site initializer NPE before HTTP: upstream-bugs/LPS-DRAFT-SITE-INITIALIZER-NPE-BEFORE-HTTP.md
-  - Contributing:
-      - How to Contribute: contributing.md
-      - Code of Conduct: code-of-conduct.md
+  - Explanation:
+      - Features & capabilities: FEATURES.md
+      - Architecture overview: ARCHITECTURE.md
+      - System map: SYSTEM_MAP.md
+      - Deep dives:
+          - Index: deep-dives/README.md
+          - Microservice: deep-dives/microservice-architecture.md
+          - Frontend & UI: deep-dives/frontend-and-ui.md
+          - Workflow & batching: deep-dives/workflow-and-batching.md
+          - E2E & orchestration: deep-dives/e2e-and-orchestration.md
+          - Liferay API constraints: deep-dives/liferay-api-constraints.md
+      - Accelerator SDK (LDK): LDK_ARCHITECTURE.md
+  - Project and contributing:
+      - How to contribute: contributing.md
+      - Code of conduct: code-of-conduct.md
   - About these docs: about.md
 
 # PR 3 (#1297) adds the pages this navigation does not yet carry:
