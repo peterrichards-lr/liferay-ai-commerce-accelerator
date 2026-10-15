@@ -39,6 +39,61 @@ FOOTER_REGEX = re.compile(
     r"[\*_]Last Reviewed: ([\d\-]+)[\*_]"
 )
 
+def check_changed_files_were_reviewed(root_dir, base_ref):
+    """A markdown file changed in this branch must bump its own review date.
+
+    `--max-review-days` catches a page nobody has looked at for months. It
+    cannot catch the case that actually happened: a file edited today whose
+    footer still shows last month, because the dates were a month old rather
+    than six. The documentation About page tells readers that every page shows
+    when it was last reviewed, and that claim is about the page in front of
+    them, not about the slowest page in the repository.
+
+    Found by the rule's own author breaking it: the commit that added the
+    disclaimer to README.md changed five lines and left the footer at
+    2026-09-18. Everything passed, because nothing asked this question.
+    """
+    try:
+        diff = subprocess.run(
+            ['git', '-C', str(root_dir), 'diff', '--name-only', '-z',
+             f'{base_ref}...HEAD', '--', '*.md'],
+            capture_output=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"Could not diff against {base_ref}: {exc}")
+        return []
+
+    stale = []
+    for name in diff.stdout.decode('utf-8').split('\0'):
+        if not name:
+            continue
+        md_file = Path(root_dir) / name
+        if not md_file.exists():          # deleted in this branch
+            continue
+        if any(ignored in md_file.parts for ignored in IGNORE_DIRS):
+            continue
+        try:
+            before = subprocess.run(
+                ['git', '-C', str(root_dir), 'show', f'{base_ref}:{name}'],
+                capture_output=True,
+                check=True,
+            ).stdout.decode('utf-8')
+        except (OSError, subprocess.CalledProcessError):
+            continue                      # added in this branch; nothing to compare
+
+        old_match = FOOTER_REGEX.search(before)
+        new_match = FOOTER_REGEX.search(md_file.read_text(encoding='utf-8'))
+        if not new_match:
+            stale.append((md_file, "changed, and has no review footer"))
+        elif old_match and old_match.group(2) == new_match.group(2):
+            stale.append((
+                md_file,
+                f"changed, but Last Reviewed is still {new_match.group(2)}",
+            ))
+    return stale
+
+
 def _markdown_files(root_path):
     """Every markdown file the check applies to.
 
@@ -140,6 +195,28 @@ if __name__ == "__main__":
     parser.add_argument('--max-update-days', type=int, help='Maximum allowed days since last update')
     parser.add_argument('--max-gap-days', type=int, help='Maximum allowed days between update and review')
     parser.add_argument('--dir', type=str, default='.', help='Directory to scan')
-    
+    parser.add_argument(
+        '--changed-since',
+        type=str,
+        help=(
+            'Also require every markdown file changed since this git ref to '
+            'have bumped its own Last Reviewed date'
+        ),
+    )
+
     args = parser.parse_args()
+
+    if args.changed_since:
+        stale = check_changed_files_were_reviewed(args.dir, args.changed_since)
+        if stale:
+            print("Changed documentation was not re-reviewed:")
+            for file, reason in stale:
+                print(f"  - {file}: {reason}")
+            print(
+                "\nThe documentation rule requires the review date to move when "
+                "the file does. See .agents/skills/documentation/SKILL.md."
+            )
+            sys.exit(1)
+        print(f"All documentation changed since {args.changed_since} was re-reviewed.")
+
     check_docs_review(args.dir, args.max_review_days, args.max_update_days, args.max_gap_days)

@@ -1,7 +1,7 @@
 # Pinned exactly: a docs build that resolves differently from one week to the
 # next cannot be a gate. See #1297.
 mkdocs==1.6.1
-mkdocs-material==9.5.49
+mkdocs-material==9.7.7
 pymdown-extensions==10.14
 
 # Generates "Last updated" from git history. The footer in each file carries

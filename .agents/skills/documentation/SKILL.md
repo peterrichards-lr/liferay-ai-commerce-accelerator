@@ -52,6 +52,14 @@ _Last Updated: YYYY-MM-DD_ | _Last Reviewed: YYYY-MM-DD_
 Both forms pass `scripts/check_docs_review.py`, which runs on every pull
 request. A file with no review date at all fails it.
 
+**A file you change must bump its own review date**, and that is now checked:
+`check_docs_review.py --changed-since <base>` fails a pull request that edits a
+document without moving its `Last Reviewed`. It exists because this rule was
+broken by the commit that published it - #1298 added the disclaimer to
+`README.md`, changed five lines, and left the footer at `2026-09-18`. Nothing
+caught it, because `--max-review-days` asks whether a page is stale and that
+date was a month old, not six.
+
 ### Why the review date stays manual
 
 A commit timestamp says the file changed. It cannot say anyone read it. Fixing
