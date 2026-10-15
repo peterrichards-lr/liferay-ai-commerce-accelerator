@@ -204,7 +204,54 @@ for (const file of files) {
   }
 }
 
-// 5. An exclusion for a file that no longer exists silently widens over time.
+// 5. The "not an official Liferay product" notice has to be in the first
+//    screen, not only in the closing paragraph.
+//
+//    A reader decides whether to adopt the tool before they scroll. This
+//    repository is named "Liferay AI Commerce Accelerator", its first
+//    paragraph describes what it does to Liferay DXP, and the Liferay name
+//    carries an implication of official support that the project cannot
+//    honour. The closing paragraph is where the AI-authorship disclosure
+//    belongs, because that is about how the docs are maintained rather than
+//    about whether to adopt the tool - but "not official, not supported" has
+//    to arrive before the decision it bears on.
+//
+//    Position is asserted as well as presence. A notice that drifts below the
+//    first `##` heading is a notice nobody reads, and nothing else here would
+//    notice it moving.
+// Case-insensitive: the sentence starts the admonition body on the docs home
+// page and continues a sentence in the README, so its first letter differs.
+const NOTICE =
+  /not an official Liferay product and not covered by Liferay Support/i;
+const NOTICE_PAGES = ['README.md', 'docs/index.md'];
+for (const page of NOTICE_PAGES) {
+  const full = path.join(ROOT, page);
+  if (!fs.existsSync(full)) {
+    fail('community-notice-present', page, 'page does not exist');
+    continue;
+  }
+  const body = fs.readFileSync(full, 'utf8');
+  const match = NOTICE.exec(body);
+  if (!match) {
+    fail(
+      'community-notice-present',
+      page,
+      'no "not an official Liferay product" notice'
+    );
+    continue;
+  }
+  // The first `##` is where the document stops introducing itself.
+  const firstHeading = body.search(/^##\s/m);
+  if (firstHeading !== -1 && match.index > firstHeading) {
+    fail(
+      'community-notice-above-the-fold',
+      page,
+      'notice appears after the first "##" heading'
+    );
+  }
+}
+
+// 6. An exclusion for a file that no longer exists silently widens over time.
 //    Directory entries are skipped: they are build output and are legitimately
 //    absent from a fresh clone.
 function checkIgnoreEntry(entry, source) {

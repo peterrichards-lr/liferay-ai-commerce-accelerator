@@ -7,10 +7,7 @@ Empowering Liferay Commerce with high-integrity, AI-orchestrated data.
 
 The **Liferay AI Commerce Accelerator (AICA)** is a production-ready suite of client extensions designed to rapidly generate and deploy sophisticated commerce data into Liferay DXP using generative AI. It eliminates the manual effort of populating catalogs, accounts, and orders, allowing teams to focus on building and testing features.
 
-> A community project maintained by Peter Richards. **Not an official Liferay
-> product, and not covered by Liferay Support.** The documentation is written
-> with the help of AI coding agents, with the maintainer accountable for what
-> ships — [about these docs](./docs/about.md).
+> ℹ️ **Community project** — not an official Liferay product and not covered by Liferay Support. [About this project](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/docs/about.md)
 
 ---
 
@@ -104,8 +101,23 @@ _Configure AI provider keys, API endpoints, and DXP connectivity parameters dyna
 - **Pre-flight Token Safety Guardrail**: Integrates a local, zero-dependency token count estimator that blocks oversized requests (>15,000 tokens) from draining your billing quotas.
 - **Provider Agnostic**: Switch between OpenAI, Google Gemini, and Anthropic Claude with zero code changes. Claude generates data only — it cannot produce images, so configure a dedicated media provider (OpenAI DALL-E or NanoBanana) when images are required.
 
+---
+
+## About this project
+
+Liferay AI Commerce Accelerator is a community project maintained by Peter
+Richards. It is not an official Liferay product and is not covered by Liferay
+Support. This documentation is written with the help of AI coding agents, with
+the maintainer accountable for what ships; each page of the documentation shows
+when it was last updated and when it was last reviewed. Found something wrong
+or out of date?
+[Open an issue](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/new/choose).
+
+Full detail, including what enforces each of those statements, is on
+[About these docs](./docs/about.md).
+
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-09-18_ | _Last Reviewed: 2026-09-18_
+_Last Updated: 2026-10-15_ | _Last Reviewed: 2026-10-15_

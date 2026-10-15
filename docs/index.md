@@ -2,6 +2,11 @@
 
 Everything here documents the **Liferay AI Commerce Accelerator (AICA)**: how to install it, how it works internally, and the platform behaviour it has to work around.
 
+!!! info "Community project"
+
+    Not an official Liferay product and not covered by Liferay Support.
+    [About this project](./about.md)
+
 New to the project? Start with the **[Quick Start Guide](./QUICKSTART.md)**.
 
 ## I want to…
@@ -66,4 +71,4 @@ by what they cover, for when you would rather browse than search.
 
 ---
 
-_Last Reviewed: 2026-09-20_
+_Last Reviewed: 2026-10-15_
