@@ -12,7 +12,7 @@
 - [ ] Provide examples of adding new unit and integration tests.
 - [ ] Document Playwright smoke test setup. (The instructions cited here lived in
       `GETTING_STARTED.md`, deleted in #244. `docs/QUICKSTART.md` documents the
-      LDM-orchestrated e2e run and `docs/architecture/e2e-and-orchestration.md`
+      LDM-orchestrated e2e run and `docs/deep-dives/e2e-and-orchestration.md`
       covers the Playwright configuration, but the `yarn smoke` script itself is
       still undocumented.)
 
@@ -27,4 +27,4 @@
 
 ---
 
-_Last Updated: 2026-09-20_ | _Last Reviewed: 2026-09-20_
+_Last Updated: 2026-10-15_ | _Last Reviewed: 2026-10-15_

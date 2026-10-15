@@ -130,12 +130,12 @@ nav:
       - Overview: ARCHITECTURE.md
       - System Map: SYSTEM_MAP.md
       - Deep Dives:
-          - Index: architecture/README.md
-          - Microservice: architecture/microservice-architecture.md
-          - Frontend & UI: architecture/frontend-and-ui.md
-          - Workflow & Batching: architecture/workflow-and-batching.md
-          - E2E & Orchestration: architecture/e2e-and-orchestration.md
-          - Liferay API Constraints: architecture/liferay-api-constraints.md
+          - Index: deep-dives/README.md
+          - Microservice: deep-dives/microservice-architecture.md
+          - Frontend & UI: deep-dives/frontend-and-ui.md
+          - Workflow & Batching: deep-dives/workflow-and-batching.md
+          - E2E & Orchestration: deep-dives/e2e-and-orchestration.md
+          - Liferay API Constraints: deep-dives/liferay-api-constraints.md
       - Accelerator SDK (LDK): LDK_ARCHITECTURE.md
   - Platform Reference:
       - JSON Web Services: JSONWS_GUIDE.md
