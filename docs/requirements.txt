@@ -2,7 +2,7 @@
 # next cannot be a gate. See #1297.
 mkdocs==1.6.1
 mkdocs-material==9.7.7
-pymdown-extensions==10.14
+pymdown-extensions==12.2
 
 # Generates "Last updated" from git history. The footer in each file carries
 # "Last Reviewed" only - a date a human or an agent sets deliberately, which no
@@ -13,4 +13,4 @@ pymdown-extensions==10.14
 # just the one that deploys: a shallow clone makes this plugin fall back to a
 # wrong date silently, so a strict build would pass on a page the deploy
 # renders differently.
-mkdocs-git-revision-date-localized-plugin==1.3.0
+mkdocs-git-revision-date-localized-plugin==1.6.0
