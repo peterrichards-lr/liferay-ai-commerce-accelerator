@@ -1,0 +1,25 @@
+/*
+ * Liferay blue. Material's `primary` only accepts its own named palette, so
+ * `primary: custom` in mkdocs.yml hands the colour over to these properties.
+ */
+:root {
+  --md-primary-fg-color: #0b5fff;
+  --md-primary-fg-color--light: #4080ff;
+  --md-primary-fg-color--dark: #0848cc;
+  --md-accent-fg-color: #0b5fff;
+}
+
+/* The same blue is unreadable as a link colour on the dark scheme's near-black
+   background, so the dark scheme lightens it rather than inheriting it. */
+[data-md-color-scheme='slate'] {
+  --md-primary-fg-color: #0b5fff;
+  --md-accent-fg-color: #74a3ff;
+  --md-typeset-a-color: #74a3ff;
+}
+
+/* The review footer is a maintenance record, not prose. It reads as a stray
+   sentence at full size directly under the last paragraph. */
+.md-typeset hr + p > em:only-child {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}

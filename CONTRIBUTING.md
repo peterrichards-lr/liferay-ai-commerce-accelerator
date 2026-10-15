@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to the **Liferay AI Commerce Accelerator**! Contributions from the team and community are what make this project successful.
 
-By contributing to this repository, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
+By contributing to this repository, you agree to abide by our [Code of Conduct](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/CODE_OF_CONDUCT.md).
 
 ---
 
@@ -152,7 +152,7 @@ To maintain absolute code quality, stability, and a logical git history as the a
 ### 1. Feature Branch Isolation
 
 - Direct pushes to the remote `master` branch are strictly prohibited for new roadmap items.
-- All new developments, refactoring, or track features MUST be developed on isolated branches named `feature/<track-id>` (matching active items in the [Conductor Tracks Registry](conductor/tracks.md), e.g., `feature/persona-orders`).
+- All new developments, refactoring, or track features MUST be developed on isolated branches named `feature/<track-id>` (matching active items in the [Conductor Tracks Registry](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/conductor/tracks.md), e.g., `feature/persona-orders`).
 
 ### 2. Local Pre-flight Gatekeeper (`verify:all`)
 

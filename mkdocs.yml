@@ -1,0 +1,143 @@
+site_name: Liferay AI Commerce Accelerator
+site_description: >-
+  Generate and manage AI-driven commerce data in Liferay DXP: real-time
+  monitoring, automated entity resolution, and dependency-aware generation
+  and deletion.
+site_author: Peter Richards
+
+# The trailing slash and the repository subpath both matter. Without them the
+# sitemap and the canonical links point at the domain root while Pages serves
+# the site one level down, so every canonical URL is wrong.
+site_url: https://peterrichards-lr.github.io/liferay-ai-commerce-accelerator/
+
+repo_url: https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator
+repo_name: peterrichards-lr/liferay-ai-commerce-accelerator
+edit_uri: edit/master/docs/
+
+# Every file under docs_dir is published, whether or not it appears in `nav`.
+# Leaving a document out of the navigation hides it; it does not withhold it.
+# PLAYBOOK.md is internal - branch protection, release pipelines and backlog
+# automation, for maintainers and agents - so it is excluded here and the three
+# documents that link to it point at GitHub instead. See #1297.
+exclude_docs: |
+  PLAYBOOK.md
+  requirements.txt
+
+theme:
+  name: material
+  language: en
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+extra_css:
+  - stylesheets/extra.css
+
+# Rendered as HTML in the site footer, on every page. Material has no dedicated
+# slot for a disclosure link, and a theme override would be a whole custom
+# partial to carry one anchor.
+copyright: >-
+  Liferay AI Commerce Accelerator is a community project and is not an official
+  Liferay product &mdash;
+  <a href="about/">about these docs</a>
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      type: date
+      enable_creation_date: false
+      # A file with no commits yet - a new page in the PR that adds it - has no
+      # git date to read. Falling back to the build time is wrong but visible;
+      # failing the build on it would make every new page a two-commit dance.
+      fallback_to_build_date: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  # CONTRIBUTING.md and CODE_OF_CONDUCT.md stay at the repository root, where
+  # GitHub's own issue and pull request forms resolve them. They are included
+  # here rather than copied, so there is one source and no file moves.
+  - pymdownx.snippets:
+      base_path: ['.']
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Quick Start: QUICKSTART.md
+      - Local Execution: LOCAL_EXECUTION.md
+      - SaaS Targeting: SaaS_TARGETING_GUIDE.md
+  - Using AICA:
+      - Features & Capabilities: FEATURES.md
+      - Prompt Templates: PROMPT_TEMPLATES.md
+      - MCP Server: MCP.md
+  - Architecture:
+      - Overview: ARCHITECTURE.md
+      - System Map: SYSTEM_MAP.md
+      - Deep Dives:
+          - Index: architecture/README.md
+          - Microservice: architecture/microservice-architecture.md
+          - Frontend & UI: architecture/frontend-and-ui.md
+          - Workflow & Batching: architecture/workflow-and-batching.md
+          - E2E & Orchestration: architecture/e2e-and-orchestration.md
+          - Liferay API Constraints: architecture/liferay-api-constraints.md
+      - Accelerator SDK (LDK): LDK_ARCHITECTURE.md
+  - Platform Reference:
+      - JSON Web Services: JSONWS_GUIDE.md
+      - Upstream Bugs:
+          - Index: upstream-bugs/index.md
+          - GraphQL index lag: upstream-bugs/LPD-95082-GRAPHQL-INDEX-LAG.md
+          - Account group parameters: upstream-bugs/LPD-DRAFT-ACCOUNT-GROUP-ASSOCIATION-SWAPPED-PARAMS.md
+          - LDM CLI Traefik patch: upstream-bugs/LPD-DRAFT-LDM-CLI-TRAEFIK-HEADLESS-PATCH-BUG.md
+          - Site initializer boot NPE: upstream-bugs/LPS-DRAFT-SITE-INITIALIZER-BOOT-NPE.md
+          - Site initializer NPE before HTTP: upstream-bugs/LPS-DRAFT-SITE-INITIALIZER-NPE-BEFORE-HTTP.md
+  - Contributing:
+      - How to Contribute: contributing.md
+      - Code of Conduct: code-of-conduct.md
+  - About these docs: about.md
+
+# PR 3 (#1297) adds the pages this navigation does not yet carry:
+# getting-started/prerequisites.md, getting-started/configuration.md,
+# using/cli.md, using/entity-resolution.md,
+# using/dependency-aware-operations.md, deployment.md, testing.md and
+# releases.md. They are absent from `nav` rather than stubbed, because a
+# stub is a page that exists and says nothing, and `--strict` cannot tell
+# the two apart.

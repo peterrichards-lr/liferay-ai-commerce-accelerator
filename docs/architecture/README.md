@@ -21,10 +21,10 @@ constraints a change in that area has to satisfy.
 - **[Architectural Overview](../ARCHITECTURE.md)** — start here.
 - **[System Map](../SYSTEM_MAP.md)** — which client extension owns what.
 - **[Upstream Bugs & Limitations](../upstream-bugs/index.md)** — the platform defects some of these constraints exist to work around.
-- **[Documentation index](../README.md)** — all AICA documentation.
+- **[Documentation index](../index.md)** — all AICA documentation.
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-20_ | _Last Reviewed: 2026-09-20_
+_Last Reviewed: 2026-09-20_

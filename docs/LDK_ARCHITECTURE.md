@@ -93,8 +93,8 @@ const apiSchemasDir = path.join(path.dirname(sdkPkgPath), 'api-schemas');
 2. **Testing**: Run `yarn test` in the SDK repository to execute local Vitest suites.
 3. **Integration**: Update the target commit/branch tag in the monorepo's `package.json` to lock down version releases.
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-08-18_ | _Last Reviewed: 2026-08-18_
+_Last Reviewed: 2026-08-18_

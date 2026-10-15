@@ -12,8 +12,8 @@ These files serve as reference material for contributors and as drafts for submi
 - [LPS-DRAFT-SITE-INITIALIZER-BOOT-NPE.md](./LPS-DRAFT-SITE-INITIALIZER-BOOT-NPE.md) - **DRAFT (PENDING SUBMISSION)**
 - [LPS-DRAFT-SITE-INITIALIZER-NPE-BEFORE-HTTP.md](./LPS-DRAFT-SITE-INITIALIZER-NPE-BEFORE-HTTP.md) - **DRAFT (PENDING SUBMISSION)**
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-07-16_ | _Last Reviewed: 2026-08-14_
+_Last Reviewed: 2026-08-14_

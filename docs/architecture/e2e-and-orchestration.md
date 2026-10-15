@@ -17,7 +17,7 @@ Running Liferay Docker containers from external drives (common on macOS) often t
 ### 3. Automated Setup Optimization
 
 - **Database**: Standardized on **`postgresql`** for E2E tests to bypass the mandatory password reset prompt enforced by Hypersonic on first login.
-- **Boot Performance**: Uses `--sidecar` for faster deployment monitoring and `--no-captcha` to streamline automated authentication flows. `--sidecar` is a choice for _this harness_, not for consumers: it runs Elasticsearch inside the Liferay container, and LDM records that topology in both `custom_env` and `files/portal-ext.properties`, where it would otherwise override the shared search a consumer's project resolves to. The release workflow strips it with `scripts/sanitize-ldm-package.cjs` — see [Quick Start](../QUICKSTART.md#-packaging-ldmp) and [#563](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/563).
+- **Boot Performance**: Uses `--sidecar` for faster deployment monitoring and `--no-captcha` to streamline automated authentication flows. `--sidecar` is a choice for _this harness_, not for consumers: it runs Elasticsearch inside the Liferay container, and LDM records that topology in both `custom_env` and `files/portal-ext.properties`, where it would otherwise override the shared search a consumer's project resolves to. The release workflow strips it with `scripts/sanitize-ldm-package.cjs` — see [Quick Start](../QUICKSTART.md#packaging-ldmp) and [#563](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/563).
 
 ### 4. Responsive Visual Auditing
 
@@ -166,8 +166,8 @@ docker exec -u 0 <container> mv /tmp/aica-staging/artifact.zip /opt/liferay/depl
 - **Client Extension Routing & SSL Setup**: [LDM Networking & DNS Guide](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/reference/networking.md)
 - **Local Replication of Cloud Environments**: [LDM PAAS Local Dev Guide](https://github.com/peterrichards-lr/liferay-docker-manager/blob/master/docs/tutorials/paas_local_dev.md)
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-17_ | _Last Reviewed: 2026-09-17_
+_Last Reviewed: 2026-09-17_

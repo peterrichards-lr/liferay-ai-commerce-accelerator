@@ -236,8 +236,8 @@ Identifier for correlating user-visible errors and server logs.
 
 ---
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-11_ | _Last Reviewed: 2026-09-11_
+_Last Reviewed: 2026-09-11_

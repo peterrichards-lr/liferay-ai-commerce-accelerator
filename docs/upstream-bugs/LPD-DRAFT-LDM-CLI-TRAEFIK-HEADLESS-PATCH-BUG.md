@@ -40,8 +40,8 @@ Fragment overrides are skipped, causing Client Extension routing configurations 
 1. Import the environment using `--no-ssl` to ensure `8080` is mapped and the patches apply over plain HTTP.
 2. Once the environment is running and patched, re-enable SSL with `ldm config ssl true` and restart the stack.
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-13_ | _Last Reviewed: 2026-09-13_
+_Last Reviewed: 2026-09-13_

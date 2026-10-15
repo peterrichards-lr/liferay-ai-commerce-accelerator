@@ -219,8 +219,8 @@ flowchart LR
     F -->|autocannon benchmark| G[Pass / Deploy Ready]
 ```
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Reviewed: 2026-08-14_

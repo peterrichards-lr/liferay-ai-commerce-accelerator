@@ -102,8 +102,8 @@ coupling
 This specification is intended to be used as **AI context** when
 building or refactoring the system.
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-18_ | _Last Reviewed: 2026-09-18_
+_Last Reviewed: 2026-09-18_

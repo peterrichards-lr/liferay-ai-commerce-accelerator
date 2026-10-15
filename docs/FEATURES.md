@@ -89,8 +89,8 @@ A dedicated **Admin Dashboard** provides high-level oversight and diagnostic too
 - **Export**: Save your generated data set to a JSON file for backup or sharing.
 - **Import**: Restore a previously generated data set into a new environment.
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-18_ | _Last Reviewed: 2026-09-18_
+_Last Reviewed: 2026-09-18_

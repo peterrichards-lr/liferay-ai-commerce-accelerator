@@ -93,8 +93,8 @@ of the change.
 Prompts edited through the configuration UI are stored in Liferay and take
 precedence over the files, so they are not covered by that test.
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-18_ | _Last Reviewed: 2026-09-18_
+_Last Reviewed: 2026-09-18_
