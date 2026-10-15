@@ -57,6 +57,9 @@ jobs:
               # strengthened guard was never executed on its own pull request.
               - 'scripts/check-docs-*'
               - 'scripts/check_docs_*'
+              # The build-time hook. It rewrites page markdown, so a change
+              # here changes every page of the published site.
+              - 'scripts/mkdocs_github_alerts.py'
 
   # The two guards the docs About page publicly commits to. Not gated: see the
   # note at the top of this file.
