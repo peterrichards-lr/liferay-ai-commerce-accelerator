@@ -97,6 +97,14 @@ jobs:
       - name: Build the site
         run: mkdocs build --strict
 
+      # Uploaded on pull requests too, deliberately. It costs one step, and it
+      # means a reviewer can download exactly what the deploy would publish
+      # rather than inferring it from a green tick.
+      - name: Upload the site as a Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
   # Shares the display name with `build` so the check reports on every pull
   # request. Same reasoning as `build-and-test-skip` in `ci.yml`.
   build-skip:
@@ -106,3 +114,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo "No documentation changes; the site build is not needed."
+
+  # Publishes what `build` produced. Never runs on a pull request: a fork's
+  # pull request would otherwise be able to replace the published site.
+  deploy:
+    name: docs/deploy
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    # A job-level `permissions` block replaces the workflow-level one rather
+    # than adding to it, so `contents: read` is restated here.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
