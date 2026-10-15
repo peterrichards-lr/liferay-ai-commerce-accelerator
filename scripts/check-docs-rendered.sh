@@ -433,6 +433,50 @@ PYHOME
     fail=1
 fi
 
+# 8. Alert labels: GitHub's word, Material's style.
+#
+#    The canonical hook maps each GitHub alert type to the nearest Material
+#    style and then supplies the GitHub label as the title, because Material
+#    otherwise titles the box after the style: `[!IMPORTANT]` became "Info" and
+#    `[!CAUTION]` became "Danger", losing the word the author chose. See the
+#    decision on #1329.
+#
+#    AICA publishes no IMPORTANT or CAUTION alerts today, so this asserts
+#    nothing on the current site - which is exactly why it is here. The next
+#    page that adds one would otherwise ship titled "Info" with every check
+#    green, and no reader would know the label had been dropped.
+if ! python3 - "$SITE" <<'PYLABELS'; then
+import html as htmllib
+import os, re, sys
+
+site = sys.argv[1]
+pat = re.compile(r'<div class="admonition ([^"]*)">\s*(?:<p class="admonition-title">(.*?)</p>)?', re.S)
+# The pairs Material produces when the hook forgets to pass a label.
+BANNED = {("info", "Info"), ("danger", "Danger")}
+
+offenders = []
+for root, _, files in os.walk(site):
+    for name in files:
+        if not name.endswith(".html"):
+            continue
+        with open(os.path.join(root, name), encoding="utf-8", errors="replace") as fh:
+            for cls, title in pat.findall(fh.read()):
+                cls = cls.strip().split()[0] if cls.strip() else ""
+                title = htmllib.unescape(re.sub(r"<[^>]+>", "", title or "")).strip()
+                if (cls, title) in BANNED:
+                    offenders.append((os.path.relpath(os.path.join(root, name), site), cls, title))
+
+if offenders:
+    print(f"[ALERT-LABEL-LOST] {len(offenders)} callout(s) are titled after the style, not the alert.")
+    print("  [!IMPORTANT] must render ('info', 'Important') and [!CAUTION] ('danger', 'Caution').")
+    print("  A bare `!!! info` lets Material title the box 'Info'.")
+    for page, cls, title in offenders[:10]:
+        print(f"    {page}: ({cls!r}, {title!r})")
+    sys.exit(1)
+PYLABELS
+    fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
     echo
     echo "The published output does not match what the source asks for."
