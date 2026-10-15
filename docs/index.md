@@ -61,6 +61,18 @@ by what they cover, for when you would rather browse than search.
 
 - **[Automation Playbook](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/docs/PLAYBOOK.md)** — branch protection, release pipelines and automated backlog prioritisation, for maintainers and AI agents.
 
+## Related Liferay tools
+
+Three community tools by the same maintainer, each with its own documentation
+site. None is an official Liferay product.
+
+- **[Liferay Docker Manager (LDM)](https://peterrichards-lr.github.io/liferay-docker-manager/)**
+  — runs Liferay DXP in containers and imports `.ldmp` packages. It is how the
+  [Quick Start](./QUICKSTART.md) brings up an environment for AICA.
+- **[lfr-tunnel](https://peterrichards-lr.github.io/lfr-tunnel/)** — exposes a
+  local Liferay instance over a public URL, for webhooks and callbacks that
+  cannot reach `localhost`.
+
 ## Related
 
 - **[About these docs](./about.md)** — what this project is, what it is not, and how the dates on each page are produced and enforced.

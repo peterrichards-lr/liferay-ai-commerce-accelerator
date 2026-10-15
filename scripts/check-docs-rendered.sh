@@ -261,6 +261,34 @@ PYBRAND
     fail=1
 fi
 
+# 5. The social card, when one is configured.
+#
+#    og:image is what a link unfurls as in Slack, Teams and LinkedIn, and it is
+#    the one tag whose absence is invisible from the site itself: every page
+#    looks perfect while shared links degrade to a bare URL.
+#    overrides/main.html guards the block on extra.social_image, so deleting
+#    that key - or moving the file - drops the tags silently and keeps the
+#    build green.
+#
+#    Only enforced when the key is set, so a site that has not made a card yet
+#    is not failed for not having one.
+social_image=$(sed -n 's|^[[:space:]]*social_image:[[:space:]]*||p' "$CONFIG" \
+    | head -1 | sed -e "s/[\"']//g" -e "s/[[:space:]]*$//")
+if [ -n "$social_image" ]; then
+    if [ ! -f "${SITE}/${social_image}" ]; then
+        echo "[SOCIAL-IMAGE-NOT-PUBLISHED] extra.social_image is '${social_image}', which is not in the built site."
+        echo "  Shared links would unfurl with a broken image."
+        fail=1
+    fi
+    missing_og=$(grep -rL 'property="og:image"' "$SITE" --include='*.html' || true)
+    if [ -n "$missing_og" ]; then
+        count=$(echo "$missing_og" | wc -l | tr -d ' ')
+        echo "[NO-OG-IMAGE] ${count} page(s) carry no og:image although extra.social_image is set."
+        echo "$missing_og" | head -5 | sed "s|^${SITE}/|    |"
+        fail=1
+    fi
+fi
+
 if [ "$fail" -ne 0 ]; then
     echo
     echo "The published output does not match what the source asks for."

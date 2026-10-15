@@ -1,8 +1,12 @@
 site_name: Liferay AI Commerce Accelerator
+# Kept under ~155 characters and led with the terms people actually search -
+# "Liferay Commerce", "Liferay DXP" - rather than with a verb. Search engines
+# truncate past that, and the previous wording spent its first word on
+# "Generate". This string is also the og:description, so it is what a link
+# unfurls as in Slack, Teams and LinkedIn.
 site_description: >-
-  Generate and manage AI-driven commerce data in Liferay DXP: real-time
-  monitoring, automated entity resolution, and dependency-aware generation
-  and deletion.
+  Liferay Commerce demo data, generated with AI: seed catalogs, accounts and
+  orders into Liferay DXP in minutes, with real-time monitoring.
 site_author: Peter Richards
 
 # The trailing slash and the repository subpath both matter. Without them the
@@ -97,6 +101,10 @@ extra:
   # An SVG favicon for browsers that take one; theme.favicon (PNG) stays as
   # the fallback. Emitted by overrides/main.html.
   favicon_svg: assets/favicon.svg
+  # 1280x640, consumed by overrides/main.html for og:image and the Twitter
+  # card. Set only now the file exists: the template guards on this key, so
+  # setting it earlier would have emitted tags pointing at a 404.
+  social_image: assets/social-preview.png
 
 # Rendered as HTML in the site footer, on every page. Material has no dedicated
 # slot for a disclosure link, and a theme override would be a whole custom
@@ -107,6 +115,13 @@ extra:
 # appends it through the `url` filter instead, which resolves per page. See #1321.
 copyright: >-
   A community project &mdash; not an official Liferay product
+
+# Converts GitHub's `> [!NOTE]` blockquotes into Material admonitions at build
+# time. The source stays GitHub-native, because that is where contributors read
+# these files, and the site build translates. Shared with lfr-tunnel; AICA has
+# no such markers today, so this is preventative rather than a fix.
+hooks:
+  - scripts/mkdocs_github_alerts.py
 
 plugins:
   - search
