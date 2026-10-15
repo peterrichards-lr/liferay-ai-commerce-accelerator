@@ -41,20 +41,17 @@ _MARKER = re.compile(r"^>\s*\[!(" + "|".join(_TYPES) + r")\]\s*(.*)$")
 # Lifting that lead into a title would cut it in half.
 _TITLE_LEAD = re.compile(r"^(\S+)\s+\*\*([^*]+)\*\*\s+—\s+(.*)$")
 
-# When that lead emoji carries a meaning of its own, it also picks the
-# admonition. GitHub has five alert types and no way to say "info", so the
-# community-project notice is written `> [!NOTE]` for github.com and rendered
-# as the `info` callout the three sites have always shown. Without this the
-# same notice silently becomes a `note`: a different colour and icon on every
-# home page, from a source change that looks like a no-op.
+# A lifted title implies `info`, whatever the alert type was.
 #
-# Only the emoji is consulted, never the title text, so this stays a general
-# rule rather than a special case for one sentence.
-_LEAD_TYPES = {
-    "ℹ": "info",
-    "⚠": "warning",
-    "🚨": "danger",
-}
+# GitHub has five alert types and none of them is `info`, so a notice that has
+# to render as the `info` callout cannot say so in GitHub-native source. The
+# rule agreed across the three Liferay tools sites is option B: an alert whose
+# title was lifted renders `info`; every other alert keeps the mapping above.
+#
+# It is the lift that decides, not the emoji, and the lift is deliberately
+# strict - emoji, then a bold phrase, then an em dash. Loosening it to a bold
+# lead alone would have retitled 29 of LDM's 70 alerts.
+_LIFTED_TITLE_TYPE = "info"
 
 
 def _is_emoji(token: str) -> bool:
@@ -129,10 +126,7 @@ def _convert(markdown: str) -> str:
             if re.fullmatch(r"[a-z]+[.,;:]?", first):
                 rest = rest[:1].upper() + rest[1:]
             body[0] = rest
-            # The variation selector that makes an emoji render in colour is
-            # part of the token, so the base character is what is looked up.
-            lead = title.group(1).rstrip("\ufe0f")
-            out.append(f'!!! {_LEAD_TYPES.get(lead, kind)} "{title.group(2).strip()}"')
+            out.append(f'!!! {_LIFTED_TITLE_TYPE} "{title.group(2).strip()}"')
         else:
             out.append(f"!!! {kind}")
         out.append("")
