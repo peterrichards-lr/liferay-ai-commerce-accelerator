@@ -3,7 +3,7 @@
 The Liferay AI Commerce Accelerator employs a sophisticated, stateful, and asynchronous architecture to manage the creation of large amounts of commerce data.
 
 This page is the overview. For the detailed specification of any one subsystem,
-see the **[architecture deep dives](./architecture/README.md)**.
+see the **[architecture deep dives](./deep-dives/README.md)**.
 
 ## System Map
 
@@ -211,16 +211,31 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    A[Code Push / PR] --> B[Linting & Formatting Gate]
-    B -->|ESLint + security/promise| C[Static Analysis SAST Gate]
-    C -->|Semgrep Scan| D[Unit Test Gate]
-    D -->|Vitest / Jest| E[E2E Verification Gate]
-    E -->|ldm containers + Playwright| F[Performance Gate]
-    F -->|autocannon benchmark| G[Pass / Deploy Ready]
+    A[Code Push / PR] --> B[Linting & Formatting]
+    B -->|ESLint + security/promise| C[Unit & Integration Tests]
+    C -->|Vitest / Jest| D[Documentation Guards]
+    D -->|links, review dates, rendered output| E[Merge]
+
+    S["Static Analysis (Semgrep)"] -. advisory .-> E
+    T["E2E Verification (ldm + Playwright)"] -. release and manual only .-> E
 ```
+
+**What actually blocks a merge** is the solid path above: linting, the unit and
+integration suites, and the documentation guards. The dotted edges are not
+gates, and the distinction matters when reading a green pull request:
+
+- **Semgrep** runs on every pull request and reports, but `semgrep.yml` sets
+  `continue-on-error: true`, so a finding cannot fail the run. See
+  [#1280](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1280).
+- **E2E verification** is triggered by `release: published` and
+  `workflow_dispatch`, never by `pull_request`. CI shellchecks
+  `run-e2e-ldm.sh` but does not execute the suite. See
+  [#1165](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1165).
+- **Performance benchmarking** (`autocannon`) is a local tool. It is not wired
+  into any workflow, and this document previously showed it as a pipeline gate.
 
 <!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Reviewed: 2026-08-14_
+_Last Updated: 2026-10-15_ | _Last Reviewed: 2026-10-15_

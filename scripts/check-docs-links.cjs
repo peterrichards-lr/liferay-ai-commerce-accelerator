@@ -7,7 +7,7 @@
 // `file:///Users/<someone>/dev/repos/...`, which resolve for exactly one person
 // and leak a local path to everyone else; three cross-repository links pointed
 // at `liferay-docker-manager` paths that had 404'd since that repository moved
-// to a Diataxis layout; the five substantial documents under `docs/architecture/`
+// to a Diataxis layout; the five substantial documents under `docs/deep-dives/`
 // were reachable from no index, not even from `docs/ARCHITECTURE.md` directly
 // above them; and both `.markdownlintignore` and the `lint:md` script still
 // excluded `GETTING_STARTED.md`, deleted in #244. See #1057.
@@ -178,7 +178,7 @@ for (const file of files) {
 const LANDING = [
   'README.md',
   'docs/index.md',
-  'docs/architecture/README.md',
+  'docs/deep-dives/README.md',
   'docs/upstream-bugs/index.md',
 ];
 for (const landing of LANDING) {

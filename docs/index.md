@@ -49,7 +49,7 @@ by what they cover, for when you would rather browse than search.
 
 - **[Architectural Overview](./ARCHITECTURE.md)** — the stateful workflow engine, entity dependencies, batch statuses, the WebSocket event contract and the security flows. Read this before the deep dives.
 - **[System Map](./SYSTEM_MAP.md)** — each client extension as a subsystem, with its responsibilities and data flow.
-- **[Architecture deep dives](./architecture/README.md)** — the detailed specifications behind the overview: orchestration, the microservice split, API constraints, workflow state and UI standards.
+- **[Architecture deep dives](./deep-dives/README.md)** — the detailed specifications behind the overview: orchestration, the microservice split, API constraints, workflow state and UI standards.
 - **[LDK / Accelerator SDK Blueprint](./LDK_ARCHITECTURE.md)** — the decoupled `@liferay/accelerator-sdk` repository that AICA and other accelerators build on.
 
 ### Platform reference

@@ -12,7 +12,7 @@ Welcome to the **Liferay AI Commerce Accelerator (AICA)** codebase. This documen
   than trusting a version quoted here), TypeScript, Java (OSGi / Gradle, see
   `.java-version`), Docker, Python (LDM CLI)
 - **Architecture**: Liferay DXP Client Extensions (Microservice, Custom Element, Global JS), Headless Commerce APIs, Modular SDKs, AI/LLM Orchestration
-- **Documentation Root**: [`docs/`](docs/) and [`docs/architecture/`](docs/architecture/)
+- **Documentation Root**: [`docs/`](docs/) and [`docs/deep-dives/`](docs/deep-dives/)
 
 ---
 
@@ -38,13 +38,13 @@ To prevent cognitive overload and maintain strict execution standards, rules are
 
 ### Architectural Documentation Reference
 
-Detailed architectural specifications are maintained in [`docs/architecture/`](docs/architecture/):
+Detailed architectural specifications are maintained in [`docs/deep-dives/`](docs/deep-dives/):
 
-- [Workflow & Batching (WebSocket, Correlation, Media)](docs/architecture/workflow-and-batching.md)
-- [Liferay API Constraints (OData, DTOs, Pricing, Glue)](docs/architecture/liferay-api-constraints.md)
-- [E2E & Orchestration (LDM, Deployment Patterns)](docs/architecture/e2e-and-orchestration.md)
-- [Frontend & UI Standards (Stylebook, UI/UX)](docs/architecture/frontend-and-ui.md)
-- [Microservice Architecture (SDK, Storage, Providers)](docs/architecture/microservice-architecture.md)
+- [Workflow & Batching (WebSocket, Correlation, Media)](docs/deep-dives/workflow-and-batching.md)
+- [Liferay API Constraints (OData, DTOs, Pricing, Glue)](docs/deep-dives/liferay-api-constraints.md)
+- [E2E & Orchestration (LDM, Deployment Patterns)](docs/deep-dives/e2e-and-orchestration.md)
+- [Frontend & UI Standards (Stylebook, UI/UX)](docs/deep-dives/frontend-and-ui.md)
+- [Microservice Architecture (SDK, Storage, Providers)](docs/deep-dives/microservice-architecture.md)
 
 ---
 

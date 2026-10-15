@@ -28,7 +28,7 @@ subject. The most common destinations:
 
 - **[Quick Start Guide](./docs/QUICKSTART.md)**: Full instructions for manual installation, running the microservices, and automated testing.
 - **[Local Execution Guide](./docs/LOCAL_EXECUTION.md)**: Running AICA against an existing DXP environment, without LDM.
-- **[Architectural Overview](./docs/ARCHITECTURE.md)**: The stateful workflow engine and system map, with [deep dives](./docs/architecture/README.md) per subsystem.
+- **[Architectural Overview](./docs/ARCHITECTURE.md)**: The stateful workflow engine and system map, with [deep dives](./docs/deep-dives/README.md) per subsystem.
 - **[Features & Capabilities](./docs/FEATURES.md)**: Details on AI generation, real-time monitoring, and visual assets.
 - **[Liferay MCP Server](./docs/MCP.md)**: Connecting the accelerator's Model Context Protocol (MCP) server to AI agents.
 - **[Prompt Templates](./docs/PROMPT_TEMPLATES.md)**: The template syntax available to whoever writes a prompt - variables, conditionals, loops and filters.

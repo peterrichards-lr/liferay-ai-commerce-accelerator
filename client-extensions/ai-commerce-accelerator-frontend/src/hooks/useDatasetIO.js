@@ -64,7 +64,7 @@ function describeCounts(counts) {
  *   - import           either form, into the connected target
  *
  * The export and extract halves differ only in cost, so they report the same
- * counts the same way; see docs/architecture/microservice-architecture.md.
+ * counts the same way; see docs/deep-dives/microservice-architecture.md.
  */
 export default function useDatasetIO({
   api,
