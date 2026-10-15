@@ -138,7 +138,11 @@ import os, re, sys
 site, base_path = sys.argv[1], sys.argv[2]
 block_re = re.compile(r"md-copyright__highlight.*?</div>", re.S)
 # The anchor whose visible text is the About link, however it is cased.
-anchor_re = re.compile(r'<a[^>]*href="([^"]*)"[^>]*>\s*About these docs\s*</a>', re.I)
+# Prettier formats the partial whitespace-sensitively and puts a newline
+# INSIDE the closing tag - `</a\n>` - so a literal `</a>` matches nothing and
+# every page reads as having no link. Hence `</a\s*>`.
+anchor_re = re.compile(
+    r'<a\b[^>]*?href="([^"]*)"[^>]*?>\s*About these docs\s*</a\s*>', re.I | re.S)
 
 missing, unlinked = [], []
 for root, _, files in os.walk(site):
