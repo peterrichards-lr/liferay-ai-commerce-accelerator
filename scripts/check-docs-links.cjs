@@ -223,6 +223,18 @@ for (const file of files) {
 // page and continues a sentence in the README, so its first letter differs.
 const NOTICE =
   /not an official Liferay product and not covered by Liferay Support/i;
+// The format is asserted too, not only the sentence. The three sites agreed a
+// single shape: a GitHub `> [!NOTE]` alert, which the alerts hook renders as an
+// admonition on the site, carrying the About link to the PUBLISHED about page.
+// Matching the sentence alone could not tell the agreed format from the two
+// shapes this repo used before it - a bare blockquote in the README and an
+// `!!! info` admonition on the docs home - so a silent drift back would pass.
+const NOTICE_ALERT = /^>\s*\[!NOTE\]\s*$/m;
+// A link to the repository's own copy of about.md rather than the published
+// page. It renders as raw markdown on github.com and is what this check exists
+// to stop coming back. See #1303.
+const NOTICE_BLOB_LINK =
+  /\[About this project\]\(https:\/\/github\.com\/[^)]*blob[^)]*\)/i;
 const NOTICE_PAGES = ['README.md', 'docs/index.md'];
 for (const page of NOTICE_PAGES) {
   const full = path.join(ROOT, page);
@@ -239,6 +251,21 @@ for (const page of NOTICE_PAGES) {
       'no "not an official Liferay product" notice'
     );
     continue;
+  }
+  if (!NOTICE_ALERT.test(body)) {
+    fail(
+      'community-notice-format',
+      page,
+      'notice is not in a "> [!NOTE]" alert; the three sites share one shape'
+    );
+  }
+  const blob = NOTICE_BLOB_LINK.exec(body);
+  if (blob) {
+    fail(
+      'community-notice-link-target',
+      page,
+      `About link points at the repository copy, not the published page: ${blob[0]}`
+    );
   }
   // The first `##` is where the document stops introducing itself.
   const firstHeading = body.search(/^##\s/m);

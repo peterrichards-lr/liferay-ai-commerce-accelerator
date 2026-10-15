@@ -7,7 +7,8 @@ Empowering Liferay Commerce with high-integrity, AI-orchestrated data.
 
 The **Liferay AI Commerce Accelerator (AICA)** is a production-ready suite of client extensions designed to rapidly generate and deploy sophisticated commerce data into Liferay DXP using generative AI. It eliminates the manual effort of populating catalogs, accounts, and orders, allowing teams to focus on building and testing features.
 
-> ℹ️ **Community project** — not an official Liferay product and not covered by Liferay Support. [About this project](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/docs/about.md)
+> [!NOTE]
+> ℹ️ **Community project** — not an official Liferay product and not covered by Liferay Support. [About this project](https://peterrichards-lr.github.io/liferay-ai-commerce-accelerator/about/)
 
 AICA generates data **for** Liferay Commerce; it is not a commerce platform in its own right. If the platform itself is new to you, start with the [Liferay Commerce documentation](https://learn.liferay.com/w/dxp/commerce).
 
