@@ -47,3 +47,48 @@ updates:
       # thirteen-release downgrade. The pin only ever moves deliberately, as
       # part of releasing the SDK, so there is nothing here for it to propose.
       - dependency-name: '@liferay/accelerator-sdk'
+
+  # The documentation toolchain, which arrived with the site in #1298.
+  #
+  # Dependabot found docs/requirements.txt on its own and began opening pull
+  # requests against it the same day - but with no entry here to match, it fell
+  # back to its own default labels, `dependencies` plus the language. The one
+  # label that matters was missing, so issue-link-check.yml failed #1301 and
+  # would have failed every pip bump after it. #1300 passes only because the
+  # label was applied by hand. See #1305.
+  #
+  # Grouped for the same reason the npm entry is: a week of documentation
+  # bumps is one reviewable pull request, not four.
+  - package-ecosystem: 'pip'
+    directory: '/docs'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'python'
+      - 'no-issue-needed'
+    groups:
+      docs-toolchain:
+        patterns:
+          - '*'
+
+  # The actions themselves, which nothing has ever watched here.
+  #
+  # Every `actions/checkout@v4` and `actions/setup-python@v5` in this
+  # repository is pinned by major tag and unobserved - including the ones
+  # #1298 and #1299 added. The SDK's config has carried this entry for some
+  # time and says so in its own comments; this one simply never gained it.
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'github-actions'
+      - 'no-issue-needed'
+    groups:
+      github-actions:
+        patterns:
+          - '*'
