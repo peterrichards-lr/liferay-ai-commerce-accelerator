@@ -13,3 +13,11 @@ client-extensions/ai-commerce-accelerator-site-initializer/site-initializer/
 client-extensions/ai-commerce-accelerator-batch/batch/
 **/coverage/
 aica-e2e/
+
+# The shared Liferay tools docs kit. STANDARD.md requires these to be
+# byte-identical across liferay-docker-manager, this repo and lfr-tunnel, and
+# Prettier rewrites all three - the stylesheet most heavily. Formatting them
+# here would silently break the parity the standard exists to hold. See #1321.
+docs/assets/stylesheets/liferay-blue.css
+overrides/main.html
+overrides/partials/copyright.html

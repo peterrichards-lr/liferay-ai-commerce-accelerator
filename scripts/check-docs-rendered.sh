@@ -192,6 +192,75 @@ PYCHECK
     fail=1
 fi
 
+# 4. Branding assets, on every page and resolvable.
+#
+#    theme.logo, theme.favicon, extra.favicon_svg and the apple-touch-icon are
+#    config claims. A typo in any path, or a dropped `custom_dir`, still builds
+#    green and still deploys - the reader just silently gets Material's
+#    defaults back. Resolved the same way as the About link above: the href is
+#    resolved against the page and the file must exist, so a path pointing
+#    nowhere fails here rather than in a browser tab nobody is watching.
+if ! python3 - "$SITE" "$base_path" <<'PYBRAND'; then
+import os, re, sys
+
+site, base_path = sys.argv[1], sys.argv[2]
+head_re = re.compile(r"<head>.*?</head>", re.S | re.I)
+link_re = re.compile(r'<link\b[^>]*?rel="([^"]+)"[^>]*?href="([^"]*)"[^>]*?>', re.I | re.S)
+WANTED = {
+    "stylesheet": "the shared stylesheet",
+    "icon": "a favicon",
+    "apple-touch-icon": "the apple-touch icon",
+}
+
+def resolve(root, href):
+    href = href.split("#")[0].split("?")[0]
+    if href.startswith("/"):
+        rel = href[len(base_path):] if href.startswith(base_path) else href.lstrip("/")
+        return os.path.normpath(os.path.join(site, rel))
+    return os.path.normpath(os.path.join(root, href))
+
+broken, missing_rel = [], []
+for root, _, files in os.walk(site):
+    for name in files:
+        if not name.endswith(".html"):
+            continue
+        path = os.path.join(root, name)
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            head = head_re.search(fh.read())
+        if head is None:
+            continue
+        rels = set()
+        for rel, href in link_re.findall(head.group(0)):
+            rel = rel.strip().lower()
+            if rel not in WANTED:
+                continue
+            rels.add(rel)
+            if href.startswith(("http://", "https://", "//", "data:")):
+                continue
+            if not os.path.exists(resolve(root, href)):
+                broken.append((os.path.relpath(path, site), rel, href))
+        for rel in WANTED:
+            if rel not in rels:
+                missing_rel.append((os.path.relpath(path, site), rel))
+
+if missing_rel:
+    by_rel = {}
+    for page, rel in missing_rel:
+        by_rel.setdefault(rel, []).append(page)
+    for rel, pages in sorted(by_rel.items()):
+        print(f"[NO-{rel.upper()}] {len(pages)} page(s) do not reference {WANTED[rel]}.")
+        for page in pages[:5]:
+            print(f"    {page}")
+if broken:
+    print(f"[BROKEN-ASSET] {len(broken)} reference(s) point at a file that was not published.")
+    for page, rel, href in broken[:10]:
+        print(f'    {page}: rel="{rel}" href="{href}"')
+if missing_rel or broken:
+    sys.exit(1)
+PYBRAND
+    fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
     echo
     echo "The published output does not match what the source asks for."

@@ -31,6 +31,15 @@ theme:
   # reach the document.
   custom_dir: overrides
   language: en
+  # The family mark: the shared hexagon frame with AICA's own glyph, so the
+  # three Liferay tools sites read as siblings. `logo` is the light variant
+  # because it sits on the navy header; `favicon` is the blue variant, which
+  # is what a browser tab and a light background need.
+  logo: assets/logo.svg
+  favicon: assets/favicon.png
+  font:
+    text: Inter
+    code: Roboto Mono
   icon:
     repo: fontawesome/brands/github
   palette:
@@ -49,17 +58,30 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
+    # navigation.instant makes this a single-page app: the <head> is NOT
+    # re-evaluated on an internal click, which is why the ownership token and
+    # the social tags are asserted on every built page rather than trusted to
+    # a first load. See scripts/check-docs-rendered.sh.
+    - navigation.instant
     - navigation.sections
+    - navigation.indexes
+    - navigation.footer
     - navigation.top
     - navigation.tracking
     - content.code.copy
+    - content.code.annotate
     - content.action.edit
     - search.suggest
     - search.highlight
     - toc.follow
 
+# The shared palette, byte-identical across the three Liferay tools sites.
+# Replaces docs/stylesheets/extra.css, which set four variables and left the
+# header Liferay blue; the shared file is navy in both schemes and carries the
+# contrast fix for dark-mode links, which #0B5FFF fails at 3.17:1 on navy.
+# It also keeps the review-footer rule the old file had.
 extra_css:
-  - stylesheets/extra.css
+  - assets/stylesheets/liferay-blue.css
 
 # Search-engine ownership tokens, rendered into every page's <head> by
 # overrides/main.html. Add Bing's as `bing_site_verification:` the same way -
@@ -72,6 +94,9 @@ extra_css:
 # than trusting this file. See #1312.
 extra:
   google_site_verification: r7MfW8Y9zUhxsygop-Ubkr6dt7i9rUmddL4pEI26Ngk
+  # An SVG favicon for browsers that take one; theme.favicon (PNG) stays as
+  # the fallback. Emitted by overrides/main.html.
+  favicon_svg: assets/favicon.svg
 
 # Rendered as HTML in the site footer, on every page. Material has no dedicated
 # slot for a disclosure link, and a theme override would be a whole custom
