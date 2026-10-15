@@ -49,6 +49,14 @@ jobs:
               - 'CONTRIBUTING.md'
               - 'CODE_OF_CONDUCT.md'
               - '.github/workflows/docs.yml'
+              # The guards the build itself runs. Without these, editing
+              # check-docs-rendered.sh skips the very build that executes it:
+              # `docs/build` reports green from build-skip, which prints "No
+              # documentation changes" and does nothing. A change to a check,
+              # verified by not running the check. Caught on #1317, whose own
+              # strengthened guard was never executed on its own pull request.
+              - 'scripts/check-docs-*'
+              - 'scripts/check_docs_*'
 
   # The two guards the docs About page publicly commits to. Not gated: see the
   # note at the top of this file.
