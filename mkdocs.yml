@@ -25,6 +25,11 @@ exclude_docs: |
 
 theme:
   name: material
+  # Holds overrides/main.html, which fills Material's `extrahead` block with
+  # the search-engine ownership tokens below. A template rather than a plugin,
+  # because the tag has to be in every page's <head> and `extra` alone does not
+  # reach the document.
+  custom_dir: overrides
   language: en
   icon:
     repo: fontawesome/brands/github
@@ -55,6 +60,18 @@ theme:
 
 extra_css:
   - stylesheets/extra.css
+
+# Search-engine ownership tokens, rendered into every page's <head> by
+# overrides/main.html. Add Bing's as `bing_site_verification:` the same way -
+# the template already emits it as `msvalidate.01` when the key is present.
+#
+# The template renders each tag only when its key is set, so deleting one keeps
+# the build green while quietly unverifying the property: Google re-checks
+# ownership periodically and drops it when the tag goes. That is why
+# scripts/check-docs-rendered.sh asserts the tag reached the built HTML rather
+# than trusting this file. See #1312.
+extra:
+  google_site_verification: r7MfW8Y9zUhxsygop-Ubkr6dt7i9rUmddL4pEI26Ngk
 
 # Rendered as HTML in the site footer, on every page. Material has no dedicated
 # slot for a disclosure link, and a theme override would be a whole custom

@@ -9,6 +9,8 @@ The **Liferay AI Commerce Accelerator (AICA)** is a production-ready suite of cl
 
 > ℹ️ **Community project** — not an official Liferay product and not covered by Liferay Support. [About this project](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/docs/about.md)
 
+📖 Full documentation: <https://peterrichards-lr.github.io/liferay-ai-commerce-accelerator/>
+
 ---
 
 For all installation instructions, including the **Sales Engineering Demo (LDM)** and manual developer setup, please read our **[Quick Start Guide](./docs/QUICKSTART.md)**.
