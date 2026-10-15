@@ -22,7 +22,24 @@ After implementing any code change and before declaring a task finished, you MUS
 
 ## 3. Footer Formatting Standards
 
-Every created or modified Markdown file must end with a footer block in the exact format:
+The footer format depends on whether the file is published to the documentation
+site, because the site can generate one of the two dates and the repository
+cannot.
+
+**Published to the site** — anything under `docs/`. The site generates
+"Last updated" from git history, so the footer carries the review date only:
+
+```markdown
+<!-- markdownlint-disable MD049 -->
+
+---
+
+_Last Reviewed: YYYY-MM-DD_
+```
+
+**Everywhere else** — `AGENTS.md`, `CONTRIBUTING.md`, `conductor/**`, and any
+markdown outside `docs/`. Nothing generates an update date for these, so the
+footer carries both:
 
 ```markdown
 <!-- markdownlint-disable MD049 -->
@@ -32,8 +49,29 @@ Every created or modified Markdown file must end with a footer block in the exac
 _Last Updated: YYYY-MM-DD_ | _Last Reviewed: YYYY-MM-DD_
 ```
 
+Both forms pass `scripts/check_docs_review.py`, which runs on every pull
+request. A file with no review date at all fails it.
+
+### Why the review date stays manual
+
+A commit timestamp says the file changed. It cannot say anyone read it. Fixing
+one word moves "Last updated" and leaves "Last reviewed" where it was, which is
+the honest outcome, because nothing was re-checked. That is the entire reason
+the second date is typed by hand while the first is free.
+
+### This rule is a public commitment
+
+The documentation site's [About page](../../../docs/about.md) states that every
+page shows when it was last updated and when it was last reviewed, and that the
+reviews are carried out by the agents as part of keeping the docs current.
+
+**Changing or bypassing this rule requires updating the About page in the same
+pull request.** The page is a claim made to readers, not an internal note; a
+rule that quietly stops being followed turns it into a false statement that
+nothing would catch.
+
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-20_ | _Last Reviewed: 2026-08-18_
+_Last Updated: 2026-10-15_ | _Last Reviewed: 2026-10-15_

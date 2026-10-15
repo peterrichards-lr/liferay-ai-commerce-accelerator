@@ -151,8 +151,8 @@ Any change to the event emission logic in `ProgressService.cjs` (Server) MUST be
 - **`COMPLETED` (step)**: Marks the `entityType` as 100% complete.
 - **`FAILED`**: Propagates errors to the `ADD_ERRORS` action for UI display.
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
+_Last Reviewed: 2026-09-08_

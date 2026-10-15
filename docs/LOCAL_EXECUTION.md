@@ -53,7 +53,7 @@ Ensure `portal-ext.properties` contains:
 feature.flag.LPD-35443=true
 ```
 
-For a smooth local experience (bypassing password reset prompts and setup wizards), you can use the repository defaults located in [`configs/common/portal-ext.properties`](../configs/common/portal-ext.properties):
+For a smooth local experience (bypassing password reset prompts and setup wizards), you can use the repository defaults located in [`configs/common/portal-ext.properties`](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/configs/common/portal-ext.properties):
 
 ```properties
 setup.wizard.enabled=false
@@ -482,8 +482,8 @@ node scripts/aica-cli.cjs reindex
 
 _(Or in DXP: **Control Panel -> Search -> Index Actions -> Reindex All**)._
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-18_ | _Last Reviewed: 2026-09-18_
+_Last Reviewed: 2026-09-18_

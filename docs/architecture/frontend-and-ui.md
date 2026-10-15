@@ -87,8 +87,8 @@ Three rules that are settled, and should survive whatever the layout becomes:
   so it costs no AI spend but takes as long to land and fails in the same
   places. It takes over the progress view rather than reporting a toast.
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-11_ | _Last Reviewed: 2026-09-11_
+_Last Reviewed: 2026-09-11_

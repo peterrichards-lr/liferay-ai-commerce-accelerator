@@ -128,8 +128,8 @@ Verified against `liferay-portal` `modules/apps/commerce` (`commerce-price-list-
 
 ---
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
+_Last Reviewed: 2026-09-08_

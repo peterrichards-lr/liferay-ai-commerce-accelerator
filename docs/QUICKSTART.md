@@ -138,7 +138,7 @@ The project implements an enforced testing strategy. The `deploy` task is depend
 
 ---
 
-## 📦 Packaging (.ldmp)
+## Packaging (.ldmp)
 
 To package the AICA suite into a single `.ldmp` bundle for distribution, use LDM's own packaging command directly (the standalone `scripts/package-ldmp.sh` wrapper was removed — see `.github/workflows/package-ldmp.yml` for the CI invocation):
 
@@ -218,8 +218,8 @@ UPDATE user_ SET lockout = false, lockoutDate = null, failedLoginAttempts = 0 WH
 
 During initial boot, you may see `OptimisticLockException` for `UserImpl`. This is caused by parallel connections competing to increment the `failedLoginAttempts` counter. **This exception is entirely harmless and expected.**
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-17_ | _Last Reviewed: 2026-09-17_
+_Last Reviewed: 2026-09-17_

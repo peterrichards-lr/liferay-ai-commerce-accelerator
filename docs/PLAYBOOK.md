@@ -112,8 +112,8 @@ When running scripts via an AI agent, standard input is non-interactive (`[ -t 0
   - Network reachability and firewall port openings (e.g., 22, 80, 443).
   - JSON responses from the application's version endpoint (`/api/version`) to guarantee the active deployment matches the newly released target version.
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Reviewed: 2026-08-14_

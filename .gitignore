@@ -111,3 +111,8 @@ extract-headers.txt
 # their internal hostnames, and this repository is public. Ignored rather than
 # remembered, because `git add -A` does not ask.
 [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].txt
+
+# MkDocs build output and the virtualenv its toolchain lives in (#1297).
+# `mkdocs build` writes site/ on every run, including in CI.
+site/
+.venv/

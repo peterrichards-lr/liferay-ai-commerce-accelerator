@@ -112,6 +112,25 @@ for (const file of files) {
       fail('no-absolute-local-link', file, `[${label}] -> ${target}`);
       continue;
     }
+    // A link to this repository's own file on github.com reaches that file
+    // just as a relative link does. Some do have to take that form: a document
+    // excluded from the published site cannot be linked relatively from a page
+    // that is published, because the site build rejects a link to a page it
+    // does not carry. Treating the absolute form as unreachable would make
+    // `no-orphan-doc` fire on a document that is linked from the index.
+    const SELF_BLOB =
+      /^https:\/\/github\.com\/peterrichards-lr\/liferay-ai-commerce-accelerator\/blob\/[^/]+\/(.+)$/;
+    const selfBlob = SELF_BLOB.exec(target);
+    if (selfBlob) {
+      const [blobPath] = selfBlob[1].split('#');
+      if (fs.existsSync(path.join(ROOT, blobPath))) {
+        outgoing.add(blobPath);
+      } else {
+        fail('relative-link-resolves', file, `[${label}] -> ${target}`);
+      }
+      continue;
+    }
+
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue; // http, mailto, ...
 
     if (target.startsWith('#')) {
@@ -151,12 +170,22 @@ for (const file of files) {
 
 // 4. A page nothing links to is a page nobody finds. Walk outward from the
 //    landing pages and require every docs/ page to be reachable.
+// `docs/README.md` became `docs/index.md` when the documentation site was
+// scaffolded (#1297). The existence filter below meant the rename silently
+// removed a root from this walk rather than failing - so the set is asserted
+// rather than filtered, and a future rename fails here instead of quietly
+// shrinking the graph.
 const LANDING = [
   'README.md',
-  'docs/README.md',
+  'docs/index.md',
   'docs/architecture/README.md',
   'docs/upstream-bugs/index.md',
 ];
+for (const landing of LANDING) {
+  if (!fs.existsSync(path.join(ROOT, landing))) {
+    fail('no-missing-landing-page', landing, 'landing page does not exist');
+  }
+}
 const reachable = new Set();
 const queue = LANDING.filter((f) => fs.existsSync(path.join(ROOT, f)));
 queue.forEach((f) => reachable.add(f));

@@ -116,8 +116,8 @@ Once your local dashboard is loaded in your browser (`http://aica.local` or `htt
    - Fully constructed business accounts, addresses, and transaction histories.
    - The custom **Dashboard** and **Data Generator** pages, fully styled in Modern Fresh blue!
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-09-04_
+_Last Reviewed: 2026-09-04_

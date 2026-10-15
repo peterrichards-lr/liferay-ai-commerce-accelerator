@@ -1,0 +1,108 @@
+name: Docs
+
+# Runs on EVERY pull request, deliberately.
+#
+# `ci.yml` gates `build-and-test` behind a paths filter that excludes
+# `**/*.md` and `docs/**`, so a docs-only pull request skips it entirely. Any
+# documentation guard added there would therefore never run on the pull
+# requests that change documentation - a check that cannot see its own subject.
+#
+# The expensive half (pip install plus a full site build) is still gated on
+# paths, using the same filter/skip idiom as `ci.yml`: `docs/build` and
+# `docs/build-skip` share one display name, so the check reports on every pull
+# request and can be made required later without leaving unrelated ones
+# waiting forever. The cheap half - the two guards that back the claims on the
+# About page - runs unconditionally, because a code change can make a document
+# stale just as easily as editing it can.
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      docs: ${{ steps.changes.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            docs:
+              - 'docs/**'
+              - 'mkdocs.yml'
+              - 'README.md'
+              - 'CONTRIBUTING.md'
+              - 'CODE_OF_CONDUCT.md'
+              - '.github/workflows/docs.yml'
+
+  # The two guards the docs About page publicly commits to. Not gated: see the
+  # note at the top of this file.
+  review:
+    name: docs/review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Backs "each page shows when it was last reviewed" and "reviews are
+      # carried out by the agents as part of keeping the docs current".
+      # Without --max-review-days the script only checks that a footer exists,
+      # which would let every page rot while reporting success.
+      - name: Check documentation review dates
+        run: python3 scripts/check_docs_review.py --max-review-days 180
+
+      # `yarn lint:md` checks markdown style, not whether the documentation is
+      # true. This one has existed since #1057 and was wired to `yarn
+      # lint:docs`, which `ci.yml` never ran - so it has never gated anything.
+      # It needs no dependencies, only node builtins.
+      - name: Check documentation links
+        run: node scripts/check-docs-links.cjs
+
+  build:
+    name: docs/build
+    needs: filter
+    if: needs.filter.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # mkdocs-git-revision-date-localized reads each file's commit history
+          # to generate "Last updated". A shallow clone has none, so the plugin
+          # falls back to the build time: every page would claim it was updated
+          # today, and the site would assert something false on every page
+          # while the build stayed green.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: docs/requirements.txt
+
+      - name: Install the docs toolchain
+        run: pip install -r docs/requirements.txt
+
+      # --strict turns every warning into a failure: a broken cross-reference,
+      # a nav entry pointing at nothing, a page with no git history. Without
+      # it a link rots and the build stays green.
+      - name: Build the site
+        run: mkdocs build --strict
+
+  # Shares the display name with `build` so the check reports on every pull
+  # request. Same reasoning as `build-and-test-skip` in `ci.yml`.
+  build-skip:
+    name: docs/build
+    needs: filter
+    if: needs.filter.outputs.docs != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No documentation changes; the site build is not needed."

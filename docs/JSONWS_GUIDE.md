@@ -113,8 +113,8 @@ If you find a gap where a JSONWS call is needed:
 2. Wrap the JSONWS call in a new method within `LiferayRestService` in the SDK.
 3. Add a comment explaining why a standard Headless API could not be used.
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-08-14_ | _Last Reviewed: 2026-08-14_
+_Last Reviewed: 2026-08-14_

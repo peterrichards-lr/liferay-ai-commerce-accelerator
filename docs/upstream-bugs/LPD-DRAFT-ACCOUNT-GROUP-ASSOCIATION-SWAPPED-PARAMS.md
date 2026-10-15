@@ -103,8 +103,8 @@ In our client extension SDK, we swap the variables when constructing the URL:
   }
 ```
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-13_ | _Last Reviewed: 2026-09-13_
+_Last Reviewed: 2026-09-13_

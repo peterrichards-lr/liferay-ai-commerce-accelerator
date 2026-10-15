@@ -15,7 +15,7 @@ For all installation instructions, including the **Sales Engineering Demo (LDM)*
 
 ## 📚 Documentation
 
-**[Browse the documentation index →](./docs/README.md)**
+**[Browse the documentation index →](./docs/index.md)**
 
 The index routes by what you are trying to do and lists every document by
 subject. The most common destinations:
@@ -26,7 +26,7 @@ subject. The most common destinations:
 - **[Features & Capabilities](./docs/FEATURES.md)**: Details on AI generation, real-time monitoring, and visual assets.
 - **[Liferay MCP Server](./docs/MCP.md)**: Connecting the accelerator's Model Context Protocol (MCP) server to AI agents.
 - **[Prompt Templates](./docs/PROMPT_TEMPLATES.md)**: The template syntax available to whoever writes a prompt - variables, conditionals, loops and filters.
-- **[Automation Playbook](./docs/PLAYBOOK.md)**: The rules, workflows, and issue templates driving the AI-assisted development of this repository.
+- **[Automation Playbook](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/docs/PLAYBOOK.md)**: The rules, workflows, and issue templates driving the AI-assisted development of this repository.
 
 _(Note: the `conductor/` and `.agents/` folders hold internal tracking state and
 agent context for maintainers and AI agents. You do not need to read them)._

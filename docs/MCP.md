@@ -128,8 +128,8 @@ const status = await client.callTool({
 console.log('AICA status:', status.content[0].text);
 ```
 
-<!-- markdownlint-disable MD049 -->
+<!-- markdownlint-disable MD036 MD049 -->
 
 ---
 
-_Last Updated: 2026-09-08_ | _Last Reviewed: 2026-09-08_
+_Last Reviewed: 2026-09-08_

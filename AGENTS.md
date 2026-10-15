@@ -54,12 +54,19 @@ Detailed architectural specifications are maintained in [`docs/architecture/`](d
 
 That is the only directive this file owns. The rest live with the skill that owns the concern, so each rule has exactly one home to read and one place to change:
 
-| Directive                                  | Owning skill                                                     |
-| :----------------------------------------- | :--------------------------------------------------------------- |
-| Documentation timestamps and footer format | [`documentation`](./.agents/skills/documentation/SKILL.md)       |
-| No hardcoded credentials                   | [`coding-standards`](./.agents/skills/coding-standards/SKILL.md) |
-| Deduplication and DRY                      | [`coding-standards`](./.agents/skills/coding-standards/SKILL.md) |
-| Non-interactive execution                  | [`tool-use-react`](./.agents/skills/tool-use-react/SKILL.md)     |
+| Directive                                    | Owning skill                                                     |
+| :------------------------------------------- | :--------------------------------------------------------------- |
+| Documentation timestamps and footer format † | [`documentation`](./.agents/skills/documentation/SKILL.md)       |
+| No hardcoded credentials                     | [`coding-standards`](./.agents/skills/coding-standards/SKILL.md) |
+| Deduplication and DRY                        | [`coding-standards`](./.agents/skills/coding-standards/SKILL.md) |
+| Non-interactive execution                    | [`tool-use-react`](./.agents/skills/tool-use-react/SKILL.md)     |
+
+† The documentation rule is **publicly committed to** on the docs
+[About page](./docs/about.md), which tells readers that every page shows when
+it was last updated and when it was last reviewed. Changing or bypassing the
+rule requires updating the About page in the same pull request: it is a claim
+made to readers, not an internal note, and a rule that quietly stops being
+followed turns it into a false statement that nothing would catch.
 
 ---
 
@@ -78,4 +85,4 @@ Active, in-flight task state and intra-task scratchpad context are maintained lo
 
 ---
 
-_Last Updated: 2026-09-20_ | _Last Reviewed: 2026-09-20_
+_Last Updated: 2026-10-15_ | _Last Reviewed: 2026-10-15_
