@@ -289,6 +289,58 @@ if [ -n "$social_image" ]; then
     fi
 fi
 
+# 6. The community-project notice, as the home page RENDERS it.
+#
+#    The three sites agreed the rendered output, not the source syntax: an
+#    `info` callout titled "Community project". The source is GitHub-native
+#    `> [!NOTE]`, and `[!NOTE]` means `note` - a different colour and icon.
+#    Only the lead emoji in scripts/mkdocs_github_alerts.py keeps it `info`.
+#
+#    That makes the agreed appearance depend on a hook, a lead emoji and a
+#    title convention, any of which can be edited without touching this page.
+#    Checking the source cannot see it; this checks what a reader sees.
+if ! python3 - "$SITE" <<'PYNOTICE'; then
+import re, os, sys
+
+home = os.path.join(sys.argv[1], "index.html")
+if not os.path.exists(home):
+    print("[NO-HOME-PAGE] the built site has no index.html to check the notice on.")
+    sys.exit(1)
+
+with open(home, encoding="utf-8", errors="replace") as fh:
+    html = fh.read()
+
+block = re.search(r'<div class="admonition[^"]*">.*?</div>', html, re.S)
+if block is None:
+    print("[NO-COMMUNITY-NOTICE] the home page renders no admonition at all.")
+    print("  Expected an `info` callout titled 'Community project'.")
+    sys.exit(1)
+
+got = re.sub(r"\s+", " ", block.group(0)).strip()
+problems = []
+if 'class="admonition info"' not in got:
+    kind = re.search(r'class="admonition ([^"]*)"', got)
+    problems.append(f"callout type is '{kind.group(1) if kind else '?'}', expected 'info'")
+if '<p class="admonition-title">Community project</p>' not in got:
+    title = re.search(r'admonition-title">([^<]*)<', got)
+    problems.append(f"title is '{title.group(1) if title else '(none)'}', expected 'Community project'")
+if "Not an official Liferay product and not covered by Liferay Support." not in got:
+    problems.append("the disclaimer sentence is missing or reworded")
+if "\u2139" in got or "**" in got:
+    problems.append("the lead emoji or bold prefix was left in the body")
+if not re.search(r'<a href="[^"]*about/?"', got):
+    problems.append("no link to the About page")
+
+if problems:
+    print("[COMMUNITY-NOTICE-SHAPE] the home page notice does not match the agreed output.")
+    for problem in problems:
+        print(f"    {problem}")
+    print(f"  rendered: {got}")
+    sys.exit(1)
+PYNOTICE
+    fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
     echo
     echo "The published output does not match what the source asks for."

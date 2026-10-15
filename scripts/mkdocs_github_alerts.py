@@ -41,6 +41,18 @@ _MARKER = re.compile(r"^>\s*\[!(" + "|".join(_TYPES) + r")\]\s*(.*)$")
 # Lifting that lead into a title would cut it in half.
 _TITLE_LEAD = re.compile(r"^(\S+)\s+\*\*([^*]+)\*\*\s+—\s+(.*)$")
 
+# A lifted title implies `info`, whatever the alert type was.
+#
+# GitHub has five alert types and none of them is `info`, so a notice that has
+# to render as the `info` callout cannot say so in GitHub-native source. The
+# rule agreed across the three Liferay tools sites is option B: an alert whose
+# title was lifted renders `info`; every other alert keeps the mapping above.
+#
+# It is the lift that decides, not the emoji, and the lift is deliberately
+# strict - emoji, then a bold phrase, then an em dash. Loosening it to a bold
+# lead alone would have retitled 29 of LDM's 70 alerts.
+_LIFTED_TITLE_TYPE = "info"
+
 
 def _is_emoji(token: str) -> bool:
     """True when every character is a symbol, or one of the joiners and variation selectors an
@@ -114,7 +126,7 @@ def _convert(markdown: str) -> str:
             if re.fullmatch(r"[a-z]+[.,;:]?", first):
                 rest = rest[:1].upper() + rest[1:]
             body[0] = rest
-            out.append(f'!!! {kind} "{title.group(2).strip()}"')
+            out.append(f'!!! {_LIFTED_TITLE_TYPE} "{title.group(2).strip()}"')
         else:
             out.append(f"!!! {kind}")
         out.append("")

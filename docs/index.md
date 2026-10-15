@@ -2,10 +2,8 @@
 
 Everything here documents the **Liferay AI Commerce Accelerator (AICA)**: how to install it, how it works internally, and the platform behaviour it has to work around.
 
-!!! info "Community project"
-
-    Not an official Liferay product and not covered by Liferay Support.
-    [About this project](./about.md)
+> [!NOTE]
+> ℹ️ **Community project** — not an official Liferay product and not covered by Liferay Support. [About this project](./about.md)
 
 AICA generates data **for** Liferay Commerce; it is not a commerce platform in its own right. If the platform itself is new to you, start with the [Liferay Commerce documentation](https://learn.liferay.com/w/dxp/commerce).
 
