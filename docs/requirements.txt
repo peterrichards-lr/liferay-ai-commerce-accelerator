@@ -2,7 +2,7 @@
 # next cannot be a gate. See #1297.
 mkdocs==1.6.1
 mkdocs-material==9.5.49
-pymdown-extensions==10.14
+pymdown-extensions==11.0.1
 
 # Generates "Last updated" from git history. The footer in each file carries
 # "Last Reviewed" only - a date a human or an agent sets deliberately, which no
