@@ -1,4 +1,4 @@
-# AICA Documentation
+# Liferay AI Commerce Accelerator documentation
 
 Everything here documents the **Liferay AI Commerce Accelerator (AICA)**: how to install it, how it works internally, and the platform behaviour it has to work around.
 
@@ -11,7 +11,7 @@ New to the project? Start with the **[Quick Start Guide](./QUICKSTART.md)**.
 
 ## I want to…
 
-| I want to…                                               | Read                                                                                                                    |
+| I want to…                                               | Go to                                                                                                                   |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Install AICA and generate my first catalog               | [Quick Start Guide](./QUICKSTART.md)                                                                                    |
 | Run the seeder against an existing DXP, without LDM      | [Local Execution & Operations Guide](./LOCAL_EXECUTION.md)                                                              |
@@ -55,29 +55,24 @@ by what they cover, for when you would rather browse than search.
 - **[JSON Web Services Guide](./JSONWS_GUIDE.md)** — Liferay's `/api/jsonws` endpoints and when to prefer the Headless REST or GraphQL APIs instead.
 - **[Upstream Bugs & Limitations](./upstream-bugs/index.md)** — upstream DXP bugs and undocumented behaviour that AICA has to accommodate, with current status for each.
 
-### Project process
+### Project
 
+- **[About these docs](./about.md)** — what this project is, what it is not, and how the dates on each page are produced and enforced.
+- **[CONTRIBUTING](./contributing.md)** — how to propose and land a change.
+- **[Code of Conduct](./code-of-conduct.md)** — the standards expected of everyone taking part.
 - **[Automation Playbook](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/docs/PLAYBOOK.md)** — branch protection, release pipelines and automated backlog prioritisation, for maintainers and AI agents.
+- **[Repository README](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/README.md)** — project overview and the `aica` CLI command suite.
+- **[AGENTS.md](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/AGENTS.md)** — the canonical context for AI agents working in this repository.
 
 ## Related Liferay tools
 
-Three community tools by the same maintainer, each with its own documentation
-site. None is an official Liferay product.
+Three community tools from the same maintainer. None is an official Liferay product or covered by Liferay Support.
 
-- **[Liferay Docker Manager (LDM)](https://peterrichards-lr.github.io/liferay-docker-manager/)**
-  — runs Liferay DXP in containers and imports `.ldmp` packages. It is how the
-  [Quick Start](./QUICKSTART.md) brings up an environment for AICA.
-- **[lfr-tunnel](https://peterrichards-lr.github.io/lfr-tunnel/)** — exposes a
-  local Liferay instance over a public URL, for webhooks and callbacks that
-  cannot reach `localhost`.
-
-## Related
-
-- **[About these docs](./about.md)** — what this project is, what it is not, and how the dates on each page are produced and enforced.
-- **[Repository README](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/README.md)** — project overview and the `aica` CLI command suite.
-- **[CONTRIBUTING](./contributing.md)** — how to propose and land a change.
-- **[Code of Conduct](./code-of-conduct.md)** — the standards expected of everyone taking part.
-- **[AGENTS.md](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/AGENTS.md)** — the canonical context for AI agents working in this repository.
+| Tool                                                                                 | What it does                                                              |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| [Liferay Docker Manager](https://peterrichards-lr.github.io/liferay-docker-manager/) | Run, manage and develop Liferay DXP and Portal environments in Docker.    |
+| Liferay AI Commerce Accelerator                                                      | You are here. Generate and manage AI-driven commerce data in Liferay DXP. |
+| [Liferay Tunnel](https://peterrichards-lr.github.io/lfr-tunnel/)                     | Securely expose a local Liferay environment on a public HTTPS subdomain.  |
 
 <!-- markdownlint-disable MD036 MD049 -->
 
