@@ -39,8 +39,13 @@ Checked when the build has a section with an index page (navigation.indexes):
 Checked when mkdocs.yml configures them:
   MISSING-VERIFICATION  extra.google_site_verification / extra.bing_site_verification:
                         the meta tag is on every page
-  MISSING-SOCIAL        extra.social_image: every page carries an absolute og:image that
-                        exists in the build
+  MISSING-SOCIAL        extra.social_image, extra.favicon_svg or theme.favicon: what
+                        overrides/main.html emits, each part only when configured. The card:
+                        an absolute og:image that exists in the build, twitter:card
+                        summary_large_image and twitter:image the same URL as og:image. The
+                        icons: the SVG favicon, theme.favicon and the apple-touch-icon
+                        (assets/apple-touch-icon.png), each linked from every page to a file
+                        in the build
   NO-NOTICE           extra.docs_standard.notice: the home page shows it as an `info`
                       callout above its first section
   HOME-LAYOUT         extra.docs_standard.home_layout: the shared home-page layout
@@ -499,21 +504,92 @@ def check_verification(pages, extra):
     return problems
 
 
+class HeadTags(HTMLParser):
+    """The page's <meta> values by name or property, and its <link> tags."""
+
+    def __init__(self):
+        super().__init__()
+        self.meta, self.links = {}, []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "meta" and (a.get("name") or a.get("property")):
+            self.meta.setdefault(a.get("name") or a.get("property"), a.get("content"))
+        elif tag == "link":
+            self.links.append(a)
+
+
+def social_configured(config):
+    """MISSING-SOCIAL runs when the site configures its social card or any of its icons."""
+    extra = config.get("extra") or {}
+    return bool(extra.get("social_image") or extra.get("favicon_svg")
+                or (config.get("theme") or {}).get("favicon"))
+
+
+# overrides/main.html links the touch icon at this fixed path on every page.
+APPLE_TOUCH_ICON = "assets/apple-touch-icon.png"
+
+
 def check_social(site, pages, config):
-    image = (config.get("extra") or {}).get("social_image")
-    if not image:
+    """What overrides/main.html emits for link previews and icons (#146), each part only when it
+    is configured: the social card (og:image, twitter:card, twitter:image the same absolute URL
+    as og:image), the SVG favicon, Material's theme.favicon, and the apple-touch-icon. A link
+    must resolve, from its own page, to a file in the build."""
+    if not social_configured(config):
         return []
-    site_url = config.get("site_url") or ""
-    if site_url and not site_url.endswith("/"):
-        site_url += "/"          # as MkDocs normalises it before the template sees it
-    if not site_url.startswith(("http://", "https://")):
-        return ["extra.social_image is set but site_url is not an absolute URL, so og:image "
-                "cannot be absolute: a scraper has no page to resolve a relative one against"]
-    want = site_url + image
-    problems = [] if (site / image).is_file() else [f"{image} is not in the build"]
+    extra = config.get("extra") or {}
+    image = extra.get("social_image")
+    problems, want = [], None
+    if image:
+        site_url = config.get("site_url") or ""
+        if site_url and not site_url.endswith("/"):
+            site_url += "/"          # as MkDocs normalises it before the template sees it
+        if not site_url.startswith(("http://", "https://")):
+            return ["extra.social_image is set but site_url is not an absolute URL, so og:image "
+                    "cannot be absolute: a scraper has no page to resolve a relative one against"]
+        want = site_url + image
+        if not (site / image).is_file():
+            problems.append(f"{image} is not in the build")
+    icons = [("the SVG favicon", lambda a: "icon" in (a.get("rel") or "").split()
+              and a.get("type") == "image/svg+xml", extra.get("favicon_svg")),
+             ("the theme.favicon icon", lambda a: "icon" in (a.get("rel") or "").split()
+              and a.get("type") != "image/svg+xml", (config.get("theme") or {}).get("favicon")),
+             ("the apple-touch-icon", lambda a: a.get("rel") == "apple-touch-icon",
+              APPLE_TOUCH_ICON)]
+    base = urlparse(config.get("site_url") or "").path or "/"
+    base += "" if base.endswith("/") else "/"
+    missing_files = set()
     for rel, html in pages.items():
-        if f'<meta property="og:image" content="{want}">' not in html:
-            problems.append(f"{rel}: no og:image {want!r}")
+        head = HeadTags()
+        head.feed(html)
+        if want:
+            if head.meta.get("og:image") != want:
+                problems.append(f"{rel}: no og:image {want!r}")
+            if head.meta.get("twitter:card") != "summary_large_image":
+                problems.append(f"{rel}: twitter:card is {head.meta.get('twitter:card')!r}, "
+                                "not 'summary_large_image'")
+            if head.meta.get("twitter:image") != want:
+                problems.append(f"{rel}: twitter:image is {head.meta.get('twitter:image')!r}, "
+                                f"not the og:image {want!r}")
+        for name, is_it, expected in icons:
+            if not expected:
+                continue
+            link = next((a for a in head.links if is_it(a)), None)
+            if link is None:
+                problems.append(f"{rel}: no <link> for {name} ({expected})")
+                continue
+            # 404.html is served at every depth, so MkDocs gives it links absolute under
+            # site_url's path ("/demo/assets/..."); every other page's are relative.
+            target = urlparse(urljoin("http://site/" + rel, link.get("href") or "")).path
+            if base != "/" and target.startswith(base):
+                target = target[len(base) - 1:]
+            target = target.lstrip("/")
+            if target != expected.lstrip("/"):
+                problems.append(f"{rel}: {name} links {link.get('href')!r}, which resolves to "
+                                f"/{target}, not /{expected}")
+            elif not (site / target).is_file() and target not in missing_files:
+                missing_files.add(target)
+                problems.append(f"{name}: {target} is not in the build")
     return problems
 
 
@@ -735,7 +811,7 @@ def run(site, config):
     ran = [name for name in always if name not in ("MISSING-VERIFICATION", "MISSING-SOCIAL")]
     if extra.get("google_site_verification") or extra.get("bing_site_verification"):
         ran.append("MISSING-VERIFICATION")
-    if extra.get("social_image"):
+    if social_configured(config):
         ran.append("MISSING-SOCIAL")
     if standard.get("home_layout"):
         bad, ok = check_home_layout(home, standard, config.get("site_name", ""))
