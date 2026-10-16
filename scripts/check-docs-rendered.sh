@@ -1,24 +1,30 @@
 #!/usr/bin/env bash
 #
-# Asserts things about the BUILT site, not about its source.
+# The assertions about AICA's BUILT site that the shared check does not make.
 #
-# Every other documentation guard here reads the tree: check-docs-links.cjs
-# walks markdown, check_docs_review.py reads footers, and `mkdocs build
-# --strict` reports only that the build did not warn. None of them looks at
-# what was actually published, and some defects exist only in the output.
+# scripts/check_docs_rendered.py, copied verbatim from ai-agent-template, is the
+# family check: leaked alert markers, unrendered diagrams, the per-page About
+# link, alert titles, the nav, the home-page layout, the community notice, and
+# the PRESENCE of the verification and social tags. It runs first in the docs
+# workflow. Everything it covers was deleted from this file in #1335; what is
+# left is the two things only this repository asks for.
 #
-# The ownership token is the first of those. overrides/main.html renders it
-# only when `extra.google_site_verification` is set, so deleting the key keeps
-# the build green - and Google, which re-checks ownership periodically, would
-# quietly unverify the property. Nothing in the source would look wrong.
+# Both are silent in the source. `mkdocs build --strict` reports neither, and
+# nor does the shared check:
+#
+#   - the verification tag can be PRESENT on every page and carry the WRONG
+#     value. A template that hardcodes a token, interpolates a renamed key, or
+#     loses its {% if %} guard renders a tag every presence check accepts and
+#     Google reads as someone else's property. See #1312 and #1316.
+#   - theme.logo, theme.favicon, extra.favicon_svg and the apple-touch icon are
+#     config claims. A typo in any path still builds green and still deploys;
+#     the reader silently gets Material's defaults back. See #1321.
 #
 # What this cannot do is tell you the configured token is the RIGHT one. A
-# token that is well formed but issued for another property, or mistyped into
-# something equally well formed, renders identically to a correct one. Only
-# Google can settle that, and it does: the property reads as unverified in
-# Search Console. The checks below cover the failures that are SILENT.
-#
-# Modelled on lfr-tunnel's script of the same name, deliberately, so the
+# token that is well formed but issued for another property renders identically
+# to a correct one. Only Google can settle that, and it does: the property
+# reads as unverified in Search Console. The checks here cover the failures
+# that are SILENT.
 # repositories stay comparable. See #1312.
 set -euo pipefail
 
@@ -69,27 +75,13 @@ elif ! echo "$configured" | grep -qE '^[A-Za-z0-9_-]{40,50}$'; then
     fail=1
 fi
 
-# 1. Presence. Checked on every page rather than the home page alone: Google
-#    accepts verification from the URL it was given, and a template change that
-#    dropped the tag from inner pages while keeping it on the index would look
-#    verified and read as broken to anything else.
-unverified=$(grep -rL 'name="google-site-verification"' "$SITE" --include='*.html' || true)
-if [ -n "$unverified" ]; then
-    count=$(echo "$unverified" | wc -l | tr -d ' ')
-    echo "[MISSING-VERIFICATION] ${count} page(s) lack the google-site-verification meta tag."
-    echo "  Check extra.google_site_verification in ${CONFIG} and overrides/main.html."
-    echo "  Pages affected:"
-    echo "$unverified" | sed "s|^${SITE}/|    |"
-    fail=1
-fi
-
-# 2. Value. Presence alone passes for a tag rendering the wrong thing: a
+# 1. Value. Presence alone passes for a tag rendering the wrong thing: a
 #    template that hardcodes a token, or interpolates a key that was renamed,
 #    or emits content="" because someone removed the {% if %} guard. All three
 #    look like a verified page to every check that only reads the source.
 #
-#    Only pages that HAVE the tag are compared, so a page missing it is
-#    reported once above rather than twice.
+#    Only pages that HAVE the tag are compared: a page missing it entirely is
+#    MISSING-VERIFICATION in the shared check, and is not repeated here.
 if [ -n "$configured" ]; then
     mismatched=""
     while IFS= read -r -d '' page; do
@@ -115,84 +107,11 @@ if [ -n "$configured" ]; then
     fi
 fi
 
-# 3. Footer "About these docs" link, resolved per page.
-#
-#    This is the failure that motivated the check. `copyright:` is raw HTML and
-#    MkDocs emits it verbatim, so a relative href in it is NOT rewritten per
-#    page: `about/` worked at the site root and 404'd on all 25 pages below it.
-#    Nothing could see it - check-docs-links.cjs walks markdown, and the link
-#    only ever existed in mkdocs.yml and the built HTML.
-#
-#    The anchor is found by its TEXT, not its href: on the About page itself the
-#    `url` filter renders a self-link as `./`, which no href-matching pattern
-#    would recognise. The href is then resolved against the page's own directory
-#    and the target must exist, so a wrong depth fails rather than only a
-#    missing link. python3 does the resolving: `realpath -m` is GNU and absent
-#    on macOS, and python is already required to build the site at all.
+
 base_path=$(sed -n 's|^[[:space:]]*site_url:[[:space:]]*||p' "$CONFIG" | head -1 \
     | sed -e 's|^https\{0,1\}://[^/]*||' -e 's|/*$|/|')
 
-if ! python3 - "$SITE" "$base_path" <<'PYCHECK'; then
-import os, re, sys
-
-site, base_path = sys.argv[1], sys.argv[2]
-block_re = re.compile(r"md-copyright__highlight.*?</div>", re.S)
-# The anchor whose visible text is the About link, however it is cased.
-# Prettier formats the partial whitespace-sensitively and puts a newline
-# INSIDE the closing tag - `</a\n>` - so a literal `</a>` matches nothing and
-# every page reads as having no link. Hence `</a\s*>`.
-anchor_re = re.compile(
-    r'<a\b[^>]*?href="([^"]*)"[^>]*?>\s*About these docs\s*</a\s*>', re.I | re.S)
-
-missing, unlinked = [], []
-for root, _, files in os.walk(site):
-    for name in files:
-        if not name.endswith(".html"):
-            continue
-        path = os.path.join(root, name)
-        with open(path, encoding="utf-8", errors="replace") as fh:
-            html = fh.read()
-        block = block_re.search(html)
-        if block is None:
-            continue  # no footer rendered on this page at all
-        anchor = anchor_re.search(block.group(0))
-        if anchor is None:
-            unlinked.append(os.path.relpath(path, site))
-            continue
-        href = anchor.group(1).split("#")[0].split("?")[0]
-        if href.startswith(("http://", "https://", "//", "mailto:")):
-            continue  # absolute: nothing local to resolve
-        if href.startswith("/"):
-            # Material's 404 page uses root-absolute URLs on purpose, because it
-            # is served from any depth. They carry the deployed subpath, which
-            # is the site root on disk, so strip it before resolving.
-            rel = href[len(base_path):] if href.startswith(base_path) else href.lstrip("/")
-            target = os.path.normpath(os.path.join(site, rel))
-        else:
-            target = os.path.normpath(os.path.join(root, href))
-        if os.path.isdir(target):
-            target = os.path.join(target, "index.html")
-        if not os.path.exists(target):
-            missing.append((os.path.relpath(path, site), anchor.group(1),
-                            os.path.relpath(target, site)))
-
-if unlinked:
-    print(f"[NO-ABOUT-LINK] {len(unlinked)} page(s) render a footer with no About link.")
-    for page in unlinked[:10]:
-        print(f"    {page}")
-if missing:
-    print(f"[BROKEN-ABOUT-LINK] {len(missing)} page(s) link to an About page that is not there.")
-    print("  A relative href in `copyright:` is raw HTML and is not resolved per")
-    print("  page; overrides/partials/copyright.html uses the `url` filter instead.")
-    for page, href, target in missing[:10]:
-        print(f'    {page}: href="{href}" -> {target} (missing)')
-if unlinked or missing:
-    sys.exit(1)
-PYCHECK
-    fail=1
-fi
-
-# 4. Branding assets, on every page and resolvable.
+# 2. Branding assets, on every page and resolvable.
 #
 #    theme.logo, theme.favicon, extra.favicon_svg and the apple-touch-icon are
 #    config claims. A typo in any path, or a dropped `custom_dir`, still builds
@@ -258,405 +177,6 @@ if broken:
 if missing_rel or broken:
     sys.exit(1)
 PYBRAND
-    fail=1
-fi
-
-# 5. The social card, when one is configured.
-#
-#    og:image is what a link unfurls as in Slack, Teams and LinkedIn, and it is
-#    the one tag whose absence is invisible from the site itself: every page
-#    looks perfect while shared links degrade to a bare URL.
-#    overrides/main.html guards the block on extra.social_image, so deleting
-#    that key - or moving the file - drops the tags silently and keeps the
-#    build green.
-#
-#    Only enforced when the key is set, so a site that has not made a card yet
-#    is not failed for not having one.
-social_image=$(sed -n 's|^[[:space:]]*social_image:[[:space:]]*||p' "$CONFIG" \
-    | head -1 | sed -e "s/[\"']//g" -e "s/[[:space:]]*$//")
-if [ -n "$social_image" ]; then
-    if [ ! -f "${SITE}/${social_image}" ]; then
-        echo "[SOCIAL-IMAGE-NOT-PUBLISHED] extra.social_image is '${social_image}', which is not in the built site."
-        echo "  Shared links would unfurl with a broken image."
-        fail=1
-    fi
-    missing_og=$(grep -rL 'property="og:image"' "$SITE" --include='*.html' || true)
-    if [ -n "$missing_og" ]; then
-        count=$(echo "$missing_og" | wc -l | tr -d ' ')
-        echo "[NO-OG-IMAGE] ${count} page(s) carry no og:image although extra.social_image is set."
-        echo "$missing_og" | head -5 | sed "s|^${SITE}/|    |"
-        fail=1
-    fi
-fi
-
-# 6. The community-project notice, as the home page RENDERS it.
-#
-#    The three sites agreed the rendered output, not the source syntax: an
-#    `info` callout titled "Community project". The source is GitHub-native
-#    `> [!NOTE]`, and `[!NOTE]` means `note` - a different colour and icon.
-#    Only the lead emoji in scripts/mkdocs_github_alerts.py keeps it `info`.
-#
-#    That makes the agreed appearance depend on a hook, a lead emoji and a
-#    title convention, any of which can be edited without touching this page.
-#    Checking the source cannot see it; this checks what a reader sees.
-if ! python3 - "$SITE" <<'PYNOTICE'; then
-import re, os, sys
-
-home = os.path.join(sys.argv[1], "index.html")
-if not os.path.exists(home):
-    print("[NO-HOME-PAGE] the built site has no index.html to check the notice on.")
-    sys.exit(1)
-
-with open(home, encoding="utf-8", errors="replace") as fh:
-    html = fh.read()
-
-block = re.search(r'<div class="admonition[^"]*">.*?</div>', html, re.S)
-if block is None:
-    print("[NO-COMMUNITY-NOTICE] the home page renders no admonition at all.")
-    print("  Expected an `info` callout titled 'Community project'.")
-    sys.exit(1)
-
-got = re.sub(r"\s+", " ", block.group(0)).strip()
-problems = []
-if 'class="admonition info"' not in got:
-    kind = re.search(r'class="admonition ([^"]*)"', got)
-    problems.append(f"callout type is '{kind.group(1) if kind else '?'}', expected 'info'")
-if '<p class="admonition-title">Community project</p>' not in got:
-    title = re.search(r'admonition-title">([^<]*)<', got)
-    problems.append(f"title is '{title.group(1) if title else '(none)'}', expected 'Community project'")
-if "Not an official Liferay product and not covered by Liferay Support." not in got:
-    problems.append("the disclaimer sentence is missing or reworded")
-if "\u2139" in got or "**" in got:
-    problems.append("the lead emoji or bold prefix was left in the body")
-if not re.search(r'<a href="[^"]*about/?"', got):
-    problems.append("no link to the About page")
-
-if problems:
-    print("[COMMUNITY-NOTICE-SHAPE] the home page notice does not match the agreed output.")
-    for problem in problems:
-        print(f"    {problem}")
-    print(f"  rendered: {got}")
-    sys.exit(1)
-PYNOTICE
-    fail=1
-fi
-
-# 7. The shared home-page layout.
-#
-#    The three Liferay tools sites agreed one structure so a reader moving
-#    between them lands in the same place: the same H1 shape, the same anchors
-#    in the same order, the same two table formats, and the same related-tools
-#    table with the current tool unlinked. See #1330.
-#
-#    Asserted on the BUILT page because that is where the anchors exist. The
-#    ids are generated from the heading text, so renaming a heading silently
-#    moves an anchor that other pages and other sites may link to.
-if ! python3 - "$SITE" <<'PYHOME'; then
-import html as htmllib
-import os, re, sys
-
-home = os.path.join(sys.argv[1], "index.html")
-if not os.path.exists(home):
-    print("[NO-HOME-PAGE] nothing to check the layout on.")
-    sys.exit(1)
-with open(home, encoding="utf-8", errors="replace") as fh:
-    page = fh.read()
-
-# Material wraps the content; headings outside it (nav, footer) are not ours.
-body = re.search(r'<article[^>]*>(.*?)</article>', page, re.S)
-body = body.group(1) if body else page
-
-def text(fragment):
-    # Drop the permalink anchor Material appends, then tags, then entities.
-    fragment = re.sub(r'<a[^>]*class="headerlink".*?</a>', "", fragment, flags=re.S)
-    return htmllib.unescape(re.sub(r"<[^>]+>", "", fragment)).strip()
-
-problems = []
-
-h1 = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.S)
-WANT_H1 = "Liferay AI Commerce Accelerator documentation"
-if h1 is None or text(h1.group(1)) != WANT_H1:
-    problems.append(f"H1 is {text(h1.group(1))!r} if present; expected {WANT_H1!r}")
-
-ids = re.findall(r'<h2[^>]*id="([^"]+)"', body)
-WANT_IDS = ["i-want-to", "by-subject", "related-liferay-tools"]
-present = [i for i in ids if i in WANT_IDS]
-if present != WANT_IDS:
-    problems.append(f"H2 anchors are {present}; expected {WANT_IDS} in that order")
-
-tables = re.findall(r"<table>(.*?)</table>", body, re.S)
-def headers(tbl):
-    head = re.search(r"<thead>(.*?)</thead>", tbl, re.S)
-    return [text(c) for c in re.findall(r"<th[^>]*>(.*?)</th>", head.group(1) if head else "", re.S)]
-
-routing = next((t for t in tables if headers(t)[:1] == ["I want to\u2026"]), None)
-if routing is None:
-    found = [headers(t) for t in tables]
-    problems.append(f"no table headed 'I want to\u2026' / 'Go to'; found {found}")
-elif headers(routing) != ["I want to\u2026", "Go to"]:
-    problems.append(f"routing table headers are {headers(routing)}; expected ['I want to\u2026', 'Go to']")
-
-related = next((t for t in tables if headers(t) == ["Tool", "What it does"]), None)
-if related is None:
-    problems.append("no related-tools table headed 'Tool' / 'What it does'")
-else:
-    rows = re.findall(r"<tr>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>", related, re.S)
-    names = [text(a) for a, _ in rows]
-    WANT = ["Liferay Docker Manager", "Liferay AI Commerce Accelerator", "Liferay Tunnel"]
-    if names != WANT:
-        problems.append(f"related-tools rows are {names}; expected {WANT}")
-    here = [i for i, (_, d) in enumerate(rows) if text(d).startswith("You are here.")]
-    if len(here) != 1:
-        problems.append(f"{len(here)} rows start 'You are here.'; expected exactly 1")
-    else:
-        # The current tool must be the unlinked one.
-        if "<a " in rows[here[0]][0]:
-            problems.append("the 'You are here.' row is a link; the current tool must be unlinked")
-        for i, (cell, _) in enumerate(rows):
-            if i != here[0] and "<a " not in cell:
-                problems.append(f"row {names[i]!r} is not a link; only the current tool is unlinked")
-
-EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2190-\u2BFF\u2139\uFE0F]")
-for level in ("h1", "h2", "h3"):
-    for m in re.finditer(r"<%s[^>]*>(.*?)</%s>" % (level, level), body, re.S):
-        t = text(m.group(1))
-        if EMOJI.search(t):
-            problems.append(f"{level} contains an emoji: {t!r}")
-
-if problems:
-    print("[HOME-LAYOUT] the home page does not match the shared layout.")
-    for problem in problems:
-        print(f"    {problem}")
-    sys.exit(1)
-print("  home page: shared layout OK (H1, anchor order, both tables, no emoji in h1-h3).")
-PYHOME
-    fail=1
-fi
-
-# 8. Alert labels: GitHub's word, Material's style.
-#
-#    The canonical hook maps each GitHub alert type to the nearest Material
-#    style and then supplies the GitHub label as the title, because Material
-#    otherwise titles the box after the style: `[!IMPORTANT]` became "Info" and
-#    `[!CAUTION]` became "Danger", losing the word the author chose. See the
-#    decision on #1329.
-#
-#    AICA publishes no IMPORTANT or CAUTION alerts today, so this asserts
-#    nothing on the current site - which is exactly why it is here. The next
-#    page that adds one would otherwise ship titled "Info" with every check
-#    green, and no reader would know the label had been dropped.
-if ! python3 - "$SITE" <<'PYLABELS'; then
-import html as htmllib
-import os, re, sys
-
-site = sys.argv[1]
-pat = re.compile(r'<div class="admonition ([^"]*)">\s*(?:<p class="admonition-title">(.*?)</p>)?', re.S)
-# The pairs Material produces when the hook forgets to pass a label.
-BANNED = {("info", "Info"), ("danger", "Danger")}
-
-offenders = []
-for root, _, files in os.walk(site):
-    for name in files:
-        if not name.endswith(".html"):
-            continue
-        with open(os.path.join(root, name), encoding="utf-8", errors="replace") as fh:
-            for cls, title in pat.findall(fh.read()):
-                cls = cls.strip().split()[0] if cls.strip() else ""
-                title = htmllib.unescape(re.sub(r"<[^>]+>", "", title or "")).strip()
-                if (cls, title) in BANNED:
-                    offenders.append((os.path.relpath(os.path.join(root, name), site), cls, title))
-
-if offenders:
-    print(f"[ALERT-LABEL-LOST] {len(offenders)} callout(s) are titled after the style, not the alert.")
-    print("  [!IMPORTANT] must render ('info', 'Important') and [!CAUTION] ('danger', 'Caution').")
-    print("  A bare `!!! info` lets Material title the box 'Info'.")
-    for page, cls, title in offenders[:10]:
-        print(f"    {page}: ({cls!r}, {title!r})")
-    sys.exit(1)
-PYLABELS
-    fail=1
-fi
-
-# 9. The shared top-level navigation.
-#
-#    The three Liferay tools sites publish the same shelves in the same order
-#    with the same sentence-case labels, so a reader moving between them knows
-#    where to look. A site omits a section it has no pages for; it never renames
-#    or reorders one. See #1333.
-#
-#    Read from the BUILT nav rather than from `nav:` in the config, because the
-#    config is not what ships: `navigation.indexes` folds an index page into its
-#    section, a theme override could reorder, and the labels are what a reader
-#    actually sees. Nothing else here can fail on this - `--strict` has no
-#    opinion about the order of the nav or the case of a label, and the controls
-#    on #1333 confirm it stays green through every mutation below.
-if ! python3 - "$SITE" <<'PYNAV'; then
-import os, re, sys
-from html.parser import HTMLParser
-
-# The shared shelves, in the one order all three Liferay tools sites use. A site
-# OMITS a section it has no pages for; it never renames or reorders one, so the
-# labels a site does publish must appear here in this sequence. See #1333.
-STANDARD = ["Home", "Tutorials", "How-to guides", "Reference", "Explanation",
-            "Troubleshooting", "Showcase", "Project and contributing",
-            "About these docs"]
-
-# Sentence case governs the ORDINARY words of a label; a name keeps its capitals.
-# Each entry here is a deliberate claim that the phrase is a name - "JSON Web
-# Services" is Liferay's own name for the API, Traefik is the proxy's - so the
-# list is short on purpose. The phrase is masked out before the remaining words
-# are judged, which is why it does not also excuse the words around it.
-PROPER = ("JSON Web Services", "Traefik")
-
-# A word that is Capitalised-then-lowercase anywhere but the first position is
-# the signature of title case: "Quick Start", "Code of Conduct". An acronym
-# (API, UI, NPE, SDK) and a bracketed one are untouched, as is the first word,
-# which sentence case capitalises.
-ORDINARY = re.compile(r"^[A-Z][a-z]+$")
-
-VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
-        "meta", "param", "source", "track", "wbr"}
-
-
-class Nav(HTMLParser):
-    """Reads the labels out of Material's primary navigation.
-
-    Depth is counted by hand rather than matched with a regular expression,
-    because the nav is nested lists and a regex cannot tell a top-level entry
-    from one three levels down. Two details are easy to get wrong and silently
-    halve the result: void elements (`<img>`, `<input>`) never close, so they
-    must not move the depth counter; and Material nests the ACTIVE page's table
-    of contents inside its own nav item, so a plain walk collects that page's
-    headings as if they were navigation and reports them as title-cased labels.
-    """
-
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.inside = self.done = False
-        self.depth = 0
-        self.ul = self.skip = self.item = None
-        self.top = self.grab = False
-        self.buf = []
-        self.items = []
-
-    def handle_starttag(self, tag, attrs):
-        cls = dict(attrs).get("class", "")
-        if not self.inside:
-            if not self.done and tag == "nav" and "md-nav--primary" in cls:
-                self.inside, self.depth = True, 0
-            return
-        if tag in VOID:
-            return
-        self.depth += 1
-        if self.skip is not None:
-            return
-        if tag == "nav" and "md-nav--secondary" in cls:
-            self.skip = self.depth
-        elif tag == "ul" and self.ul is None and "md-nav__list" in cls:
-            self.ul = self.depth
-        elif tag == "li" and self.ul is not None and self.item is None:
-            self.item, self.top, self.buf = self.depth, self.depth == self.ul + 1, []
-        elif tag == "span" and self.item is not None and "md-ellipsis" in cls:
-            self.grab = True
-
-    def handle_endtag(self, tag):
-        if not self.inside or tag in VOID:
-            return
-        if tag == "nav" and self.depth == 0:
-            self.inside, self.done = False, True
-            return
-        if self.skip is None:
-            if self.grab and tag == "span":
-                self.grab, self.item = False, None
-                self.items.append((self.top, " ".join("".join(self.buf).split())))
-            elif self.item is not None and tag == "li" and self.depth == self.item:
-                self.item = None
-        elif self.depth == self.skip and tag == "nav":
-            self.skip = None
-        self.depth -= 1
-
-    def handle_data(self, data):
-        if self.grab:
-            self.buf.append(data)
-
-
-def title_cased(label):
-    masked = label
-    for phrase in PROPER:
-        masked = masked.replace(phrase, "\u0000")
-    return [w for w in masked.split()[1:] if ORDINARY.match(w.strip("()[]{}:,.&/"))]
-
-
-site = sys.argv[1]
-by_page = {}
-for root, _, files in os.walk(site):
-    for name in sorted(files):
-        if name.endswith(".html"):
-            page = os.path.relpath(os.path.join(root, name), site)
-            parser = Nav()
-            parser.feed(open(os.path.join(root, name), encoding="utf-8", errors="replace").read())
-            by_page[page] = parser.items
-
-problems = []
-empty = [p for p, items in by_page.items() if not items]
-if empty:
-    # Nothing to judge reads as nothing wrong, which is the vacuous pass this
-    # file exists to avoid. A page with no navigation is itself the defect.
-    problems.append(f"{len(empty)} page(s) render no primary navigation at all, "
-                    f"e.g. {empty[0]}")
-
-shapes = {}
-for page, items in by_page.items():
-    shapes.setdefault(tuple(items), []).append(page)
-if len(shapes) > 1:
-    problems.append(f"pages do not agree on the navigation: {len(shapes)} different "
-                    "shapes were published")
-    for items, pages in shapes.items():
-        problems.append(f"    {len(pages)} page(s) ({pages[0]}): "
-                        f"{[l for t, l in items if t]}")
-
-if by_page and not problems:
-    items = next(iter(shapes))
-    top = [label for is_top, label in items if is_top]
-
-    repeated = sorted({l for l in top if top.count(l) > 1})
-    if repeated:
-        # Two shelves with one name is not an ordering problem - the index
-        # comparison below reads [3, 3] as correctly ordered - so it is asked
-        # separately. A reader cannot tell the two apart, and neither can a link.
-        problems.append(f"top-level section(s) appear more than once: {repeated}")
-
-    unknown = [l for l in top if l not in STANDARD]
-    if unknown:
-        problems.append(f"top-level section(s) not in the shared list: {unknown}")
-        problems.append(f"    the shared list is {STANDARD}")
-    else:
-        order = [STANDARD.index(l) for l in top]
-        if order != sorted(order):
-            problems.append(f"top-level sections are out of the shared order: {top}")
-            problems.append(f"    the shared order is {STANDARD}")
-    if "About these docs" not in top:
-        problems.append("there is no 'About these docs' section; it is required and last")
-    elif top[-1] != "About these docs":
-        problems.append(f"the last top-level section is {top[-1]!r}; "
-                        "'About these docs' must be last")
-
-    for is_top, label in items:
-        offending = title_cased(label)
-        if offending:
-            problems.append(f"{'top-level ' if is_top else ''}label {label!r} is title "
-                            f"case: {', '.join(offending)}")
-
-if problems:
-    print(f"[NAV-NOT-SHARED] the published navigation does not match the shared standard.")
-    for problem in problems:
-        print(f"    {problem}")
-    sys.exit(1)
-
-shown = [label for is_top, label in next(iter(shapes)) if is_top]
-print(f"  navigation: shared order and sentence case OK on {len(by_page)} page(s).")
-print(f"    top level: {' > '.join(shown)}")
-PYNAV
     fail=1
 fi
 

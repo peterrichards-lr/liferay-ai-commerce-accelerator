@@ -106,6 +106,43 @@ extra:
   # setting it earlier would have emitted tags pointing at a 404.
   social_image: assets/social-preview.png
 
+  # The shared docs-site standard, read by scripts/check_docs_rendered.py. The
+  # values come from the template's Liferay profile
+  # (.agents/templates/docs-profiles/liferay/site.yml); per-site values belong
+  # here and never in the shared script. See #1335.
+  docs_standard:
+    # The H1 the home page must carry is "<project_name> documentation", and
+    # project_name is also the row this site must leave unlinked in `related`.
+    project_name: Liferay AI Commerce Accelerator
+    # Names a sentence-case nav label may capitalise mid-label. "JSON Web
+    # Services" is Liferay's own name for the API and "Traefik" is the proxy's;
+    # both appear in Reference labels. Acronyms (API, UI, NPE, SDK) pass on
+    # their shape and need no entry. Adding a word here is a claim that it is a
+    # name, not a style exemption.
+    proper_nouns: [Liferay, Web, Services, Traefik]
+    # On: the home page carries the shared layout (#1330) and the nav follows
+    # the shared order (#1333).
+    home_layout: true
+    notice:
+      title: Community project
+      text: Not an official Liferay product and not covered by Liferay Support
+      link_text: About this project
+    related:
+      heading: Related Liferay tools
+      intro: >-
+        Three community tools from the same maintainer. None is an official
+        Liferay product or covered by Liferay Support.
+      rows:
+        - name: Liferay Docker Manager
+          url: https://peterrichards-lr.github.io/liferay-docker-manager/
+          description: Run, manage and develop Liferay DXP and Portal environments in Docker.
+        - name: Liferay AI Commerce Accelerator
+          url: https://peterrichards-lr.github.io/liferay-ai-commerce-accelerator/
+          description: Generate and manage AI-driven commerce data in Liferay DXP.
+        - name: Liferay Tunnel
+          url: https://peterrichards-lr.github.io/lfr-tunnel/
+          description: Securely expose a local Liferay environment on a public HTTPS subdomain.
+
 # Rendered as HTML in the site footer, on every page. Material has no dedicated
 # slot for a disclosure link, and a theme override would be a whole custom
 # partial to carry one anchor.

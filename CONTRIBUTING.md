@@ -116,6 +116,36 @@ We enforce [Conventional Commits](https://www.conventionalcommits.org/). Commit 
 
 ---
 
+### Shared docs files
+
+Five files in this repository are **copies**, not originals. Their canonical versions live on
+the `main` branch of
+[ai-agent-template](https://github.com/peterrichards-lr/ai-agent-template), which seeds them
+into every project built with `--docs-site`, so the three Liferay tools sites render the same
+way:
+
+| Here                                       | Upstream                                                   |
+| :----------------------------------------- | :--------------------------------------------------------- |
+| `overrides/main.html`                      | same path                                                  |
+| `overrides/partials/copyright.html`        | same path                                                  |
+| `scripts/mkdocs_github_alerts.py`          | same path                                                  |
+| `scripts/check_docs_rendered.py`           | same path                                                  |
+| `docs/assets/stylesheets/liferay-blue.css` | `.agents/templates/docs-profiles/liferay/liferay-blue.css` |
+
+**Never edit a copy.** Change the canonical file in the template, through a pull request there,
+then copy it back unchanged. `scripts/check_template_drift.py --docs-site --fail-on-drift` runs
+on every pull request and fails on any difference, so a local edit cannot survive review.
+
+Everything this site needs to say for itself goes in `mkdocs.yml` instead — under
+`extra.docs_standard` for the shared checks, or in a second stylesheet listed _after_
+`liferay-blue.css` in `extra_css`. The rule, and what the standard requires of a page, are in
+the template's `CONTRIBUTING.md` ("Shared docs files") and
+[`.agents/skills/docs-site-standard/SKILL.md`](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/blob/master/.agents/skills/docs-site-standard/SKILL.md).
+
+See [#1335](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1335).
+
+---
+
 ## 📥 Submitting a Pull Request
 
 1. **Create a Branch**: Always branch from `master` and name it logically matching the Conductor Track IDs:
@@ -190,4 +220,4 @@ Thank you for contributing!
 
 ---
 
-_Last Updated: 2026-08-06_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-10-16_ | _Last Reviewed: 2026-10-16_
