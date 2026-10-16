@@ -80,7 +80,18 @@ function headingsOf(src) {
 }
 
 // Fenced code blocks hold illustrative links that are not meant to resolve.
-const stripFences = (src) => src.replace(/^(```|~~~)[\s\S]*?^\1.*$/gm, '');
+//
+// The leading `[ \t]*` is not cosmetic. CommonMark lets a fence be indented by
+// up to three spaces, and a fence inside a list item is indented further - which
+// is where documentation puts its examples. Anchored at column 0, this stripped
+// nothing from such a block, so every illustrative link inside one was checked
+// as if it were real. Found by `.agents/skills/docs-site-standard/SKILL.md`,
+// copied verbatim from ai-agent-template: its example notice contains
+// `[About this project](about.md)` inside a two-space-indented ```markdown
+// fence, and this check reported it as a broken link in a file it is not
+// allowed to edit. See #1335.
+const stripFences = (src) =>
+  src.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1.*$/gm, '');
 
 const LINK = /(?<!!)\[((?:[^[\]]|\[[^\]]*\])*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 
