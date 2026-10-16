@@ -118,7 +118,7 @@ We enforce [Conventional Commits](https://www.conventionalcommits.org/). Commit 
 
 ### Shared docs files
 
-Five files in this repository are **copies**, not originals. Their canonical versions live on
+Six files in this repository are **copies**, not originals. Their canonical versions live on
 the `main` branch of
 [ai-agent-template](https://github.com/peterrichards-lr/ai-agent-template), which seeds them
 into every project built with `--docs-site`, so the three Liferay tools sites render the same
@@ -130,6 +130,7 @@ way:
 | `overrides/partials/copyright.html`        | same path                                                  |
 | `scripts/mkdocs_github_alerts.py`          | same path                                                  |
 | `scripts/check_docs_rendered.py`           | same path                                                  |
+| `scripts/check_template_drift.py`          | same path                                                  |
 | `docs/assets/stylesheets/liferay-blue.css` | `.agents/templates/docs-profiles/liferay/liferay-blue.css` |
 
 **Never edit a copy.** Change the canonical file in the template, through a pull request there,
