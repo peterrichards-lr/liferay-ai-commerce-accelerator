@@ -30,6 +30,7 @@ To prevent cognitive overload and maintain strict execution standards, rules are
 | **[quality-guardrails](.agents/skills/quality-guardrails/SKILL.md)**               | [`.agents/skills/quality-guardrails/SKILL.md`](.agents/skills/quality-guardrails/SKILL.md)               | Modifying service layers or preparing to commit                 | Service parity verification, bootstrap `verifySteps` checks, and pre-commit hooks.      |
 | **[platform-findings](.agents/skills/platform-findings/SKILL.md)**                 | [`.agents/skills/platform-findings/SKILL.md`](.agents/skills/platform-findings/SKILL.md)                 | Troubleshooting API errors or seeding database engines          | Quirks on sequencing, `productType` constraints, SKU active rules, and indexing.        |
 | **[documentation](.agents/skills/documentation/SKILL.md)**                         | [`.agents/skills/documentation/SKILL.md`](.agents/skills/documentation/SKILL.md)                         | Creating or modifying markdown documentation                    | Active documentation review, format verification, and timestamp hygiene rules.          |
+| **[docs-site-standard](.agents/skills/docs-site-standard/SKILL.md)**               | [`.agents/skills/docs-site-standard/SKILL.md`](.agents/skills/docs-site-standard/SKILL.md)               | Changing the docs site, its nav, home page or shared files      | The family docs-site standard; the shared files are copies and must never be edited.    |
 | **[multi-agent-orchestration](.agents/skills/multi-agent-orchestration/SKILL.md)** | [`.agents/skills/multi-agent-orchestration/SKILL.md`](.agents/skills/multi-agent-orchestration/SKILL.md) | Delegating tasks or defining subagents                          | Orchestrating parallel workflows and delegating to specialized subagents.               |
 | **[tool-use-react](.agents/skills/tool-use-react/SKILL.md)**                       | [`.agents/skills/tool-use-react/SKILL.md`](.agents/skills/tool-use-react/SKILL.md)                       | Terminal tool calls or invoking GitHub APIs                     | Strict ReAct reasoning patterns and GitHub CLI (`gh`) usage boundaries.                 |
 | **[reflection-and-planning](.agents/skills/reflection-and-planning/SKILL.md)**     | [`.agents/skills/reflection-and-planning/SKILL.md`](.agents/skills/reflection-and-planning/SKILL.md)     | Beginning complex tasks or modifying codebase files             | Mandatory implementation plans and predictive failure analysis.                         |
@@ -85,4 +86,4 @@ Active, in-flight task state and intra-task scratchpad context are maintained lo
 
 ---
 
-_Last Updated: 2026-10-15_ | _Last Reviewed: 2026-10-15_
+_Last Updated: 2026-10-16_ | _Last Reviewed: 2026-10-16_

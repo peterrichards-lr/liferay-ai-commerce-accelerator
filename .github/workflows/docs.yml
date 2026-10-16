@@ -60,7 +60,7 @@ jobs:
               # The build-time hook. It rewrites page markdown, so a change
               # here changes every page of the published site.
               - 'scripts/mkdocs_github_alerts.py'
-              - 'scripts/check-shared-files.sh'
+              - 'scripts/check_template_drift.py'
 
   # The two guards the docs About page publicly commits to. Not gated: see the
   # note at the top of this file.
@@ -90,10 +90,13 @@ jobs:
 
       # Ungated on purpose, like the guards above it. The canonical copies live
       # in another repository, so this one can drift without any file here
-      # changing - a `prettier --write`, a well-meant comment fix, or lfr-tunnel
-      # moving on. A paths filter would hide exactly those cases. See #1329.
-      - name: The shared files match lfr-tunnel master
-        run: bash scripts/check-shared-files.sh
+      # changing - a `prettier --write`, a well-meant comment fix, or the
+      # template moving on. A paths filter would hide exactly those cases. This
+      # is the "upstream moved, somebody look" half; `build` runs the same check
+      # again as a deploy gate, because a skipped job cannot block a deploy.
+      # Canonical is now ai-agent-template, not lfr-tunnel. See #1335.
+      - name: The shared docs files match the template
+        run: python3 scripts/check_template_drift.py --docs-site --fail-on-drift
 
       # --max-review-days catches a page nobody has looked at for months. It
       # cannot catch a file edited today whose footer still shows last month,
@@ -141,12 +144,36 @@ jobs:
       - name: Build the site
         run: mkdocs build --strict
 
-      # --strict asserts the build did not warn. It says nothing about what
-      # landed in the output, and the ownership token is rendered only when its
-      # key is set - so deleting the key builds clean and silently unverifies
-      # the property. This reads the built HTML instead. See #1312.
-      - name: Check the rendered output
+      # The two assertions the shared check does not make: that the
+      # verification tag carries the CONFIGURED value rather than merely being
+      # present, and that the branding assets resolve. See #1312 and #1321.
+      - name: Check the rendered output (this repo's own assertions)
         run: bash scripts/check-docs-rendered.sh site
+
+      # The family check, copied verbatim from ai-agent-template and configured
+      # through extra.docs_standard in mkdocs.yml. It replaced seven of the nine
+      # assertions this repository used to carry in check-docs-rendered.sh; the
+      # two that are left are the ones it does not make. See #1335.
+      # KNOWN RED: UNDATED-PAGE fails on 23 of 26 pages, and nothing else does.
+      # It requires BOTH dates in the page body; this site puts "Last Reviewed"
+      # there and lets mkdocs-git-revision-date-localized generate the other,
+      # which Material renders in its own source-file aside. The reader sees
+      # both dates. The check sees one. Raised upstream as
+      # peterrichards-lr/ai-agent-template#142.
+      #
+      # Deliberately NOT suppressed with `|| true`. A step that cannot fail is
+      # the defect this whole file exists to avoid: it would also swallow a
+      # real LEAKED-ALERT or NAV regression, and report green while doing it.
+      # The honest state is a red check with a named cause. See #1335.
+      - name: Check the rendered output against the shared standard
+        run: python3 scripts/check_docs_rendered.py site
+
+      # Run again here, not only in `docs/review`: `deploy` needs `build`, so
+      # this is the placement that can actually stop a drifted shared file
+      # reaching the published site. The two runs answer different questions
+      # and the check is a shallow clone, so the duplication is cheap.
+      - name: The shared docs files match the template
+        run: python3 scripts/check_template_drift.py --docs-site --fail-on-drift
 
       # Uploaded on pull requests too, deliberately. It costs one step, and it
       # means a reviewer can download exactly what the deploy would publish

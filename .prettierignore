@@ -14,15 +14,24 @@ client-extensions/ai-commerce-accelerator-batch/batch/
 **/coverage/
 aica-e2e/
 
-# The four canonical shared files. The copy of record is lfr-tunnel master;
-# these are copies and must stay byte-identical, which the sync step in
-# .github/workflows/docs.yml enforces. Prettier rewrites three of them - the
-# stylesheet most heavily - so formatting them here would break that parity
-# silently, on the next unrelated `prettier --write`. The hook is listed too:
-# Prettier does not format Python today, and the list is the record of what
-# must not be touched rather than a list of what Prettier would reach.
-# See #1321 and #1329.
+# The canonical shared files. The copy of record is ai-agent-template main;
+# these are copies and must stay byte-identical, which
+# scripts/check_template_drift.py enforces in .github/workflows/docs.yml.
+# Prettier rewrites three of them - the stylesheet most heavily - so formatting
+# them here would break that parity silently, on the next unrelated
+# `prettier --write`. The Python files are listed too: Prettier does not format
+# Python today, and the list is the record of what must not be touched rather
+# than a list of what Prettier would reach.
+# See #1321, #1329 and #1335.
 docs/assets/stylesheets/liferay-blue.css
 scripts/mkdocs_github_alerts.py
+scripts/check_docs_rendered.py
+scripts/check_template_drift.py
 overrides/main.html
 overrides/partials/copyright.html
+
+# The shared skill is a copy too, governed by the same drift checker (it sits
+# under .agents/skills/, which is in the default governed set even though the
+# docs CI job compares only --docs-site). Prettier rewrites its tables and
+# wrapping, which would read as drift the next time the full check is run.
+.agents/skills/docs-site-standard/SKILL.md
