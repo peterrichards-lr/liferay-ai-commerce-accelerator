@@ -1,0 +1,15 @@
+# The Semgrep engine used by .github/workflows/semgrep.yml.
+#
+# A file rather than an inline `pip install semgrep`, so that Dependabot can
+# see it: the `pip` entry for this directory in .github/dependabot.yml opens a
+# pull request when a new engine release lands. The two alternatives are both
+# worse. An unpinned install scans with whatever shipped that morning, so the
+# scanner that gates every pull request can change under us without a commit;
+# a pin that nothing watches silently stops gaining engine fixes, which is the
+# failure the `github-actions` entry below it was added to stop. See #1280.
+#
+# This does NOT pin the rules. p/javascript, p/nodejs and p/secrets are fetched
+# from the registry at scan time, so new rules arrive without a bump here -
+# which is the right way round: the engine is infrastructure, the rules are the
+# point.
+semgrep==1.181.0
