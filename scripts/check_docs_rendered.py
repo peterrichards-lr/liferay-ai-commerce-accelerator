@@ -44,6 +44,10 @@ Checked when mkdocs.yml configures them:
   NO-NOTICE           extra.docs_standard.notice: the home page shows it as an `info`
                       callout above its first section
   HOME-LAYOUT         extra.docs_standard.home_layout: the shared home-page layout
+Deleting a key switches its check off. A site lists the checks it cannot do without in
+extra.docs_standard.required (for example [MISSING-VERIFICATION, NO-NOTICE]): a required check
+with no configuration fails, naming the key, instead of being skipped. An unknown name in the
+list fails too, as REQUIRED (ai-agent-template#141).
 
 Exit codes: 0 every assertion passed; 1 an assertion failed, or nothing was scanned.
 """
@@ -58,8 +62,10 @@ from urllib.parse import urljoin, urlparse
 
 import yaml
 
-# Too few pages to be a real build; a near-empty directory would pass every assertion.
-MIN_PAGES = 3
+# Too few pages to be a real build; a near-empty directory would pass every assertion. Five was
+# lfr-tunnel's threshold before this check replaced its own (#141); the template's own site
+# builds ten.
+MIN_PAGES = 5
 
 # The standard top-level navigation, in order (ai-agent-template#135). A site omits a section
 # only when it has no pages, and never renames or reorders one. Only the labels are fixed: which
@@ -640,6 +646,51 @@ def check_home_layout(home_html, standard, site_name):
     return bad, ok
 
 
+# The checks that run only when mkdocs.yml configures them: the key that switches each on, and
+# whether it is set. extra.docs_standard.required names the ones a site cannot lose by deleting
+# a key (#141).
+CONFIGURED_CHECKS = {
+    "MISSING-VERIFICATION": (
+        "extra.google_site_verification or extra.bing_site_verification",
+        lambda extra, standard: extra.get("google_site_verification")
+        or extra.get("bing_site_verification")),
+    "MISSING-SOCIAL": ("extra.social_image", lambda extra, standard: extra.get("social_image")),
+    "NO-NOTICE": ("extra.docs_standard.notice", lambda extra, standard: standard.get("notice")),
+    "HOME-LAYOUT": ("extra.docs_standard.home_layout: true",
+                    lambda extra, standard: standard.get("home_layout")),
+}
+
+
+def check_required(extra, standard, always_run):
+    """Failures for extra.docs_standard.required, as {check name: problems}.
+
+    A required check that is configured runs as usual and needs nothing here. One that is not
+    would be skipped, and that is what this prevents: lfr-tunnel lost its Search Console
+    verification to a deleted key while its build stayed green (lfr-tunnel#2381). A check in
+    `always_run` already runs on every site, so naming it is allowed and changes nothing.
+    """
+    required = standard.get("required")
+    if required is None:
+        return {}
+    if not isinstance(required, list):
+        return {"REQUIRED": ["extra.docs_standard.required must be a list of check names, "
+                             f"not {required!r}"]}
+    problems = {}
+    unknown = [name for name in required if name not in CONFIGURED_CHECKS
+               and name not in always_run]
+    if unknown:
+        problems["REQUIRED"] = [f"unknown check name(s) in extra.docs_standard.required: "
+                                f"{unknown!r}; a required check is one of "
+                                f"{sorted(CONFIGURED_CHECKS)!r}"]
+    for name in required:
+        if name in CONFIGURED_CHECKS:
+            key, is_configured = CONFIGURED_CHECKS[name]
+            if not is_configured(extra, standard):
+                problems[name] = [f"required by extra.docs_standard.required, but {key} is not "
+                                  "set, so nothing was checked"]
+    return problems
+
+
 # --------------------------------------------------------------------------------------------
 
 def run(site, config):
@@ -691,6 +742,8 @@ def run(site, config):
         if bad:
             failures["HOME-LAYOUT"] = bad
         passes += [f"home: {line}" for line in ok]
+    # SECTION-TITLE is a known name even on a build without an index page, where it did not run.
+    failures.update(check_required(extra, standard, set(always) | {"SECTION-TITLE"}))
 
     if failures:
         for name, problems in failures.items():

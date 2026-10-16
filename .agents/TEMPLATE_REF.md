@@ -3,7 +3,7 @@
 This repo's AI-agent governance files (`AGENTS.md`, `.agents/`, `GEMINI.md`, `.claude/`) were established independently and have no automated relationship to any other repo. The **shared docs-site files are the exception**: they are copied from the template verbatim and compared by `scripts/check_template_drift.py`, which runs in the docs workflow. See the path mapping below and peterrichards-lr/ai-agent-template#135. `ai-agent-template` (https://github.com/peterrichards-lr/ai-agent-template) is maintained as the shared "lessons learned" reference for AI-agent rules across the Liferay tooling repos, but nothing here pulls updates from it automatically. This file is a manual checkpoint so drift gets tracked deliberately instead of silently.
 
 **Reference repo**: <https://github.com/peterrichards-lr/ai-agent-template>
-**Reference version at last check**: `v2.2.0+2` (origin/main @ `f0782fc`, 2026-10-16)
+**Reference version at last check**: `v2.3.0+1` (origin/main @ `ed65da0`, 2026-10-16)
 **Last checked**: 2026-10-16
 
 ## Path mapping
@@ -27,7 +27,9 @@ Both entries recorded at the v1.2.0 check ([#459](https://github.com/peterrichar
 
 **Shared docs-site files**: in sync. `check_template_drift.py --docs-site --fail-on-drift` compares all five against upstream HEAD and reports no drift; the docs workflow runs it on every pull request, so this line cannot go stale silently.
 
-The stamp reads `v2.2.0+2` because two fixes landed on `main` after that tag and the drift checker compares against `main`, not against a tag: [#144](https://github.com/peterrichards-lr/ai-agent-template/pull/144) (section titles render the same with or without an index page) and [#145](https://github.com/peterrichards-lr/ai-agent-template/pull/145), which closed the issue this repository raised, [#142](https://github.com/peterrichards-lr/ai-agent-template/issues/142).
+**This stamp is load-bearing, not decorative.** `docs/build` runs the drift check with `--against-recorded`, which compares the local copies against the upstream tree at the commit named above rather than at HEAD. A stale or wrong commit here changes what the deploy gate actually asserts, and `unknown` makes it exit 3 rather than pass. `docs/review` compares against HEAD, so an upstream merge still turns a check red and asks for a sync.
+
+Six shared files, not five: [#149](https://github.com/peterrichards-lr/ai-agent-template/pull/149) added `scripts/check_template_drift.py` to the governed docs-site set. It compares the others, so an edit to it has to fail too - and before #149 its own list omitted itself, which meant a local copy could sit arbitrarily far behind and still report "no drift". This repository was 5153 bytes behind when that was found.
 
 **The rest of the governed set**: six paths differ from upstream and are expected to. They are this repository's own, built long before the template governed them, and nothing in this migration touches them:
 

@@ -91,10 +91,12 @@ jobs:
       # Ungated on purpose, like the guards above it. The canonical copies live
       # in another repository, so this one can drift without any file here
       # changing - a `prettier --write`, a well-meant comment fix, or the
-      # template moving on. A paths filter would hide exactly those cases. This
-      # is the "upstream moved, somebody look" half; `build` runs the same check
-      # again as a deploy gate, because a skipped job cannot block a deploy.
-      # Canonical is now ai-agent-template, not lfr-tunnel. See #1335.
+      # template moving on. A paths filter would hide exactly those cases.
+      #
+      # This is the "upstream moved, somebody look" half, and it compares
+      # against upstream HEAD, so a template merge turns this check red and a
+      # sync PR clears it. The deploy gate in `build` asks the narrower question
+      # instead. See #1335 and #1339.
       - name: The shared docs files match the template
         run: python3 scripts/check_template_drift.py --docs-site --fail-on-drift
 
@@ -154,18 +156,24 @@ jobs:
       # through extra.docs_standard in mkdocs.yml. It replaced seven of the nine
       # assertions this repository used to carry in check-docs-rendered.sh; the
       # two that are left are the ones it does not make. See #1335.
-      # Before the rendered check, not after. A step only runs if the one above
-      # it passed, so ordering these the other way round made the deploy gate
-      # hostage to an unrelated red: the first run of this workflow skipped the
-      # drift check entirely because UNDATED-PAGE failed above it. Drift and
-      # rendering are independent questions and each must be able to answer.
+      # --against-recorded here, HEAD in `docs/review`. This is the deploy path,
+      # and the two questions are different:
       #
-      # Run here as well as in `docs/review`: `deploy` needs `build`, so this is
-      # the placement that can actually stop a drifted shared file reaching the
-      # published site. The check is a shallow clone, so the duplication is
-      # cheap.
-      - name: The shared docs files match the template
-        run: python3 scripts/check_template_drift.py --docs-site --fail-on-drift
+      #   docs/review  "has upstream moved?"   -> compares against upstream HEAD
+      #   docs/build   "did WE edit a copy?"   -> compares against the commit
+      #                                           recorded in TEMPLATE_REF.md
+      #
+      # A local edit still fails here; an upstream merge cannot. Without it the
+      # deploy breaks whenever the template merges anything, which is not a fact
+      # about this repository - it happened twice in one morning during #1335
+      # and #1337. The template's docs-site-standard skill, rule 4, states this
+      # split. See #1339.
+      #
+      # Before the rendered check, not after: a step only runs if the one above
+      # it passed, and the first run of this workflow skipped the drift check
+      # entirely because UNDATED-PAGE failed above it.
+      - name: We have not edited a shared docs file
+        run: python3 scripts/check_template_drift.py --docs-site --fail-on-drift --against-recorded
 
       # The family check, copied verbatim from ai-agent-template and configured
       # through extra.docs_standard in mkdocs.yml.
