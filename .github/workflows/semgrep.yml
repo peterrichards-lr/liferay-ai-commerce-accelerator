@@ -59,11 +59,17 @@ jobs:
       # `semgrep ci` exits 1 when a blocking rule matches, and that exit code
       # is now the point of this job rather than something the runner discards.
       #
-      # The four `// nosemgrep` lines in routes/media.cjs stay suppressed: they
-      # are still reported, carrying `suppressions: [{kind: inSource}]`, and
-      # they do not block. Deleting one reproduces the blocking case exactly -
-      # measured on this tree, exit 1 with a single unsuppressed finding - so
-      # the suppressions are visible in the Security tab rather than invisible.
+      # The four `// nosemgrep` lines in routes/media.cjs stay suppressed: the
+      # SARIF carries them with `suppressions: [{kind: inSource}]` and they do
+      # not block. Deleting one reproduces the blocking case exactly - measured
+      # on this tree, exit 1 with a single unsuppressed finding.
+      #
+      # Measured, because the obvious assumption is wrong: GitHub DROPS an
+      # in-source-suppressed result rather than listing it as a dismissed
+      # alert. The first upload from this workflow, on pull request #1350,
+      # recorded `results: 0` from a SARIF holding four. So a `// nosemgrep`
+      # is invisible in the Security tab, and the source remains the only
+      # place a reader can find out what was waived. See #1280.
       - name: Run Semgrep SAST scan
         run: semgrep ci --sarif --output=semgrep.sarif
         env:
