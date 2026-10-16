@@ -144,7 +144,9 @@ adopter's `check_docs_review.py` cannot change what it compares (ai-agent-templa
   shared path missing from it, exits 3. A network failure warns and exits 0. A profile
   stylesheet present locally but not mapped is named, with the mapping line to add, and exits
   3 with or without `--fail-on-drift`, like the other exit-3 cases: a deleted mapping would
-  otherwise leave the shared stylesheet uncompared on a green run.
+  otherwise leave the shared stylesheet uncompared on a green run. It is found by its
+  `docs-profile:` marker line anywhere in the repository, not only by its shipped name, so
+  renaming or moving it does not hide it (ai-agent-template#162).
   The "copy the file FROM the template" direction is printed only for a shared file whose
   content differs.
 - **Compare against the version you recorded, not the template's HEAD.** Compared against
@@ -206,17 +208,26 @@ check fails under its own name, naming each missing key, instead of being skippe
 | `MISSING-VERIFICATION:google` / `:bing` | that token specifically. The Liferay profile requires `:google` |
 | `MISSING-SOCIAL` | `extra.social_image`, `extra.favicon_svg` and `theme.favicon` |
 | `NO-NOTICE` | `notice.title`, `notice.text` and `notice.link_text` |
-| `HOME-LAYOUT` | `home_layout: true`; with a `related` block, `related.heading`, `intro` and `rows`. Under the Liferay profile, the `related` block itself |
+| `HOME-LAYOUT` | `home_layout: true`, the `related` block, and its `heading`, `intro` and `rows` |
 
 The sub-keys matter as much as the keys: a deleted `notice.text` or `related.heading` left the
 check running and checking less, with exit 0 (ai-agent-template#155).
 
 - **A profile requires its checks by default.** The Liferay profile requires all four (rule
-  6), and is known by its stylesheet in `extra_css`, with any query string or fragment ignored
-  (`liferay-blue.css?v=2` counts). Deleting `required`, or a name in it, cannot turn one off.
-  A profile may require more of a check than a site that names it: every Liferay profile site
-  carries the related-tools rows, so its HOME-LAYOUT needs the `related` block itself, and
+  6). The site is known as a profile site by the `docs-profile: liferay` marker line inside
+  `liferay-blue.css`, found anywhere in the built site, not by the file's name or how
+  `extra_css` links it. A query string, a rename, a moved path, or dropping it from
+  `extra_css` cannot switch the checks off. A copy from before the marker existed is still
+  known by its name in `extra_css`. Deleting `required`, or a name in it, cannot turn one off
+  either (ai-agent-template#164).
+  A profile may require more of a check than the check's own keys: every Liferay profile
+  site carries the related-tools rows, so HOME-LAYOUT needs the `related` block itself, and
   deleting the block (with the home page's section) fails (ai-agent-template#164).
+- **A required check is required the same way, however it came to be.** Listing a check in
+  `required` holds it to everything the profile default would, profile keys included,
+  whether or not the profile is recognised: a site that lists HOME-LAYOUT needs the `related`
+  block, even with the profile stylesheet dropped (ai-agent-template#175). A site with no
+  related projects therefore does not list HOME-LAYOUT, or waives it with its reason.
 - **A site drops a required check only by waiving it, with a reason.** A waive without a
   reason, or of a check nothing requires, fails as `REQUIRED`. A waived check still runs if it
   is configured; only the requirement goes.
