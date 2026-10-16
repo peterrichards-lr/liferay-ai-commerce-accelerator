@@ -176,7 +176,7 @@ never after. Configured from `mkdocs.yml`:
 | `NAV` | always | rule 2 |
 | `SECTION-TITLE` | a section has an index page | its title is in the markup `SECTION_TITLE_RULE` targets, and a stylesheet in `extra_css` carries the rule (rule 2) |
 | `MISSING-VERIFICATION` | `extra.google_site_verification` / `bing_site_verification` | the tag on every page |
-| `MISSING-SOCIAL` | `extra.social_image` | an absolute `og:image` on every page, and the image in the build |
+| `MISSING-SOCIAL` | `extra.social_image`, `extra.favicon_svg` or `theme.favicon` | what `overrides/main.html` emits, each part only when configured, on every page. `extra.social_image`: an absolute `og:image` that is in the build, `twitter:card` `summary_large_image`, and `twitter:image` equal to `og:image` (one edited without the other is drift). `extra.favicon_svg` and `theme.favicon`: the icon's `<link>`, resolving to a file in the build. Whenever it runs: the apple-touch-icon `<link>` and `assets/apple-touch-icon.png` |
 | `NO-NOTICE` | `extra.docs_standard.notice` | an `info` callout above the first H2, with its title, text and link |
 | `HOME-LAYOUT` | `extra.docs_standard.home_layout: true` | rule 1 |
 | `REQUIRED` | `extra.docs_standard.required` is set | every name in it is a check above, and each configured-only one it names is configured |
