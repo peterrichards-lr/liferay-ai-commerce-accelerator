@@ -167,40 +167,16 @@ jobs:
       - name: The shared docs files match the template
         run: python3 scripts/check_template_drift.py --docs-site --fail-on-drift
 
-      # One named assertion is allowed to fail, and only that one.
+      # The family check, copied verbatim from ai-agent-template and configured
+      # through extra.docs_standard in mkdocs.yml.
       #
-      # UNDATED-PAGE requires BOTH dates in the page body. This site puts
-      # "Last Reviewed" there and lets mkdocs-git-revision-date-localized
-      # generate the other, which Material renders in its own source-file
-      # aside: the reader sees both dates, the check sees one. That split is
-      # deliberate and documented in .agents/skills/documentation/SKILL.md -
-      # a hand-typed update date is wrong the moment the next commit lands.
-      # Raised upstream as peterrichards-lr/ai-agent-template#142.
-      #
-      # NOT `|| true`, which would make the step unable to fail and would
-      # swallow a real LEAKED-ALERT or NAV regression while reporting green.
-      # The allowance is one tag by name: the check prints each failing
-      # assertion as `[TAG]` on its own line, and anything other than exactly
-      # {UNDATED-PAGE} fails the job - including UNDATED-PAGE together with
-      # something else, and including a [NO-SCAN] that found nothing to check.
-      #
-      # When #142 lands the script exits 0, this step emits a notice saying so,
-      # and the whole block goes. See #1335.
+      # It carried an allowance for UNDATED-PAGE between #1335 and this change,
+      # because the check wanted both dates in the page body while this site
+      # lets mkdocs-git-revision-date-localized generate one of them.
+      # ai-agent-template#145 taught it to read Material's source-file aside,
+      # so the allowance is gone and the step is plain again.
       - name: Check the rendered output against the shared standard
-        run: |
-          out=$(python3 scripts/check_docs_rendered.py site) && status=0 || status=$?
-          printf '%s\n' "$out"
-          if [ "$status" -eq 0 ]; then
-            echo "::notice::check_docs_rendered.py passes outright. ai-agent-template#142 is fixed - remove the allowance in this step."
-            exit 0
-          fi
-          tags=$(printf '%s\n' "$out" | sed -n 's/^\[\([A-Z-]*\)\]$/\1/p' | sort -u)
-          if [ "$tags" = "UNDATED-PAGE" ]; then
-            echo "::warning::UNDATED-PAGE is the only failing assertion; allowed pending ai-agent-template#142."
-            exit 0
-          fi
-          echo "::error::Assertions other than the allowed UNDATED-PAGE failed: $(printf '%s' "$tags" | tr '\n' ' ')"
-          exit 1
+        run: python3 scripts/check_docs_rendered.py site
 
       # Uploaded on pull requests too, deliberately. It costs one step, and it
       # means a reviewer can download exactly what the deploy would publish
