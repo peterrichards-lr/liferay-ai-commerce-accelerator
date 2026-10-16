@@ -154,6 +154,19 @@ jobs:
       # through extra.docs_standard in mkdocs.yml. It replaced seven of the nine
       # assertions this repository used to carry in check-docs-rendered.sh; the
       # two that are left are the ones it does not make. See #1335.
+      # Before the rendered check, not after. A step only runs if the one above
+      # it passed, so ordering these the other way round made the deploy gate
+      # hostage to an unrelated red: the first run of this workflow skipped the
+      # drift check entirely because UNDATED-PAGE failed above it. Drift and
+      # rendering are independent questions and each must be able to answer.
+      #
+      # Run here as well as in `docs/review`: `deploy` needs `build`, so this is
+      # the placement that can actually stop a drifted shared file reaching the
+      # published site. The check is a shallow clone, so the duplication is
+      # cheap.
+      - name: The shared docs files match the template
+        run: python3 scripts/check_template_drift.py --docs-site --fail-on-drift
+
       # KNOWN RED: UNDATED-PAGE fails on 23 of 26 pages, and nothing else does.
       # It requires BOTH dates in the page body; this site puts "Last Reviewed"
       # there and lets mkdocs-git-revision-date-localized generate the other,
@@ -167,13 +180,6 @@ jobs:
       # The honest state is a red check with a named cause. See #1335.
       - name: Check the rendered output against the shared standard
         run: python3 scripts/check_docs_rendered.py site
-
-      # Run again here, not only in `docs/review`: `deploy` needs `build`, so
-      # this is the placement that can actually stop a drifted shared file
-      # reaching the published site. The two runs answer different questions
-      # and the check is a shallow clone, so the duplication is cheap.
-      - name: The shared docs files match the template
-        run: python3 scripts/check_template_drift.py --docs-site --fail-on-drift
 
       # Uploaded on pull requests too, deliberately. It costs one step, and it
       # means a reviewer can download exactly what the deploy would publish
