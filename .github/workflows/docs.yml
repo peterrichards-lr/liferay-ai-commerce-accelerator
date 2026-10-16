@@ -172,8 +172,25 @@ jobs:
       # Before the rendered check, not after: a step only runs if the one above
       # it passed, and the first run of this workflow skipped the drift check
       # entirely because UNDATED-PAGE failed above it.
+      # Taken from the template's own docs.yml at v2.4.0 (ai-agent-template#157).
+      # --against-recorded needs a real commit in the stamp and exits 3 on
+      # `unknown`, so it falls back to the HEAD comparison until one is
+      # recorded. This repo's stamp has been real since #1335, so the fallback
+      # should never fire here - it is kept because the template's logic is the
+      # thing being adopted, and a stamp can be reset. The stamp is read with
+      # the drift checker's OWN parser, so the workflow and the checker cannot
+      # disagree about its format - which they did once already: `v2.2.0`+2 was
+      # unparseable and the check refused to compare anything (#1339).
       - name: We have not edited a shared docs file
-        run: python3 scripts/check_template_drift.py --docs-site --fail-on-drift --against-recorded
+        run: |
+          recorded=$(python3 -c 'import sys; sys.path.insert(0, "scripts"); from pathlib import Path; from check_template_drift import UNKNOWN_STAMP_VALUE, parse_template_reference; commit = parse_template_reference(Path(".agents/TEMPLATE_REF.md").read_text(encoding="utf-8")).commit; print("" if commit == UNKNOWN_STAMP_VALUE else commit)')
+          if [ -n "$recorded" ]; then
+            echo "Comparing against the recorded commit $recorded."
+            python3 scripts/check_template_drift.py --docs-site --fail-on-drift --against-recorded
+          else
+            echo "The stamp records no commit yet (unknown): comparing against upstream HEAD."
+            python3 scripts/check_template_drift.py --docs-site --fail-on-drift
+          fi
 
       # The family check, copied verbatim from ai-agent-template and configured
       # through extra.docs_standard in mkdocs.yml.
