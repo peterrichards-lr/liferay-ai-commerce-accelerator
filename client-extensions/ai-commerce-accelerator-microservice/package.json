@@ -1,7 +1,7 @@
 {
   "author": "Peter Richards",
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.78",
+    "@ai-sdk/anthropic": "^4.0.79",
     "@anthropic-ai/sdk": "^0.133.0",
     "@google-cloud/storage": "^8.4.0",
     "@google/generative-ai": "^0.24.1",
@@ -29,7 +29,7 @@
     "nunjucks": "^3.2.4",
     "openai": "^7.32.0",
     "ws": "^8.22.0",
-    "zod": "^4.6.6"
+    "zod": "^4.6.7"
   },
   "license": "GPL-3.0",
   "main": "server.cjs",
