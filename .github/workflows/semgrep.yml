@@ -1,5 +1,19 @@
 name: Semgrep SAST
 
+# Blocking, and the findings reach the Security tab. Both were claimed before
+# and neither was true: the job carried `continue-on-error: true` under the
+# comment "surface findings in the Security tab without gating PRs", while the
+# repository contained no `upload-sarif` step, no `security-events` permission
+# and no publish token. So the scan ran on every push and pull request, wrote
+# its result to a job log nobody reads, could not fail anything, and the
+# destination its own comment named never received it. A check in name only.
+# See #1280.
+#
+# Made blocking at the cheapest possible moment: run 38899010928, on master,
+# found 0 findings from 121 rules across 903 files. There was no backlog to
+# triage first, so the first finding this ever produces will be a new one, in
+# the change that introduced it, in front of the person who wrote it.
+
 on:
   push:
     branches: [main, master]
@@ -10,25 +24,79 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   semgrep:
     name: Semgrep / scan
     runs-on: ubuntu-latest
-    # Non-blocking: surface findings in the Security tab without gating PRs
-    continue-on-error: true
+    # A job-level block replaces the workflow-level one rather than adding to
+    # it, so `contents: read` is restated. Same idiom as docs.yml.
+    permissions:
+      contents: read
+      # Required by github/codeql-action/upload-sarif. A fork's pull request is
+      # handed a read-only token whatever is declared here, which is why the
+      # upload step is guarded rather than left to fail on every outside
+      # contribution.
+      security-events: write
 
     steps:
       - uses: actions/checkout@v7
 
-      - name: Run Semgrep SAST scan
-        uses: returntocorp/semgrep-action@v1
+      # `returntocorp/semgrep-action@v1` was retired by its authors. The engine
+      # is installed from a pinned requirements file instead, so Dependabot can
+      # watch it; see the comment in .github/semgrep/requirements.txt.
+      - uses: actions/setup-python@v7
         with:
-          config: >-
-            p/javascript
-            p/nodejs
-            p/secrets
-          # Optional: set SEMGREP_APP_TOKEN secret to upload results to Semgrep Cloud
-          # publishToken: ${{ secrets.SEMGREP_APP_TOKEN }}
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: .github/semgrep/requirements.txt
+
+      - name: Install Semgrep
+        run: pip install -r .github/semgrep/requirements.txt
+
+      # `semgrep ci` exits 1 when a blocking rule matches, and that exit code
+      # is now the point of this job rather than something the runner discards.
+      #
+      # The four `// nosemgrep` lines in routes/media.cjs stay suppressed: the
+      # SARIF carries them with `suppressions: [{kind: inSource}]` and they do
+      # not block. Deleting one reproduces the blocking case exactly - measured
+      # on this tree, exit 1 with a single unsuppressed finding.
+      #
+      # Measured, because the obvious assumption is wrong: GitHub DROPS an
+      # in-source-suppressed result rather than listing it as a dismissed
+      # alert. The first upload from this workflow, on pull request #1350,
+      # recorded `results: 0` from a SARIF holding four. So a `// nosemgrep`
+      # is invisible in the Security tab, and the source remains the only
+      # place a reader can find out what was waived. See #1280.
+      - name: Run Semgrep SAST scan
+        run: semgrep ci --sarif --output=semgrep.sarif
         env:
+          SEMGREP_RULES: p/javascript p/nodejs p/secrets
           # Suppress telemetry in CI environments
           SEMGREP_SEND_METRICS: 'off'
+
+      # `!cancelled()`, deliberately, and this guard is the reason the step is
+      # spelled out rather than left to its default.
+      #
+      # Semgrep writes the SARIF and THEN exits 1, so on a run that found
+      # something the file exists and the step above has already failed. A step
+      # with no `if:` is skipped when an earlier one fails - which would mean
+      # the Security tab received findings only on the runs that had none. That
+      # is the defect this workflow is being fixed for, reintroduced one step
+      # further down.
+      #
+      # The hashFiles guard keeps a failed checkout or install from failing
+      # twice, with the second message pointing at a missing file instead of at
+      # the real cause.
+      - name: Publish the findings to the Security tab
+        if: >-
+          !cancelled()
+          && hashFiles('semgrep.sarif') != ''
+          && (github.event_name != 'pull_request'
+          || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
