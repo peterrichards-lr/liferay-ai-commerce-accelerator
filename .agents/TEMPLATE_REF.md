@@ -3,7 +3,7 @@
 This repo's AI-agent governance files (`AGENTS.md`, `.agents/`, `GEMINI.md`, `.claude/`) were established independently and have no automated relationship to any other repo. The **shared docs-site files are the exception**: they are copied from the template verbatim and compared by `scripts/check_template_drift.py`, which runs in the docs workflow. See the path mapping below and peterrichards-lr/ai-agent-template#135. `ai-agent-template` (https://github.com/peterrichards-lr/ai-agent-template) is maintained as the shared "lessons learned" reference for AI-agent rules across the Liferay tooling repos, but nothing here pulls updates from it automatically. This file is a manual checkpoint so drift gets tracked deliberately instead of silently.
 
 **Reference repo**: <https://github.com/peterrichards-lr/ai-agent-template>
-**Reference version at last check**: `v2.3.1` (origin/main @ `84bf45a`, 2026-10-16)
+**Reference version at last check**: `v2.4.0` (origin/main @ `d7abfa6`, 2026-10-16)
 **Last checked**: 2026-10-16
 
 ## Path mapping
