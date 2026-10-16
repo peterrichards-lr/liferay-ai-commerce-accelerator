@@ -147,24 +147,36 @@ adopter's `check_docs_review.py` cannot change what it compares (ai-agent-templa
   otherwise leave the shared stylesheet uncompared on a green run.
   The "copy the file FROM the template" direction is printed only for a shared file whose
   content differs.
-- **It compares against the template's HEAD, not the version you recorded.** A template merge
-  that changes a shared file therefore turns every adopter's check red, with no change on their
-  side, until a sync PR copies the new version in. That is the point in PR CI: it is how an
-  adopter learns the standard moved, and the fix is the sync PR. It is wrong on a deploy, where
-  it blocks publishing over a change nobody made here. So:
+- **Compare against the version you recorded, not the template's HEAD.** Compared against
+  HEAD, a template merge that changes a shared file turns every adopter's docs PR red with no
+  change on their side. Five template merges in one morning did exactly that
+  (ai-agent-template#166). So PR CI and the deploy run the same command:
 
   | Where | Run |
   | :--- | :--- |
-  | PR CI | `--docs-site --fail-on-drift` (against HEAD) |
-  | Deploy | `--docs-site --fail-on-drift --against-recorded`, or nothing |
+  | PR CI | `--docs-site --fail-on-drift --against-recorded` |
+  | Deploy | `--docs-site --fail-on-drift --against-recorded` |
 
-  `--against-recorded` compares against the commit in `.agents/TEMPLATE_REF.md`: a local edit
-  still fails, a template merge cannot. It needs a real recorded commit, and exits 3 on
-  `unknown` (set one with `--update-stamp` first), and it never moves the stamp. The shipped
-  `.github/workflows/docs.yml` is the deploy: it reads the stamp and runs `--against-recorded`
-  when it records a real commit, and the HEAD comparison while it is still `unknown`, as on a
-  fresh project. Running `--update-stamp` once is what moves a deploy onto the recorded
-  comparison.
+  `--against-recorded` compares against the commit in `.agents/TEMPLATE_REF.md`. A local edit
+  to a shared file still fails, in both places. A template merge cannot.
+  - **An `unknown` stamp** (a fresh project) has no recorded commit, so the run falls back to
+    upstream HEAD, and says so. A recorded commit the template does not have exits 3.
+  - **A newer release is a notice, not a failure.** When upstream has a newer release tag
+    than the recorded version, the run names it and lists the shared files it changes, and
+    exits 0. That is how an adopter learns the standard moved; the fix is a sync PR that
+    copies the files in and runs `--update-stamp` in the same change. A sync that copies the
+    files but forgets the stamp fails, because the copies then differ from the recorded
+    commit.
+  - The run never moves the stamp.
+
+  The shipped `.github/workflows/docs.yml` is both: on a pull request it is PR CI (build, the
+  rendered check, the drift check; nothing uploaded or deployed), and on a push to main it is
+  the deploy. `--docs-site` arms both triggers.
+- **Dependabot's pull requests skip the drift step**, with a step-level
+  `if: github.event.pull_request.user.login != 'dependabot[bot]'`. A dependency bump changes no
+  shared file, so the step has nothing to check, and a skipped step lets a required docs check
+  report success rather than pending. They still build the site and run
+  `check_docs_rendered.py`: dependency bumps are what break rendering.
 
 ### 5. Rendered-output checks
 
@@ -191,16 +203,20 @@ check fails under its own name, naming each missing key, instead of being skippe
 | Required check | Needs |
 | :--- | :--- |
 | `MISSING-VERIFICATION` | `extra.google_site_verification` or `extra.bing_site_verification` |
+| `MISSING-VERIFICATION:google` / `:bing` | that token specifically. The Liferay profile requires `:google` |
 | `MISSING-SOCIAL` | `extra.social_image`, `extra.favicon_svg` and `theme.favicon` |
 | `NO-NOTICE` | `notice.title`, `notice.text` and `notice.link_text` |
-| `HOME-LAYOUT` | `home_layout: true`; with a `related` block, `related.heading`, `intro` and `rows` |
+| `HOME-LAYOUT` | `home_layout: true`; with a `related` block, `related.heading`, `intro` and `rows`. Under the Liferay profile, the `related` block itself |
 
 The sub-keys matter as much as the keys: a deleted `notice.text` or `related.heading` left the
 check running and checking less, with exit 0 (ai-agent-template#155).
 
 - **A profile requires its checks by default.** The Liferay profile requires all four (rule
-  6), and is known by its stylesheet in `extra_css`. Deleting `required`, or a name in it,
-  cannot turn one off.
+  6), and is known by its stylesheet in `extra_css`, with any query string or fragment ignored
+  (`liferay-blue.css?v=2` counts). Deleting `required`, or a name in it, cannot turn one off.
+  A profile may require more of a check than a site that names it: every Liferay profile site
+  carries the related-tools rows, so its HOME-LAYOUT needs the `related` block itself, and
+  deleting the block (with the home page's section) fails (ai-agent-template#164).
 - **A site drops a required check only by waiving it, with a reason.** A waive without a
   reason, or of a check nothing requires, fails as `REQUIRED`. A waived check still runs if it
   is configured; only the requirement goes.
@@ -212,8 +228,13 @@ check running and checking less, with exit 0 (ai-agent-template#155).
         MISSING-VERIFICATION: Not submitted to Search Console yet.
   ```
 
+- **A specific token.** Plain `MISSING-VERIFICATION` is satisfied by either token, so a site
+  that depends on Search Console requires `MISSING-VERIFICATION:google`: Bing's token in place
+  of Google's passed with no Google tag on any page (ai-agent-template#161). Waiving
+  `MISSING-VERIFICATION` waives its `:google` and `:bing` forms too; a profile site that does
+  not use Search Console waives only `MISSING-VERIFICATION:google`, and still needs a token.
 - **A site with no profile** lists what it cannot do without in `required`, for example
-  `required: [MISSING-VERIFICATION, NO-NOTICE]`. An unknown name fails as `REQUIRED`; any other
+  `required: [MISSING-VERIFICATION:google, NO-NOTICE]`. An unknown name fails as `REQUIRED`; any other
   check above may be named, and changes nothing.
 
 A build with fewer than 5 HTML pages fails as `NO-SCAN`.
@@ -271,6 +292,11 @@ fails (ai-agent-template#142).
 - **ruff**: a repository that runs it sets `allowed-confusables = ["ℹ"]` under
   `[tool.ruff.lint]`, rather than rewording the hook's `ℹ` comments, which would break the
   byte-identical copy.
+- **mkdocs 2**: the template's `.github/dependabot.yml` ignores `mkdocs` versions `>= 2` on its
+  pip entry. mkdocs 2.0 removes the plugin system and rewrites theming, and Material for MkDocs
+  warns that every plugin and theme override breaks with no migration path; the alerts hook and
+  `overrides/main.html` are both. Patch and minor 1.x releases still come through. A site with
+  its own Dependabot config adds the same `ignore` entry.
 
 <!-- markdownlint-disable MD049 -->
 ---

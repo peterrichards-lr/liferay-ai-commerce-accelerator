@@ -68,6 +68,16 @@ updates:
       - 'dependencies'
       - 'python'
       - 'no-issue-needed'
+    # mkdocs 2.0 removes the plugin system and rewrites theming: Material for
+    # MkDocs warns that every plugin and theme override breaks, with no
+    # migration path. This site depends on both - the alerts hook and
+    # overrides/main.html - so a 2.x bump can only break it. Patch and minor
+    # 1.x releases still come through. Revisit when Material supports mkdocs 2.
+    # From the template's own dependabot.yml; see #1307 and the docs-site-standard
+    # skill, rule 7.
+    ignore:
+      - dependency-name: 'mkdocs'
+        versions: ['>= 2']
     groups:
       docs-toolchain:
         patterns:

@@ -90,15 +90,33 @@ jobs:
 
       # Ungated on purpose, like the guards above it. The canonical copies live
       # in another repository, so this one can drift without any file here
-      # changing - a `prettier --write`, a well-meant comment fix, or the
-      # template moving on. A paths filter would hide exactly those cases.
+      # changing - a `prettier --write`, or a well-meant comment fix - and a
+      # paths filter would hide exactly those cases.
       #
-      # This is the "upstream moved, somebody look" half, and it compares
-      # against upstream HEAD, so a template merge turns this check red and a
-      # sync PR clears it. The deploy gate in `build` asks the narrower question
-      # instead. See #1335 and #1339.
-      - name: The shared docs files match the template
-        run: python3 scripts/check_template_drift.py --docs-site --fail-on-drift
+      # --against-recorded, like the deploy gate, since ai-agent-template#168.
+      # It asks "did WE edit a copy?", and a template release no longer turns
+      # this red: the checker prints a newer release as a NOTICE naming the
+      # files it changes. Comparing against HEAD here meant master sat red from
+      # the moment upstream merged anything until a sync PR landed - four times
+      # in one morning - and a permanently red check is one people stop reading.
+      # See #1345.
+      #
+      # Skipped on Dependabot's pull requests: a dependency bump changes no
+      # shared file, so there is nothing here to check. Those pull requests
+      # still build the site and run the rendered check, because a dependency
+      # bump is exactly what breaks rendering. On a push,
+      # github.event.pull_request is empty and the step runs.
+      - name: We have not edited a shared docs file
+        if: ${{ github.event.pull_request.user.login != 'dependabot[bot]' }}
+        run: |
+          recorded=$(python3 -c 'import sys; sys.path.insert(0, "scripts"); from pathlib import Path; from check_template_drift import UNKNOWN_STAMP_VALUE, parse_template_reference; commit = parse_template_reference(Path(".agents/TEMPLATE_REF.md").read_text(encoding="utf-8")).commit; print("" if commit == UNKNOWN_STAMP_VALUE else commit)')
+          if [ -n "$recorded" ]; then
+            echo "Comparing against the recorded commit $recorded."
+            python3 scripts/check_template_drift.py --docs-site --fail-on-drift --against-recorded
+          else
+            echo "The stamp records no commit yet (unknown): comparing against upstream HEAD."
+            python3 scripts/check_template_drift.py --docs-site --fail-on-drift
+          fi
 
       # --max-review-days catches a page nobody has looked at for months. It
       # cannot catch a file edited today whose footer still shows last month,
@@ -172,7 +190,7 @@ jobs:
       # Before the rendered check, not after: a step only runs if the one above
       # it passed, and the first run of this workflow skipped the drift check
       # entirely because UNDATED-PAGE failed above it.
-      # Taken from the template's own docs.yml at v2.4.0 (ai-agent-template#157).
+      # Taken from the template's own docs.yml (ai-agent-template#157, #168).
       # --against-recorded needs a real commit in the stamp and exits 3 on
       # `unknown`, so it falls back to the HEAD comparison until one is
       # recorded. This repo's stamp has been real since #1335, so the fallback
@@ -182,6 +200,7 @@ jobs:
       # disagree about its format - which they did once already: `v2.2.0`+2 was
       # unparseable and the check refused to compare anything (#1339).
       - name: We have not edited a shared docs file
+        if: ${{ github.event.pull_request.user.login != 'dependabot[bot]' }}
         run: |
           recorded=$(python3 -c 'import sys; sys.path.insert(0, "scripts"); from pathlib import Path; from check_template_drift import UNKNOWN_STAMP_VALUE, parse_template_reference; commit = parse_template_reference(Path(".agents/TEMPLATE_REF.md").read_text(encoding="utf-8")).commit; print("" if commit == UNKNOWN_STAMP_VALUE else commit)')
           if [ -n "$recorded" ]; then
