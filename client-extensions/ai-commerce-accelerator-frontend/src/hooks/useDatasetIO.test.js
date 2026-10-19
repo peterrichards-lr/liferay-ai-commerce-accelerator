@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import useDatasetIO from './useDatasetIO';
 import notifyUser from '../utils/notifications';
 import { saveBlobFile } from '../utils/fileHelper';
+import { captureConsoleErrors } from '../testUtils/consoleErrors';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../utils/notifications', () => ({ default: vi.fn() }));
@@ -140,6 +141,7 @@ describe('useDatasetIO', () => {
     });
 
     it('says why when the request itself fails', async () => {
+      const consoleErrors = captureConsoleErrors();
       api.post.mockRejectedValue(new Error('HTTP 413 Payload Too Large'));
 
       const { result } = renderDatasetHook();
@@ -151,6 +153,12 @@ describe('useDatasetIO', () => {
       expect(notifyUser).toHaveBeenCalledWith(
         expect.stringContaining('413'),
         'danger'
+      );
+      // The browser console is told as well, which is the point of capturing
+      // rather than suppressing it. See #1328.
+      expect(consoleErrors).toHaveBeenCalledWith(
+        'Failed to import dataset:',
+        expect.any(Error)
       );
     });
 
@@ -255,6 +263,7 @@ describe('useDatasetIO', () => {
     });
 
     it('surfaces the refusal when there is nothing to package', async () => {
+      const consoleErrors = captureConsoleErrors();
       api.download.mockRejectedValue(
         new Error(
           'The run recorded 44 media item(s) and the media archive holds none of them'
@@ -271,6 +280,10 @@ describe('useDatasetIO', () => {
       expect(addLog).toHaveBeenCalledWith(
         expect.stringContaining('archive holds none of them'),
         'error'
+      );
+      expect(consoleErrors).toHaveBeenCalledWith(
+        'Failed to build the dataset package:',
+        expect.any(Error)
       );
     });
   });

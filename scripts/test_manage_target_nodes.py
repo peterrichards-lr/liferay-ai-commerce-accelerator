@@ -20,6 +20,8 @@ which in CI is a timeout with no cause attached.
 Run with: python3 -m unittest discover -s scripts -p 'test_*.py'
 """
 
+import contextlib
+import io
 import os
 import sys
 import tempfile
@@ -112,8 +114,15 @@ class WaitForSshActuallyProbes(unittest.TestCase):
         key = Path(self.tmp.name) / "k.pem"
         key.write_text("x")
         os.environ["LDM_SSH_KEY"] = str(key)
+        # The probe narrates what it is doing, which is right when it drives a
+        # real node and wrong here: these two tests printed six lines during
+        # every `git push`, three shaped like failures. See #1328.
+        self.said = io.StringIO()
+        self.saved_output = mtn.OUTPUT
+        mtn.OUTPUT = self.said
 
     def tearDown(self):
+        mtn.OUTPUT = self.saved_output
         if self.saved is None:
             os.environ.pop("LDM_SSH_KEY", None)
         else:
@@ -151,6 +160,84 @@ class WaitForSshActuallyProbes(unittest.TestCase):
             self.assertFalse(
                 mtn.wait_for_ssh("10.0.0.1", "ldm-automation", auth_timeout=1)
             )
+
+
+class ProgressOutputStaysOutOfTheTerminal(unittest.TestCase):
+    """A passing test must not print lines shaped like a failure.
+
+    This cost real time. A `git push` failed with `husky - pre-push script
+    failed (code 1)` and succeeded, unchanged, on the retry. Immediately above
+    the failure sat
+
+        ⚠️ SSH on 10.0.0.1:22 accepted a connection but would not authenticate
+           as ldm-automation within 1s. Last error: Permission denied (publickey)
+
+    so the failure was attributed to a flaky SSH probe, and said so twice in
+    session notes. It was not. 10.0.0.1 is never contacted - `socket
+    .create_connection` and `subprocess.run` are both patched, and the `1s` is
+    the auth_timeout the test supplies. The output is deterministic, and it is
+    the fixture. The real cause interleaved with it was never identified and
+    has not recurred. See #1328.
+
+    Both halves are asserted on purpose. Deleting the progress output would
+    pass the first and is the wrong fix: it is genuinely useful when the probe
+    drives a real node, so it has to be redirected rather than removed.
+    """
+
+    def setUp(self):
+        self.saved = os.environ.get("LDM_SSH_KEY")
+        self.tmp = tempfile.TemporaryDirectory()
+        key = Path(self.tmp.name) / "k.pem"
+        key.write_text("x")
+        os.environ["LDM_SSH_KEY"] = str(key)
+
+    def tearDown(self):
+        mtn.OUTPUT = None
+        if self.saved is None:
+            os.environ.pop("LDM_SSH_KEY", None)
+        else:
+            os.environ["LDM_SSH_KEY"] = self.saved
+        self.tmp.cleanup()
+
+    def _run_the_refusal_branch(self):
+        class Result:
+            returncode = 255
+            stderr = "Permission denied (publickey)."
+
+        terminal = io.StringIO()
+        with contextlib.redirect_stdout(terminal), unittest.mock.patch(
+            "socket.create_connection"
+        ), unittest.mock.patch.object(
+            mtn.subprocess, "run", lambda cmd, **kw: Result()
+        ), unittest.mock.patch.object(
+            mtn.time, "sleep", lambda _s: None
+        ):
+            ready = mtn.wait_for_ssh("10.0.0.1", "ldm-automation", auth_timeout=1)
+        return ready, terminal.getvalue()
+
+    def test_the_refusal_reaches_the_caller_not_the_terminal(self):
+        said = io.StringIO()
+        mtn.OUTPUT = said
+
+        ready, terminal = self._run_the_refusal_branch()
+
+        self.assertFalse(ready)
+        self.assertEqual(
+            terminal,
+            "",
+            "a passing test printed this to the terminal, where a reader of a "
+            "failed push will read it as the cause:\n" + terminal,
+        )
+        # Silenced, not deleted.
+        self.assertIn("would not authenticate", said.getvalue())
+
+    def test_the_default_still_narrates(self):
+        """OUTPUT left alone, the operator still sees the probe work."""
+        mtn.OUTPUT = None
+
+        _ready, terminal = self._run_the_refusal_branch()
+
+        self.assertIn("would not authenticate", terminal)
 
 
 if __name__ == "__main__":
