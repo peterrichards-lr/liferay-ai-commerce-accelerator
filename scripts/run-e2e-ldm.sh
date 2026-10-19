@@ -1,8 +1,6 @@
 #!/bin/bash
 # scripts/run-e2e-ldm.sh - AICA E2E Test Orchestrator using Liferay Docker Manager (LDM)
 
-set -e
-
 # Exit early if executed inside the Docker container (as Liferay entrypoint runs all scripts in /mnt/liferay/scripts)
 if [ -f /.dockerenv ] || [ -n "$LIFERAY_HOME" ]; then
     echo "ℹ  Exiting early: run-e2e-ldm.sh is a host-side orchestrator, not meant to be run inside the Liferay container."
@@ -12,6 +10,8 @@ if [ -f /.dockerenv ] || [ -n "$LIFERAY_HOME" ]; then
         exit 0
     fi
 fi
+
+set -e
 
 # --- Argument Parsing ---
 VERBOSE=0

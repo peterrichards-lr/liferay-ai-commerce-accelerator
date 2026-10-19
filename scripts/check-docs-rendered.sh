@@ -26,22 +26,30 @@
 # reads as unverified in Search Console. The checks here cover the failures
 # that are SILENT.
 # repositories stay comparable. See #1312.
-set -euo pipefail
 
 # Exit early if executed inside the Docker container (as Liferay entrypoint runs all scripts in /mnt/liferay/scripts)
 #
-# Not hypothetical. This file has no business in a Liferay container, but the
-# E2E mounts this whole directory as the entrypoint's script directory, so
-# Liferay ran it with /mnt/liferay/scripts as $SITE, found no HTML, and exited
-# 1 - correctly, by the rule below. The container died with it, and every
-# bring-up from 2026-10-16 failed in ~130s with an empty Liferay log. See #1360.
+# THIS BLOCK MUST STAY ABOVE `set`. The entrypoint SOURCES these files rather
+# than running them as subprocesses, so every shell option set here survives
+# into the caller. #1360 put this guard below `set -euo pipefail`: the guard
+# itself worked - all four scripts exited early and said so - and the boot then
+# died anyway on configure_liferay.sh's own unset LIFERAY_TOMCAT_AJP_PORT,
+# because the leaked `-u` turned that line into an error. Returning early is
+# not enough; the shell has to be left as it was found.
+# lcp-scripts/deploy.sh has carried this warning since long before #1360, about
+# the same variable in the same image. See #1362.
 #
-# Same guard as run-e2e-ldm.sh, node_power.sh and sync-github-issues.sh, with
-# one necessary difference: this file runs under `set -u`, so the bare
-# `$LIFERAY_HOME` those three use would abort with "unbound variable" before
-# the test could be evaluated. `${LIFERAY_HOME:-}` is required here.
-# scripts/test_container_safe_scripts.py keeps the next one honest and accepts
-# either spelling.
+# Not hypothetical either way. This file has no business in a Liferay
+# container, but the E2E mounts this whole directory as the entrypoint's script
+# directory, so Liferay ran it with /mnt/liferay/scripts as $SITE, found no
+# HTML, and exited 1 - correctly, by the rule below. Every bring-up from
+# 2026-10-16 failed in ~130s with an empty Liferay log. See #1360.
+#
+# Same guard as run-e2e-ldm.sh, node_power.sh and sync-github-issues.sh.
+# `${LIFERAY_HOME:-}` is no longer strictly required now that nothing has set
+# `-u` by this point, but it is kept so the block stays correct if this file is
+# ever sourced by a caller that has. scripts/test_container_safe_scripts.py
+# accepts either spelling, and checks the ordering.
 if [ -f /.dockerenv ] || [ -n "${LIFERAY_HOME:-}" ]; then
     echo "ℹ  Exiting early: check-docs-rendered.sh checks a built docs site, not meant to be run inside the Liferay container."
     if [ "${BASH_SOURCE[0]}" != "$0" ]; then
@@ -50,6 +58,8 @@ if [ -f /.dockerenv ] || [ -n "${LIFERAY_HOME:-}" ]; then
         exit 0
     fi
 fi
+
+set -euo pipefail
 
 SITE="${1:-site}"
 CONFIG="${2:-mkdocs.yml}"
