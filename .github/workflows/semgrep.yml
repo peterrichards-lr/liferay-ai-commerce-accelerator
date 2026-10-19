@@ -59,17 +59,42 @@ jobs:
       # `semgrep ci` exits 1 when a blocking rule matches, and that exit code
       # is now the point of this job rather than something the runner discards.
       #
+      # It scans DIFFERENT THINGS on the two events, by its own default, and
+      # that is worth knowing before trusting a green tick here. On a pull
+      # request it finds a merge base and scans only what changed:
+      #
+      #   Using git merge base detected from environment for diff scans
+      #   Scanning 3 files tracked by git with 121 Code rules
+      #    • Scan was limited to files changed since baseline commit.
+      #
+      # On a push to master there is no merge base, so it scanned all 891
+      # files. A contributor is therefore blocked by what their change
+      # introduces, not by pre-existing debt - defensible, and currently an
+      # accident of the defaults rather than a decision. The sharp edge: a
+      # rule-pack update that newly flags existing code turns MASTER red,
+      # with no pull request anywhere that could have caught it first.
+      # #1354 settles whether to keep this or force a full scan.
+      #
       # The four `// nosemgrep` lines in routes/media.cjs stay suppressed: the
       # SARIF carries them with `suppressions: [{kind: inSource}]` and they do
       # not block. Deleting one reproduces the blocking case exactly - measured
       # on this tree, exit 1 with a single unsuppressed finding.
       #
-      # Measured, because the obvious assumption is wrong: GitHub DROPS an
-      # in-source-suppressed result rather than listing it as a dismissed
-      # alert. The first upload from this workflow, on pull request #1350,
-      # recorded `results: 0` from a SARIF holding four. So a `// nosemgrep`
-      # is invisible in the Security tab, and the source remains the only
-      # place a reader can find out what was waived. See #1280.
+      # What GitHub does with them, measured on master rather than guessed:
+      # it creates each one as an OPEN alert. Not dropped, not dismissed.
+      #
+      #   analyses  refs/heads/master     results=4
+      #   alerts    4, every one state=open, media.cjs:63 :112 :118 :156
+      #
+      # An earlier comment here claimed the opposite, generalising from
+      # pull request #1350's own upload, which recorded `results: 0`. That
+      # number had nothing to do with suppressions - see the scan step's
+      # comment above. A measurement taken on one event type and written up
+      # as a property of the other. See #1354.
+      #
+      # So a `// nosemgrep` silences the gate and does nothing to the tab,
+      # and the two records of a waiver currently disagree. #1354 decides
+      # which one is the record.
       - name: Run Semgrep SAST scan
         run: semgrep ci --sarif --output=semgrep.sarif
         env:
