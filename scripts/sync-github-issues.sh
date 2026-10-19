@@ -2,8 +2,6 @@
 # Scripts to create, link, and sync GitHub issues for the ePIM refactor and SDK standalone split.
 # This script is designed to run in the user's interactive terminal where the GitHub CLI (gh) is authenticated.
 
-set -e
-
 # Exit early if executed inside the Docker container (as Liferay entrypoint runs all scripts in /mnt/liferay/scripts)
 if [ -f /.dockerenv ] || [ -n "$LIFERAY_HOME" ]; then
     echo "ℹ  Exiting early: sync-github-issues.sh is a host-side script, not meant to be run inside the Liferay container."
@@ -13,6 +11,8 @@ if [ -f /.dockerenv ] || [ -n "$LIFERAY_HOME" ]; then
         exit 0
     fi
 fi
+
+set -e
 
 # Color definitions
 GREEN='\033[0;32m'
