@@ -28,6 +28,29 @@
 # repositories stay comparable. See #1312.
 set -euo pipefail
 
+# Exit early if executed inside the Docker container (as Liferay entrypoint runs all scripts in /mnt/liferay/scripts)
+#
+# Not hypothetical. This file has no business in a Liferay container, but the
+# E2E mounts this whole directory as the entrypoint's script directory, so
+# Liferay ran it with /mnt/liferay/scripts as $SITE, found no HTML, and exited
+# 1 - correctly, by the rule below. The container died with it, and every
+# bring-up from 2026-10-16 failed in ~130s with an empty Liferay log. See #1360.
+#
+# Same guard as run-e2e-ldm.sh, node_power.sh and sync-github-issues.sh, with
+# one necessary difference: this file runs under `set -u`, so the bare
+# `$LIFERAY_HOME` those three use would abort with "unbound variable" before
+# the test could be evaluated. `${LIFERAY_HOME:-}` is required here.
+# scripts/test_container_safe_scripts.py keeps the next one honest and accepts
+# either spelling.
+if [ -f /.dockerenv ] || [ -n "${LIFERAY_HOME:-}" ]; then
+    echo "ℹ  Exiting early: check-docs-rendered.sh checks a built docs site, not meant to be run inside the Liferay container."
+    if [ "${BASH_SOURCE[0]}" != "$0" ]; then
+        return 0 2>/dev/null || exit 0
+    else
+        exit 0
+    fi
+fi
+
 SITE="${1:-site}"
 CONFIG="${2:-mkdocs.yml}"
 
