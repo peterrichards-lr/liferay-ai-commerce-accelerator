@@ -8,6 +8,7 @@ Last Updated: 2026-08-20 | Last Reviewed: 2026-08-20
 """
 
 import argparse
+import builtins
 import json
 import os
 import socket
@@ -22,6 +23,30 @@ CONFIG_FILE = Path(__file__).parent.parent / ".node-power-config.json"
 STATE_FILE = Path(__file__).parent.parent / ".node-power-state.json"
 LDMRC_FILE = Path.home() / ".ldmrc"
 CONFIG_URL = "https://raw.githubusercontent.com/peterrichards-lr/liferay-docker-manager/master/.node-power-config.json"
+
+# Where this script's progress output goes. None means "wherever stdout points
+# at the moment", so `contextlib.redirect_stdout` and a shell redirect both
+# still work; a test sets it to an io.StringIO and the run goes quiet.
+#
+# It exists because a PASSING test suite printed six lines of this file's
+# output during `git push`, three of them shaped like failures:
+#
+#     ⚠️ SSH on 10.0.0.1:22 accepted a connection but would not authenticate
+#        as ldm-automation within 1s. Last error: Permission denied (publickey)
+#
+# Nothing was wrong. 10.0.0.1 is never contacted - the test patches
+# socket.create_connection and subprocess.run, and the 1s is the auth_timeout
+# it supplies. But a push that genuinely fails interleaves its real cause with
+# those lines, and the cause was read as a flaky SSH probe twice before anyone
+# checked. Output whose noise reads as a failure makes the terminal unusable
+# as a signal, exactly as an oracle whose silence reads as a pass does. #1328.
+OUTPUT = None
+
+
+def _say(*args, **kwargs):
+    """`print`, but to OUTPUT when a caller has redirected it."""
+    kwargs.setdefault("file", OUTPUT if OUTPUT is not None else sys.stdout)
+    builtins.print(*args, **kwargs)
 
 
 def load_target_nodes() -> dict:
@@ -62,7 +87,7 @@ def load_target_nodes() -> dict:
             try:
                 urllib.request.urlretrieve(url, CONFIG_FILE)
                 if CONFIG_FILE.exists() and CONFIG_FILE.stat().st_size > 20:
-                    print(f"✅ Auto-synced central target node config from {url}")
+                    _say(f"✅ Auto-synced central target node config from {url}")
                     break
             except Exception:
                 pass
@@ -253,7 +278,7 @@ def wait_for_ssh(host: str, user: str = "ubuntu", timeout: int = 60, auth_timeou
     said so aloud: half a check reported as a whole one is what this replaces.
     """
     start_time = time.time()
-    print(f"⏳ Waiting for SSH service (TCP 22) on {host}...")
+    _say(f"⏳ Waiting for SSH service (TCP 22) on {host}...")
     port_open = False
     while time.time() - start_time < timeout:
         try:
@@ -264,18 +289,18 @@ def wait_for_ssh(host: str, user: str = "ubuntu", timeout: int = 60, auth_timeou
             time.sleep(3)
 
     if not port_open:
-        print(f"⚠️ Timed out waiting for SSH on {host}:22.")
+        _say(f"⚠️ Timed out waiting for SSH on {host}:22.")
         return False
 
     key = resolve_ssh_key()
     if not key:
-        print(
+        _say(
             f"✅ SSH port open on {host}:22. No key available (set LDM_SSH_KEY), "
             "so authentication was not verified."
         )
         return True
 
-    print(f"⏳ Waiting for SSH to authenticate on {host} as {user}...")
+    _say(f"⏳ Waiting for SSH to authenticate on {host} as {user}...")
     auth_start = time.time()
     last_error = ""
     while time.time() - auth_start < auth_timeout:
@@ -287,12 +312,12 @@ def wait_for_ssh(host: str, user: str = "ubuntu", timeout: int = 60, auth_timeou
         )
         if res.returncode == 0:
             waited = int(time.time() - auth_start)
-            print(f"✅ SSH ready on {host}:22 as {user} (authenticated after {waited}s).")
+            _say(f"✅ SSH ready on {host}:22 as {user} (authenticated after {waited}s).")
             return True
         last_error = (res.stderr or "").strip().splitlines()[-1:] or [""]
         time.sleep(5)
 
-    print(
+    _say(
         f"⚠️ SSH on {host}:22 accepted a connection but would not authenticate as "
         f"{user} within {auth_timeout}s. Last error: {last_error[0]}"
     )
@@ -306,19 +331,19 @@ def power_on_node(node_name: str, config: dict) -> bool:
         cmd = ["aws", "ec2", "start-instances", "--instance-ids", ec2_id]
         if config.get("region"):
             cmd.extend(["--region", config["region"]])
-        print(f"▶ Booting AWS EC2 instance '{ec2_id}' for target node '{node_name}'...")
+        _say(f"▶ Booting AWS EC2 instance '{ec2_id}' for target node '{node_name}'...")
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if res.returncode == 0:
-            print(f"✅ Target node '{node_name}' successfully powered on.")
+            _say(f"✅ Target node '{node_name}' successfully powered on.")
             new_ip = get_ec2_public_ip(ec2_id, config.get("region", ""))
             if new_ip:
-                print(f"🌐 Resolved updated public IP for '{node_name}': {new_ip}")
+                _say(f"🌐 Resolved updated public IP for '{node_name}': {new_ip}")
                 update_node_host_ip(node_name, new_ip)
                 wait_for_ssh(new_ip, config.get("user", "ubuntu"))
             return True
-        print(f"⚠️ AWS CLI error for '{node_name}': {res.stderr.strip()}")
+        _say(f"⚠️ AWS CLI error for '{node_name}': {res.stderr.strip()}")
         return False
-    print(
+    _say(
         f"❌ Node '{node_name}' has no EC2 instance ID configured. Set ec2_instance_id in .node-power-config.json."
     )
     return False
@@ -331,27 +356,27 @@ def power_off_node(node_name: str, config: dict) -> bool:
         cmd = ["aws", "ec2", "stop-instances", "--instance-ids", ec2_id]
         if config.get("region"):
             cmd.extend(["--region", config["region"]])
-        print(
+        _say(
             f"▶ Stopping AWS EC2 instance '{ec2_id}' for target node '{node_name}'..."
         )
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if res.returncode == 0:
-            print(f"✅ Target node '{node_name}' successfully powered off.")
+            _say(f"✅ Target node '{node_name}' successfully powered off.")
             return True
-        print(f"⚠️ AWS CLI error for '{node_name}': {res.stderr.strip()}")
+        _say(f"⚠️ AWS CLI error for '{node_name}': {res.stderr.strip()}")
         return False
 
     host = config.get("host")
     user = config.get("user", "ubuntu")
     if host and host != "localhost":
         cmd = ["ssh", f"{user}@{host}", "sudo shutdown -h now"]
-        print(f"▶ Sending SSH shutdown command to '{user}@{host}'...")
+        _say(f"▶ Sending SSH shutdown command to '{user}@{host}'...")
         res = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if res.returncode == 0:
-            print(f"✅ Target node '{node_name}' SSH shutdown command sent.")
+            _say(f"✅ Target node '{node_name}' SSH shutdown command sent.")
             return True
 
-    print(
+    _say(
         f"⚠️ Unable to shut down node '{node_name}': No EC2 instance ID or SSH host configured."
     )
     return False
@@ -362,7 +387,7 @@ def cmd_wake(args: argparse.Namespace) -> None:
     nodes = load_target_nodes()
     node_name = args.node
     if node_name not in nodes:
-        print(
+        _say(
             f"❌ Target node '{node_name}' not found. Available nodes: {', '.join(nodes.keys())}"
         )
         sys.exit(1)
@@ -375,7 +400,7 @@ def cmd_wake(args: argparse.Namespace) -> None:
 
     ok = power_on_node(node_name, config)
     if not ok:
-        print(f"❌ Failed to power on target node '{node_name}'. Exiting with error.")
+        _say(f"❌ Failed to power on target node '{node_name}'. Exiting with error.")
         sys.exit(1)
 
     state = load_state()
@@ -386,7 +411,7 @@ def cmd_wake(args: argparse.Namespace) -> None:
     }
     save_state(state)
 
-    print(
+    _say(
         f"⏰ Target node '{node_name}' woken until {wake_until_dt.strftime('%Y-%m-%d %H:%M:%S UTC')} (TTL: {args.ttl})."
     )
 
@@ -396,7 +421,7 @@ def cmd_sleep(args: argparse.Namespace) -> None:
     nodes = load_target_nodes()
     node_name = args.node
     if node_name not in nodes:
-        print(
+        _say(
             f"❌ Target node '{node_name}' not found. Available nodes: {', '.join(nodes.keys())}"
         )
         sys.exit(1)
@@ -405,7 +430,7 @@ def cmd_sleep(args: argparse.Namespace) -> None:
 
     ok = power_off_node(node_name, config)
     if not ok:
-        print(f"❌ Failed to power off target node '{node_name}'. Exiting with error.")
+        _say(f"❌ Failed to power off target node '{node_name}'. Exiting with error.")
         sys.exit(1)
 
     state = load_state()
@@ -424,7 +449,7 @@ def cmd_enforce(args: argparse.Namespace) -> None:
     now = datetime.now(timezone.utc)
     now_local = datetime.now()
 
-    print(
+    _say(
         f"🔍 Evaluating node power enforcement at {now_local.strftime('%Y-%m-%d %H:%M:%S')}..."
     )
 
@@ -443,12 +468,12 @@ def cmd_enforce(args: argparse.Namespace) -> None:
                 pass
 
         if is_woken:
-            print(f"  • Node '{name}': WOKEN (TTL active until {wake_until_str})")
+            _say(f"  • Node '{name}': WOKEN (TTL active until {wake_until_str})")
             continue
 
         in_window = is_in_shutdown_window(now_local, schedule)
         if in_window:
-            print(
+            _say(
                 f"  • Node '{name}': Shutdown window active (schedule: {schedule}). Enforcing shutdown."
             )
             power_off_node(name, config)
@@ -458,7 +483,7 @@ def cmd_enforce(args: argparse.Namespace) -> None:
                 "shutdown_at": now.isoformat(),
             }
         else:
-            print(
+            _say(
                 f"  • Node '{name}': Business hours active (schedule: {schedule}). Ensuring node is powered ON."
             )
             ok = power_on_node(name, config)
@@ -478,18 +503,18 @@ def cmd_status(args: argparse.Namespace) -> None:
     now = datetime.now(timezone.utc)
     now_local = datetime.now()
 
-    print(
+    _say(
         "\n=========================================================================="
     )
-    print("                TARGET COMPUTE NODE POWER CONTROL STATUS                  ")
-    print("==========================================================================")
-    print(
+    _say("                TARGET COMPUTE NODE POWER CONTROL STATUS                  ")
+    _say("==========================================================================")
+    _say(
         f"Local Time: {now_local.strftime('%Y-%m-%d %H:%M:%S')} | Schedule Window: {'ACTIVE' if is_in_shutdown_window(now_local, 'auto') else 'INACTIVE'}\n"
     )
-    print(
+    _say(
         f"{'NODE':<10} {'SCHEDULE':<10} {'EC2 ID':<18} {'STATUS':<15} {'DETAILS':<25}"
     )
-    print("-" * 78)
+    _say("-" * 78)
 
     for name, config in nodes.items():
         schedule = config.get("schedule", "auto")
@@ -545,11 +570,11 @@ def cmd_status(args: argparse.Namespace) -> None:
                 pass
 
         disp_ec2_id = ec2_id if ec2_id else "N/A"
-        print(
+        _say(
             f"{name:<10} {schedule:<10} {disp_ec2_id:<18} {status_label:<15} {details:<25}"
         )
 
-    print(
+    _say(
         "==========================================================================\n"
     )
 
