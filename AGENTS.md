@@ -78,7 +78,7 @@ this reads as a record rather than as advice.
 
 1. **Fix where the problem is produced.** Parse, validate and normalise a value
    once, at the boundary that owns it. Nine days went into the image build's
-   *reporting* while the cause was a full disk on the machine doing the
+   _reporting_ while the cause was a full disk on the machine doing the
    building (#1235, #1247, #1278).
 2. **Unknown is not absent.** A value that cannot be determined stays unknown —
    never `0`, `false`, empty or "fine". A blank field that normalised to `0`
@@ -86,7 +86,7 @@ this reads as a record rather than as advice.
    as a healthy node (#1278).
 3. **Finish the change.** Remove what a change supersedes, in the same change.
    Say what cleanup remains and why.
-4. **A green test is not the proof.** Name what was *not* verified, including
+4. **A green test is not the proof.** Name what was _not_ verified, including
    anything checked only against a mock. #1276's tests passed and proved the
    lockfile was present; they could not prove the build worked on the node. For
    the related case of a guard that cannot fail at all,
