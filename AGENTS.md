@@ -71,7 +71,33 @@ followed turns it into a false statement that nothing would catch.
 
 ---
 
-## 4. Current Work State
+## 4. Engineering Principles
+
+How a change is judged here. Each is cited to the defect that produced it, so
+this reads as a record rather than as advice.
+
+1. **Fix where the problem is produced.** Parse, validate and normalise a value
+   once, at the boundary that owns it. Nine days went into the image build's
+   _reporting_ while the cause was a full disk on the machine doing the
+   building (#1235, #1247, #1278).
+2. **Unknown is not absent.** A value that cannot be determined stays unknown —
+   never `0`, `false`, empty or "fine". A blank field that normalised to `0`
+   could not reach its default (#1271); a disk probe that returned nothing read
+   as a healthy node (#1278).
+3. **Finish the change.** Remove what a change supersedes, in the same change.
+   Say what cleanup remains and why.
+4. **A green test is not the proof.** Name what was _not_ verified, including
+   anything checked only against a mock. #1276's tests passed and proved the
+   lockfile was present; they could not prove the build worked on the node. For
+   the related case of a guard that cannot fail at all,
+   [`quality-guardrails`](./.agents/skills/quality-guardrails/SKILL.md) §4 owns
+   the concern.
+5. **Earn every abstraction.** Introduce one only when it removes complexity
+   actually observed, not complexity anticipated.
+
+---
+
+## 5. Current Work State
 
 Active, in-flight task state and intra-task scratchpad context are maintained locally in `.agent-state.md` (gitignored).
 
@@ -86,4 +112,4 @@ Active, in-flight task state and intra-task scratchpad context are maintained lo
 
 ---
 
-_Last Updated: 2026-10-16_ | _Last Reviewed: 2026-10-16_
+_Last Updated: 2026-10-19_ | _Last Reviewed: 2026-10-19_
