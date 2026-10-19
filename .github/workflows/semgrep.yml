@@ -68,12 +68,25 @@ jobs:
       #    • Scan was limited to files changed since baseline commit.
       #
       # On a push to master there is no merge base, so it scanned all 891
-      # files. A contributor is therefore blocked by what their change
-      # introduces, not by pre-existing debt - defensible, and currently an
-      # accident of the defaults rather than a decision. The sharp edge: a
-      # rule-pack update that newly flags existing code turns MASTER red,
-      # with no pull request anywhere that could have caught it first.
-      # #1354 settles whether to keep this or force a full scan.
+      # files.
+      #
+      # THIS SPLIT IS DELIBERATE, decided on #1354. It was an accident of
+      # `semgrep ci`'s defaults before that; it is now the intended
+      # behaviour, and nothing here should "fix" it:
+      #
+      #   pull request -> files changed since the merge base
+      #   push to master -> everything
+      #
+      # Why: a contributor should be blocked by what their change introduces,
+      # not by pre-existing debt they did not write. Forcing a full scan on
+      # pull requests would charge every contributor for the whole tree.
+      #
+      # What it cannot catch, stated plainly rather than discovered later: a
+      # rule-pack update that newly flags EXISTING code turns MASTER red,
+      # with no pull request anywhere that could have caught it first. When
+      # that happens the fix needs its own pull request - and that one's
+      # diff-aware gate does cover it, because the fix necessarily touches
+      # the flagged files. Accepted; no scheduled full scan was added.
       #
       # The four `// nosemgrep` lines in routes/media.cjs stay suppressed: the
       # SARIF carries them with `suppressions: [{kind: inSource}]` and they do
