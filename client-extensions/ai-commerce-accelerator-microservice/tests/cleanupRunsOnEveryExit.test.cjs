@@ -71,6 +71,8 @@ function harness({ exitCode = 1, existing = 0, keep = 0 } = {}) {
     // rather than excusing it. Adding the call without adding this line is
     // what this file caught, exactly as intended.
     'capture_ssh_accept_count() { echo "[capture-ssh] $*"; }',
+    // And for the node routes/ capture after teardown (#1364).
+    'capture_node_routes_permissions() { echo "[capture-routes] $*"; }',
     lines.slice(start, end + 1).join('\n'),
     'echo "[body] running"',
     `exit ${exitCode}`,
