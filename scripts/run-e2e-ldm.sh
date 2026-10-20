@@ -492,6 +492,81 @@ remove_stale_node_dxp_tree() {
     return 0
 }
 
+# Records who owns what under the project's routes/ on the node. LDM-#2266
+# needs it, and no artifact has ever held it: the container-side captures show
+# /etc/liferay/lxc/routes, not the node's project directory, which is what the
+# sync and `ldm rm --delete` fail on.
+#
+# Two views, because they disagree by design. The SSH user's is what rsync and
+# rm actually meet - routes/default is 750 and uid 1000, so it is mostly
+# "Permission denied", and that is the finding. The root view, through the
+# node's daemon as in remove_stale_node_dxp_tree, is what is really there.
+#
+# The helper mounts projects/ READ-ONLY, never the project itself: after a
+# teardown that worked the project is gone, and `docker run -v` would recreate
+# it as root exactly where the next sync has to write. See #1364.
+capture_node_routes_permissions() {
+    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
+    [ -n "${PROJECT_NAME:-}" ] || return 0
+
+    local stage="$1" endpoint facts reply remote_home status=0
+    endpoint="$(node_ssh_endpoint)" || endpoint=""
+    [ -n "$endpoint" ] || return 0
+
+    facts="logs/e2e-node-routes-${stage}.txt"
+    mkdir -p logs
+
+    # One connection, not two: capture_ssh_accept_count measures this
+    # transport, so a diagnostic should not inflate it. The first line is
+    # $HOME, or a marker when projects/ is absent and must not be mounted.
+    # shellcheck disable=SC2016
+    reply="$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
+        'd="$HOME/.liferay-docker/projects"; p="$d/'"$PROJECT_NAME"'"
+         if [ -d "$d" ]; then printf "%s\n" "$HOME"; else echo NO_PROJECTS_DIR; fi
+         id
+         ls -lnd "$p" "$p/routes" "$p/routes/default" 2>&1
+         ls -ln "$p/routes/default" 2>&1
+         true' 2>&1)" || status=$?
+    # The trailing `true` because a listing refused for permissions is the
+    # finding, not a failed read - only ssh itself failing is unread.
+    remote_home=""
+    [ $status -ne 0 ] || remote_home="$(printf '%s\n' "$reply" | head -n 1)"
+
+    {
+        echo "=== ${stage}: ~/.liferay-docker/projects/${PROJECT_NAME} on '${LDM_NODE_TARGET}' ==="
+        echo "--- as the SSH user (what rsync and ldm rm see) ---"
+        if [ $status -ne 0 ]; then
+            echo "UNREAD: ssh exit ${status} to ${endpoint}: ${reply:-no output}"
+        else
+            printf '%s\n' "$reply" | tail -n +2
+        fi
+
+        echo "--- as root, through the node's docker daemon ---"
+        # Unless docker is on the SSH transport, the helper would run on THIS
+        # host and mount a path that only exists on the node. A run that died
+        # before route_docker_to_node reaches here through cleanup, and a
+        # workstation's own DOCKER_HOST (a colima socket) is set but local.
+        case "${DOCKER_HOST:-}|$remote_home" in
+        ssh://*'|'/*)
+            docker run --rm --label com.liferay.ldm.managed=true \
+                -e P="/projects/${PROJECT_NAME}" \
+                -v "${remote_home}/.liferay-docker/projects:/projects:ro" \
+                alpine sh -c '
+                    if [ ! -e "$P" ]; then echo "ABSENT: $P"; exit 0; fi
+                    stat -c "%A %u:%g %y %n" "$P" "$P/routes" "$P/routes/default" 2>&1
+                    echo "--- ls -lnR routes (first 50 lines) ---"
+                    ls -lnR "$P/routes" 2>&1 | head -50
+                ' 2>&1 || echo "UNREAD: helper container exit $?"
+            ;;
+        *)
+            echo "UNREAD: DOCKER_HOST=${DOCKER_HOST:-unset}, node \$HOME=${remote_home:-unknown}; nothing was mounted."
+            ;;
+        esac
+    } > "$facts" 2>&1
+
+    echo "🔎 Captured node routes/ permissions ($stage) -> $facts"
+}
+
 # The node builds the image. Nothing measured the node.
 #
 # resource-monitor.log watches the GitHub runner, and on run 38276108860 it
@@ -1823,6 +1898,7 @@ cleanup() {
         echo -e "\n🧹 Cleaning up environment..."
         # shellcheck disable=SC2086
         ldm_cmd rm "$PROJECT_NAME" --delete $LDM_Y_FLAG || true
+        capture_node_routes_permissions post-teardown || true
         echo "✨ Done."
     fi
     if [ -n "$ORIGINAL_DB_MODE" ]; then
@@ -2368,6 +2444,8 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     fi
 
     write_signal "IMPORTING"
+    # Import is the run's first sync to the node, so this is what it meets.
+    capture_node_routes_permissions pre-sync || true
     echo "📦 Initializing ephemeral LDM project [$PROJECT_NAME] (PostgreSQL)..."
     # import parameters: creates a one-time static import for testing
     # shellcheck disable=SC2086
