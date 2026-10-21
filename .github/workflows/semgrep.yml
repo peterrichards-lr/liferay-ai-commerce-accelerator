@@ -99,6 +99,13 @@ jobs:
       #   analyses  refs/heads/master     results=4
       #   alerts    4, every one state=open, media.cjs:63 :112 :118 :156
       #
+      # So a waiver is recorded TWICE, decided on #1354: the `// nosemgrep`
+      # keeps it from blocking, and the alert is dismissed as a false
+      # positive with a comment naming that line. Otherwise the code says
+      # "reviewed" while the Security tab lists an open vulnerability. All
+      # four above were dismissed on 2026-10-21. A new `// nosemgrep` needs
+      # its dismissal too; nothing does this automatically.
+      #
       # An earlier comment here claimed the opposite, generalising from
       # pull request #1350's own upload, which recorded `results: 0`. That
       # number had nothing to do with suppressions - see the scan step's
