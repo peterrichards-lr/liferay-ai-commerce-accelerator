@@ -26,6 +26,7 @@ const { execFileSync } = require('child_process');
  * drift the duplicated list in the heredoc invited.
  */
 const {
+  buildOnlyMembers,
   stripPinnedEnv,
   stripPinnedProperties,
 } = require('./sanitize-ldm-package.cjs');
@@ -134,6 +135,7 @@ function describePackage(facts) {
     ),
     describe('pinned env', orNone(pinnedEnvKeys(parseCustomEnv(meta)))),
     describe('pinned properties', orNone(pinnedPropertyKeys(portalExt))),
+    describe('build-only files', buildOnlyMembers(innerNames).length),
     describe('osgi modules staged', orNone(stagedJars)),
     describe('osgi modules packaged', orNone(packagedOsgiModules(innerNames))),
   ];
@@ -206,6 +208,16 @@ function collectProblems(facts) {
       `${PORTAL_EXT_MEMBER} pins ${formatList(pinnedProperties)}; these force an` +
         ' in-container Elasticsearch on consumers whose project resolved to' +
         ' shared search'
+    );
+  }
+
+  const buildOnly = buildOnlyMembers(innerNames);
+  if (buildOnly.length) {
+    problems.push(
+      `the archive ships ${buildOnly.length} build-only file(s), e.g.` +
+        ` ${formatList(buildOnly.slice(0, 3))}; scripts/ runs at the` +
+        " consumer's Liferay boot and routes/default/ holds the build's OAuth" +
+        ' credentials and DXP domain (#1365)'
     );
   }
 

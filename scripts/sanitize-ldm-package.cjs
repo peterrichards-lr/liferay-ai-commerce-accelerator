@@ -8,6 +8,7 @@
  */
 
 const fs = require('fs');
+const path = require('path');
 
 /**
  * `custom_env` is captured from the running CI container and IS propagated on
@@ -17,11 +18,29 @@ const fs = require('fs');
  * resolves to. The CI harness runs `--sidecar`, which pins an Elasticsearch
  * inside the Liferay container on a consumer whose project resolved to shared
  * search, and the route pins a container hostname that resolves nowhere.
+ *
+ * Any `LIFERAY_JDBC_PERIOD_` key makes LDM's composer write no `jdbc.*` at all
+ * (`has_jdbc_env`), so the packaged `jdbc.default.url`, which names the build's
+ * own database container, would survive into the consumer's project. None has
+ * been captured yet; nothing else would stop one. See #1365.
  */
 const PINNED_ENV_PREFIXES = [
   'LIFERAY_ROUTES_CLIENT_EXTENSION_',
   'LIFERAY_ELASTICSEARCH_',
+  'LIFERAY_JDBC_PERIOD_',
 ];
+
+/**
+ * Project directories whose contents belong to the build, not the consumer.
+ *
+ * `scripts/` is this repository's tooling, copied in by `ldm import .`, and
+ * Liferay runs every script in it at boot. `routes/default/` is what the
+ * build's Liferay wrote: its OAuth client ids and secrets and a DXP tree
+ * naming its own host. A consumer's Liferay writes its own, so shipped values
+ * are at best dead and at worst read before the rewrite. The directories are
+ * kept and emptied; LDM expects them to exist. See #1365.
+ */
+const BUILD_ONLY_TREES = ['scripts', 'routes/default'];
 
 /**
  * `files/portal-ext.properties` is restored as `ldmp-portal-ext.properties`,
@@ -132,23 +151,56 @@ function sanitizeMetaFile(path) {
   fs.writeFileSync(path, `${JSON.stringify(meta, null, 4)}\n`);
 }
 
+/**
+ * Archive members inside a build-only tree, the directories themselves
+ * excepted. The release gate uses this, so a tree added above is refused there
+ * without a second edit.
+ */
+function buildOnlyMembers(names) {
+  return names
+    .map((name) => (name.startsWith('./') ? name.slice(2) : name))
+    .filter((name) =>
+      BUILD_ONLY_TREES.some(
+        (tree) =>
+          name.startsWith(`${tree}/`) && name.replace(/\/$/u, '') !== tree
+      )
+    );
+}
+
+function emptyBuildOnlyTrees(projectDir) {
+  for (const tree of BUILD_ONLY_TREES) {
+    const directory = path.join(projectDir, tree);
+
+    if (!fs.existsSync(directory)) {
+      continue;
+    }
+
+    for (const entry of fs.readdirSync(directory)) {
+      console.log(`Dropping build-only ${tree}/${entry} from ${projectDir}`);
+      fs.rmSync(path.join(directory, entry), { force: true, recursive: true });
+    }
+  }
+}
+
+const MODES = {
+  meta: sanitizeMetaFile,
+  project: emptyBuildOnlyTrees,
+  properties: sanitizePropertiesFile,
+};
+
 function main(argv) {
   const [mode, ...paths] = argv;
 
-  if (!paths.length || !['properties', 'meta'].includes(mode)) {
+  if (!paths.length || !Object.hasOwn(MODES, mode)) {
     console.error(
-      'Usage: sanitize-ldm-package.cjs <properties|meta> <file> [file...]'
+      'Usage: sanitize-ldm-package.cjs <properties|meta|project> <path> [path...]'
     );
     process.exitCode = 1;
     return;
   }
 
-  for (const path of paths) {
-    if (mode === 'properties') {
-      sanitizePropertiesFile(path);
-    } else {
-      sanitizeMetaFile(path);
-    }
+  for (const target of paths) {
+    MODES[mode](target);
   }
 }
 
@@ -157,8 +209,11 @@ if (require.main === module) {
 }
 
 module.exports = {
+  BUILD_ONLY_TREES,
   PINNED_ENV_PREFIXES,
   PINNED_PROPERTY_PREFIXES,
+  buildOnlyMembers,
+  emptyBuildOnlyTrees,
   sanitizeMeta,
   stripPinnedEnv,
   stripPinnedProperties,
