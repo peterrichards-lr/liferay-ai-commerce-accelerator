@@ -172,6 +172,22 @@ function startDxpConfigTreeWatcher({
 }
 
 /**
+ * Makes the SDK's OAuth service resolve Liferay's address again.
+ *
+ * Clearing config-node is not enough on its own. `OAuthService.liferayUrl`
+ * keeps its first successful resolution, and `tokenEndpoint` is derived from
+ * it, so after a rewrite every token and config request still went to the
+ * first address: 3,268 calls to `https://aica-e2e.demo:8080` after the watcher
+ * had logged the rewrite and cleared the cache. Both accessors re-resolve when
+ * set back to `undefined`. See #1373.
+ */
+function forgetResolvedLiferayUrl(oauthService) {
+  if (!oauthService) return;
+  oauthService.liferayUrl = undefined;
+  oauthService.tokenEndpoint = undefined;
+}
+
+/**
  * Whether Liferay is a separate container that mounts config trees into this
  * one, as opposed to a local run where the microservice is a host process.
  *
@@ -224,6 +240,7 @@ function isColocatedDeployment(dir = ENV.LIFERAY_ROUTES_DXP) {
 module.exports = {
   DXP_MAIN_DOMAIN_KEY,
   DXP_SERVER_PROTOCOL_KEY,
+  forgetResolvedLiferayUrl,
   warnIfPathIsAGuess,
   isColocatedDeployment,
   isDxpConfigTreeReady,

@@ -7,6 +7,7 @@ const { clearCache, lookupConfig } = require('@rotty3000/config-node');
 const {
   DXP_MAIN_DOMAIN_KEY,
   DXP_SERVER_PROTOCOL_KEY,
+  forgetResolvedLiferayUrl,
   isDxpConfigTreeReady,
   readDxpAddress,
   startDxpConfigTreeWatcher,
@@ -238,6 +239,56 @@ describe('LXC config tree readiness (#1103)', () => {
         else process.env.CONFIG_NODE_CONFIG_TREES = saved;
         clearCache();
       }
+    });
+  });
+
+  // The second cache: the SDK's OAuth service keeps its first resolved URL.
+  // Clearing config-node alone left 3,268 calls on the old address. #1373.
+  describe('the OAuth service forgets the address it resolved (#1373)', () => {
+    const { OAuthService } = require('@liferay/accelerator-sdk');
+
+    test('liferayUrl and tokenEndpoint follow a rewrite once forgotten', () => {
+      const d = dir();
+      const saved = process.env.CONFIG_NODE_CONFIG_TREES;
+      process.env.CONFIG_NODE_CONFIG_TREES = d;
+      clearCache();
+
+      try {
+        writeKey(d, 'aica-e2e.demo:8080');
+        writeKey(d, 'https', DXP_SERVER_PROTOCOL_KEY);
+        const oauth = new OAuthService({});
+        expect(oauth.liferayUrl).toBe('https://aica-e2e.demo:8080');
+
+        writeKey(d, 'aica-e2e.demo');
+        clearCache();
+        // The defect: config-node is fresh, the service is not.
+        expect(oauth.liferayUrl).toBe('https://aica-e2e.demo:8080');
+
+        forgetResolvedLiferayUrl(oauth);
+
+        expect(oauth.liferayUrl).toBe('https://aica-e2e.demo');
+        expect(oauth.tokenEndpoint).toBe(
+          'https://aica-e2e.demo/o/oauth2/token'
+        );
+      } finally {
+        if (saved === undefined) delete process.env.CONFIG_NODE_CONFIG_TREES;
+        else process.env.CONFIG_NODE_CONFIG_TREES = saved;
+        clearCache();
+      }
+    });
+
+    test('tolerates no service', () => {
+      expect(() => forgetResolvedLiferayUrl(undefined)).not.toThrow();
+    });
+
+    test('bootstrap wires it to the watcher', () => {
+      const source = fs.readFileSync(
+        path.join(__dirname, '..', 'bootstrap.cjs'),
+        'utf8'
+      );
+      expect(source).toMatch(
+        /startDxpConfigTreeWatcher\(\{[^}]*onChange: \(\) => forgetResolvedLiferayUrl\(ctx\.oauth\)/s
+      );
     });
   });
 

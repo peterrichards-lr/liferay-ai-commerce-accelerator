@@ -27,7 +27,10 @@ const ContractValidator = require('./services/contractValidator.cjs');
 // LXC-registered application's own tokenUri, which the local override
 // discarded. See #925.
 const { OAuthService } = require('@liferay/accelerator-sdk');
-const { startDxpConfigTreeWatcher } = require('./utils/lxcReadiness.cjs');
+const {
+  forgetResolvedLiferayUrl,
+  startDxpConfigTreeWatcher,
+} = require('./utils/lxcReadiness.cjs');
 const { startConfigRefresh } = require('./utils/configRefresh.cjs');
 const HealthService = require('./services/healthService.cjs');
 const {
@@ -114,11 +117,15 @@ module.exports = async (ws) => {
   // tree only once its main servlet is first hit. config-node caches the miss,
   // so without this every later request resolves `undefined` for the life of
   // the process. The watcher clears that cache when the tree appears, and
-  // again whenever Liferay rewrites the address in it; the per-request
+  // again whenever Liferay rewrites the address in it, when it also makes the
+  // OAuth service forget the address it resolved; the per-request
   // `tryBuildColocatedLiferayUrl` fallback then resolves on its own.
   // Non-blocking on purpose - see the module for why refusing to boot here
   // would be wrong. See #1103, #1373.
-  ctx.lxcConfigTreeWatcher = startDxpConfigTreeWatcher({ logger });
+  ctx.lxcConfigTreeWatcher = startDxpConfigTreeWatcher({
+    logger,
+    onChange: () => forgetResolvedLiferayUrl(ctx.oauth),
+  });
   ctx.config = new ConfigService({
     cache: ctx.cache,
     logger,
