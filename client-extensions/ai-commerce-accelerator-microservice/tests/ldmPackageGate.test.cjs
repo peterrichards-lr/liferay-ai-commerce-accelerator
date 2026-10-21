@@ -270,6 +270,26 @@ describe('collectProblems', () => {
     ).toContain('Without it LDM starts no proxy');
   });
 
+  it('refuses a package carrying build-only files, as v3.3.56 did (#1365)', () => {
+    const problem = onlyProblem((facts) => {
+      facts.innerNames.push(
+        './scripts/node_power.sh',
+        './routes/default/dxp/com.liferay.lxc.dxp.main.domain'
+      );
+    });
+
+    expect(problem).toContain('2 build-only file(s)');
+    expect(problem).toContain('scripts/node_power.sh');
+  });
+
+  it('accepts the emptied scripts/ and routes/default/ directories', () => {
+    expect(
+      problemsAfter((facts) => {
+        facts.innerNames.push('./scripts/', './routes/', './routes/default/');
+      })
+    ).toEqual([]);
+  });
+
   it('reports every problem rather than stopping at the first', () => {
     const problems = problemsAfter((facts) => {
       facts.meta.includes_database = 'true';
@@ -314,11 +334,13 @@ describe('pinned key detection', () => {
     expect(
       pinnedEnvKeys({
         LIFERAY_ELASTICSEARCH_PERIOD_SIDECAR_PERIOD_ENABLED: 'true',
+        LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL: 'jdbc:postgresql://build-db/x',
         LIFERAY_JVM_OPTS: '-Xmx2g',
         LIFERAY_ROUTES_CLIENT_EXTENSION_MICROSERVICE: 'http://build-host:3001',
       })
     ).toEqual([
       'LIFERAY_ELASTICSEARCH_PERIOD_SIDECAR_PERIOD_ENABLED',
+      'LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL',
       'LIFERAY_ROUTES_CLIENT_EXTENSION_MICROSERVICE',
     ]);
   });

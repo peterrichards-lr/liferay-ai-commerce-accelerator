@@ -2465,6 +2465,17 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
         sed -i.bak "s/liferay-db-global/${PROJECT_NAME}-db/g" "$PROJECT_NAME/files/portal-ext.properties"
     fi
 
+    # `ldm import .` copies this repository's scripts/ into the project, and
+    # Liferay's entrypoint runs every script in /mnt/liferay/scripts at boot.
+    # Ours is tooling, not startup scripts: it killed bring-up three times
+    # (#1360, #1362, and a deleted script kept on the node by a failed sync)
+    # and shipped in every .ldmp, which is packaged from this project. The
+    # container guard in each script stays as the second line. See #1365.
+    if [ -d "${PROJECT_NAME:?}/scripts" ]; then
+        find "${PROJECT_NAME:?}/scripts" -mindepth 1 -delete
+        echo "🧹 Emptied $PROJECT_NAME/scripts so Liferay runs none of our tooling at boot."
+    fi
+
     deploy_activation_key
 
     sync_osgi_modules

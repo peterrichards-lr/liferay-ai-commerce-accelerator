@@ -138,6 +138,18 @@ jobs:
             aica-e2e/files/portal-ext.properties \
             aica-e2e/files/portal-ext.properties.bak
 
+          # scripts/ is this repository's tooling, which Liferay runs at boot,
+          # and routes/default/ is what the build's Liferay wrote: its OAuth
+          # credentials and a DXP tree naming its own host. Neither is the
+          # consumer's. The verify step refuses a package carrying either.
+          # Liferay writes routes/ as uid 1000 and the runner is 1001, so open
+          # both trees up as root first, as the volume emptying above does. A
+          # removal that still fails ends the job rather than shipping them.
+          # See #1365.
+          docker run --rm -v "$PWD/aica-e2e:/project" alpine \
+            chmod -R a+rwX /project/scripts /project/routes || true
+          node scripts/sanitize-ldm-package.cjs project aica-e2e
+
           # Take the snapshot explicitly so its meta can be enriched before packaging.
           ldm snapshot -p aica-e2e -y
 
