@@ -113,10 +113,11 @@ module.exports = async (ws) => {
   // colocated deployment it was too early to succeed - Liferay writes that
   // tree only once its main servlet is first hit. config-node caches the miss,
   // so without this every later request resolves `undefined` for the life of
-  // the process. The watcher clears that cache when the tree appears; the
-  // per-request `tryBuildColocatedLiferayUrl` fallback then resolves on its
-  // own. Non-blocking on purpose - see the module for why refusing to boot
-  // here would be wrong. See #1103.
+  // the process. The watcher clears that cache when the tree appears, and
+  // again whenever Liferay rewrites the address in it; the per-request
+  // `tryBuildColocatedLiferayUrl` fallback then resolves on its own.
+  // Non-blocking on purpose - see the module for why refusing to boot here
+  // would be wrong. See #1103, #1373.
   ctx.lxcConfigTreeWatcher = startDxpConfigTreeWatcher({ logger });
   ctx.config = new ConfigService({
     cache: ctx.cache,

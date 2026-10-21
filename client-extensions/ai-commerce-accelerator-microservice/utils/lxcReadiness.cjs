@@ -3,8 +3,9 @@ const path = require('path');
 const { clearCache } = require('@rotty3000/config-node');
 const { ENV } = require('./constants.cjs');
 
-// The key `tryBuildColocatedLiferayUrl` builds the Liferay URL from.
+// The keys `tryBuildColocatedLiferayUrl` builds the Liferay URL from.
 const DXP_MAIN_DOMAIN_KEY = 'com.liferay.lxc.dxp.main.domain';
+const DXP_SERVER_PROTOCOL_KEY = 'com.liferay.lxc.dxp.server.protocol';
 
 /**
  * Liferay writes the DXP config tree when it learns its own address, which
@@ -30,7 +31,39 @@ function isDxpConfigTreeReady(dir = ENV.LIFERAY_ROUTES_DXP) {
 }
 
 /**
- * Watches for the tree and clears the config cache once, when it arrives.
+ * What the Liferay URL is built from, as one comparable string, or `null`
+ * while the domain is absent or mid-write. An unreadable protocol is part of
+ * the value rather than a reason to report nothing: it is still a change
+ * worth reacting to when it appears.
+ */
+function readDxpAddress(dir) {
+  const read = (key) => {
+    try {
+      // The mounted tree and one of two fixed key names; never request input.
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      return fs.readFileSync(path.join(dir, key), 'utf8').trim();
+    } catch {
+      return '';
+    }
+  };
+
+  const domain = read(DXP_MAIN_DOMAIN_KEY);
+  if (!domain) return null;
+
+  return `${read(DXP_SERVER_PROTOCOL_KEY)}://${domain}`;
+}
+
+/**
+ * Watches for the tree, clears the config cache when it arrives, and again
+ * every time the address in it changes.
+ *
+ * Liferay does not write the tree once. Its first write records the address
+ * of whichever request reached it first - on a proxied project that is the
+ * container port, `aica-e2e.demo:8080` - and it rewrites the tree once
+ * requests arrive through the proxy. Clearing the cache only on arrival kept
+ * the first value for the life of the process: every Liferay call went to
+ * `https://aica-e2e.demo:8080`, which the node does not publish, the health
+ * check failed, and Traefik dropped the extension's router. See #1373.
  *
  * Deliberately does not block or fail startup. The tree cannot exist when this
  * process starts - it is written in response to a request Liferay has not yet
@@ -40,6 +73,8 @@ function isDxpConfigTreeReady(dir = ENV.LIFERAY_ROUTES_DXP) {
  *
  * @returns {{stop: Function, settled: Promise<{ready: boolean, elapsedMs: number}>}|null}
  *   `null` when nothing is mounted, which is how a local run presents.
+ *   `settled` resolves once, on arrival or timeout; following rewrites goes on
+ *   after it until `stop`.
  */
 function startDxpConfigTreeWatcher({
   logger,
@@ -47,6 +82,7 @@ function startDxpConfigTreeWatcher({
   timeoutMs = ENV.LXC_CONFIG_WAIT_MS,
   intervalMs = ENV.LXC_CONFIG_POLL_MS,
   onReady,
+  onChange,
 } = {}) {
   warnIfPathIsAGuess(logger);
 
@@ -60,26 +96,57 @@ function startDxpConfigTreeWatcher({
 
   const startedAt = Date.now();
   let timer = null;
+  let address = null;
   let settle;
   const settled = new Promise((resolve) => {
     settle = resolve;
   });
 
-  const finish = (ready) => {
+  const stop = () => {
     if (timer) clearInterval(timer);
     timer = null;
+  };
+
+  // Never hold the process open for this.
+  const every = (tick) => {
+    stop();
+    timer = setInterval(tick, intervalMs);
+    timer.unref?.();
+  };
+
+  const follow = () => {
+    const current = readDxpAddress(dir);
+
+    // Mid-write, or removed and not yet rewritten: keep what is cached rather
+    // than clear it towards nothing.
+    if (current === null || current === address) return;
+
+    const previous = address;
+    address = current;
+    clearCache();
+    logger?.info?.(
+      `LXC config tree rewritten: ${previous} -> ${current}; configuration cache cleared.`,
+      { dir, previous, current, operation: 'lxc-config-tree-watch' }
+    );
+    onChange?.({ previous, current });
+  };
+
+  const finish = (ready) => {
     const elapsedMs = Date.now() - startedAt;
 
     if (ready) {
-      // The hammer, used once at a defined moment rather than per lookup:
-      // every provider cache is dropped so the next read sees the tree.
+      address = readDxpAddress(dir);
+      // The hammer, used at defined moments rather than per lookup: every
+      // provider cache is dropped so the next read sees the tree.
       clearCache();
       logger?.info?.(
         `LXC config tree became readable after ${elapsedMs}ms; configuration cache cleared.`,
-        { dir, elapsedMs, operation: 'lxc-config-tree-watch' }
+        { dir, elapsedMs, address, operation: 'lxc-config-tree-watch' }
       );
       onReady?.({ elapsedMs });
+      every(follow);
     } else {
+      stop();
       logger?.warn?.(
         `LXC config tree at ${dir} was still not readable after ${elapsedMs}ms. ` +
           'Liferay writes it when its main servlet is first hit, so this means ' +
@@ -94,26 +161,14 @@ function startDxpConfigTreeWatcher({
 
   if (isDxpConfigTreeReady(dir)) {
     finish(true);
-    return { stop: () => finish(false), settled };
+  } else {
+    every(() => {
+      if (isDxpConfigTreeReady(dir)) finish(true);
+      else if (Date.now() - startedAt >= timeoutMs) finish(false);
+    });
   }
 
-  timer = setInterval(() => {
-    if (isDxpConfigTreeReady(dir)) finish(true);
-    else if (Date.now() - startedAt >= timeoutMs) finish(false);
-  }, intervalMs);
-
-  // Never hold the process open for this.
-  timer.unref?.();
-
-  return {
-    stop: () => {
-      if (timer) {
-        clearInterval(timer);
-        timer = null;
-      }
-    },
-    settled,
-  };
+  return { stop, settled };
 }
 
 /**
@@ -168,8 +223,10 @@ function isColocatedDeployment(dir = ENV.LIFERAY_ROUTES_DXP) {
 
 module.exports = {
   DXP_MAIN_DOMAIN_KEY,
+  DXP_SERVER_PROTOCOL_KEY,
   warnIfPathIsAGuess,
   isColocatedDeployment,
   isDxpConfigTreeReady,
+  readDxpAddress,
   startDxpConfigTreeWatcher,
 };
