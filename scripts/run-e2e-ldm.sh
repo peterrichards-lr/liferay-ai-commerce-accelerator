@@ -624,16 +624,32 @@ assert_node_build_headroom() {
 
     local free_gb=$((free_kb / 1024 / 1024))
 
+    # Nothing else frees space on the node, so every run's image build moves
+    # it one way until the floor stops the nightly: 5GB on 22 October, 4GB on
+    # the next run. Inside the warning zone, prune once - unused images and
+    # build cache through LDM, which never removes database volumes
+    # unattended - then decide on what is measured afterwards. Once per run:
+    # a prune that frees nothing must not loop. See #1376.
+    if [ "$free_kb" -lt $((min_kb * 2)) ] && [ -z "${NODE_HEADROOM_PRUNED:-}" ]; then
+        NODE_HEADROOM_PRUNED=1
+        echo "🧹 Node '${LDM_NODE_TARGET}' has ${free_gb}GB free, under twice the ${NODE_MIN_BUILD_HEADROOM_GB}GB floor. Pruning unused images and build cache before the build. See #1376."
+        if ! ldm_cmd system prune -y --images; then
+            echo "::warning::Pruning '${LDM_NODE_TARGET}' failed. Deciding on the space measured next, not on the prune's exit status. See #1376."
+        fi
+        assert_node_build_headroom
+        return $?
+    fi
+
     if [ "$free_kb" -lt "$min_kb" ]; then
         echo "::error::The target node '${LDM_NODE_TARGET}' has ${free_gb}GB free where the image build needs ${NODE_MIN_BUILD_HEADROOM_GB}GB. The build would fail inside BuildKit at 'RUN yarn install' with its output swallowed, which is what every nightly from 4 October did. Failing here instead, because the reason is legible here and is not legible there. See #1278."
         echo "    What is holding the space:"
         docker system df 2>&1 | sed 's/^/      /' || true
-        echo "    To clear it:  ldm prune --node ${LDM_NODE_TARGET}"
+        echo "    Pruning did not free enough. To look further:  ldm system prune --node ${LDM_NODE_TARGET} --all"
         return 1
     fi
 
     if [ "$free_kb" -lt $((min_kb * 2)) ]; then
-        echo "::warning::The target node '${LDM_NODE_TARGET}' has ${free_gb}GB free, above the ${NODE_MIN_BUILD_HEADROOM_GB}GB floor but not by much. Nothing prunes this node, so it only moves one way. See #1278."
+        echo "::warning::The target node '${LDM_NODE_TARGET}' has ${free_gb}GB free, above the ${NODE_MIN_BUILD_HEADROOM_GB}GB floor but not by much, even after pruning. See #1278, #1376."
         return 0
     fi
 

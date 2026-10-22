@@ -80,9 +80,18 @@ function headroomSource() {
  * unmeasurable case - a dead transport, or a disk too full to start the
  * container.
  */
-function runGate({ dfOutput, target = 'aws-2', minGb }) {
+function runGate({
+  dfOutput,
+  target = 'aws-2',
+  minGb,
+  dfAfterPrune,
+  pruneFails = false,
+}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'node-headroom-'));
   const stub = path.join(dir, 'docker');
+  const pruned = path.join(dir, 'pruned');
+  const reading = (output) =>
+    output === null ? 'exit 1' : [`cat <<'EOF'`, output, 'EOF'].join('\n');
 
   fs.writeFileSync(
     stub,
@@ -96,9 +105,12 @@ function runGate({ dfOutput, target = 'aws-2', minGb }) {
       '    exit 0',
       '  fi',
       'done',
-      dfOutput === null
-        ? 'exit 1'
-        : [`cat <<'EOF'`, dfOutput, 'EOF'].join('\n'),
+      // After `ldm_cmd system prune`, the disk reads as `dfAfterPrune` - the
+      // prune having freed what it frees - or unchanged if none is given.
+      `if [ -f '${pruned}' ]; then`,
+      reading(dfAfterPrune === undefined ? dfOutput : dfAfterPrune),
+      'fi',
+      reading(dfOutput),
     ].join('\n'),
     // Set on creation rather than chmod'd after: the stub has to be
     // executable to be found on PATH as `docker`, and one call carries one
@@ -117,7 +129,18 @@ function runGate({ dfOutput, target = 'aws-2', minGb }) {
   try {
     const stdout = execFileSync(
       'bash',
-      ['-c', `${headroomSource()}\nassert_node_build_headroom`],
+      [
+        '-c',
+        [
+          // The real ldm_cmd appends --node; recording the arguments it was
+          // given is what lets a test count prunes and see the flags.
+          `ldm_cmd() { echo "LDM-CMD: $*"; touch '${pruned}'; ${
+            pruneFails ? 'return 1' : 'return 0'
+          }; }`,
+          headroomSource(),
+          'assert_node_build_headroom',
+        ].join('\n'),
+      ],
       { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] }
     );
     return { status: 0, stdout };
@@ -160,7 +183,9 @@ describe('the node is measured before it is asked to build (#1278)', () => {
       const out = runGate({ dfOutput: FULL_DISK });
 
       expect(out.stdout).toMatch(/RECLAIMABLE/);
-      expect(out.stdout).toMatch(/ldm prune --node aws-2/);
+      // `ldm prune` does not exist; the command is `ldm system prune`.
+      expect(out.stdout).toMatch(/ldm system prune --node aws-2/);
+      expect(out.stdout).not.toMatch(/ldm prune --node/);
     });
 
     it('passes quietly when there is room', () => {
@@ -176,6 +201,61 @@ describe('the node is measured before it is asked to build (#1278)', () => {
 
       expect(out.status).toBe(0);
       expect(out.stdout).toMatch(/::warning::/);
+    });
+  });
+
+  // Nothing else frees space on the node, so it filled: 5GB, then 4GB and
+  // a nightly that stopped at this gate. See #1376.
+  describe('pruning before it refuses (#1376)', () => {
+    const prunes = (out) =>
+      (out.stdout.match(/LDM-CMD: system prune/g) || []).length;
+
+    it('prunes a node under the floor, and continues once there is room', () => {
+      const out = runGate({ dfOutput: FULL_DISK, dfAfterPrune: HEALTHY_DISK });
+
+      expect(prunes(out)).toBe(1);
+      expect(out.stdout).toMatch(/LDM-CMD: system prune -y --images/);
+      expect(out.status).toBe(0);
+      expect(out.stdout).toMatch(/23GB free for the build/);
+      expect(out.stdout).not.toMatch(/::error::/);
+    });
+
+    it('still refuses when pruning did not free enough', () => {
+      const out = runGate({ dfOutput: FULL_DISK });
+
+      expect(prunes(out)).toBe(1);
+      expect(out.status).not.toBe(0);
+      expect(out.stdout).toMatch(/::error::/);
+    });
+
+    it('prunes in the warning zone too, and never fails there', () => {
+      // 23GB against a 15GB floor: above it, inside twice it.
+      const out = runGate({ dfOutput: HEALTHY_DISK, minGb: 15 });
+
+      expect(prunes(out)).toBe(1);
+      expect(out.status).toBe(0);
+    });
+
+    it('does not prune a node with plenty of room', () => {
+      expect(prunes(runGate({ dfOutput: HEALTHY_DISK }))).toBe(0);
+    });
+
+    it('decides on the measurement, not on the prune exit status', () => {
+      const healed = runGate({
+        dfOutput: FULL_DISK,
+        dfAfterPrune: HEALTHY_DISK,
+        pruneFails: true,
+      });
+      expect(healed.stdout).toMatch(/::warning::Pruning 'aws-2' failed/);
+      expect(healed.status).toBe(0);
+
+      const stuck = runGate({ dfOutput: FULL_DISK, pruneFails: true });
+      expect(stuck.status).not.toBe(0);
+    });
+
+    it('does not prune an unmeasurable node, or a local one', () => {
+      expect(prunes(runGate({ dfOutput: null }))).toBe(0);
+      expect(prunes(runGate({ dfOutput: FULL_DISK, target: 'local' }))).toBe(0);
     });
   });
 
