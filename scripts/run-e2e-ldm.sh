@@ -1633,6 +1633,31 @@ capture_microservice_diagnostics() {
             2>&1 | head -20 \
             || echo "(virtual host unreadable - the db container may not be up at this stage)"
         echo
+        # The OAuth2 applications Liferay holds now, and what each was actually
+        # GRANTED - not what client-extension.yaml asked for. Liferay drops a
+        # scope it does not know at registration time, and the object scope
+        # `c_aicaconfiguration.everything` was requested four seconds after the
+        # object definition was added, so the yaml is no evidence the grant
+        # exists. The client-credentials user is listed because a 403 on an
+        # object is as likely that user's permissions as a missing scope. The
+        # client id is a sha256 prefix, matching the routes-tree
+        # listing below, so a stale id in the tree shows up as a hash with no
+        # row here. See #1375.
+        echo "=== OAuth2 applications and granted scopes (#1375) ==="
+        docker exec "${PROJECT_NAME:-aica-e2e}-db" sh -c \
+            'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+                "select a.externalreferencecode,
+                        left(encode(sha256(convert_to(a.clientid, '\''UTF8'\'')), '\''hex'\''), 16),
+                        a.createdate,
+                        a.clientcredentialusername,
+                        (select string_agg(distinct g.scopealiases, '\'' '\'' order by g.scopealiases)
+                           from oauth2scopegrant g
+                          where g.oa2ascopealiasesid = a.oa2ascopealiasesid)
+                   from oauth2application a
+                  order by a.externalreferencecode, a.createdate"' \
+            2>&1 | head -40 \
+            || echo "(OAuth2 applications unreadable - the db container may not be up at this stage)"
+        echo
         # What the running Liferay reads for `web.server.*`, and the hosts it
         # will accept.
         #
