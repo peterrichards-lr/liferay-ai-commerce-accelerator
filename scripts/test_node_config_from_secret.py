@@ -83,6 +83,18 @@ class MasksEveryIdentifyingValue(unittest.TestCase):
         self.assertEqual(out.count("::add-mask::xx-example-1\n"), 1)
 
 
+class WarnsAboutAMultiLineSecret(unittest.TestCase):
+    """GitHub masks each line of a multi-line secret; `{` then drops outputs."""
+
+    def test_warns_when_the_secret_spans_lines(self):
+        _, out = run(secret=json.dumps(CONFIG, indent=2))
+        self.assertIn("::warning::NODE_POWER_CONFIG spans several lines", out)
+
+    def test_quiet_for_single_line_json(self):
+        _, out = run(secret=json.dumps(CONFIG))
+        self.assertNotIn("::warning::", out)
+
+
 class Writing(unittest.TestCase):
     def test_writes_the_config_only_when_asked(self):
         with tempfile.TemporaryDirectory() as tmp:

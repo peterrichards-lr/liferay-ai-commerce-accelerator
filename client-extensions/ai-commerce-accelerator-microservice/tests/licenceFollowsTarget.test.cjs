@@ -136,7 +136,12 @@ describe('the activation key follows the target node (#805, #1383)', () => {
       )
     );
 
-    expect(workflow).toMatch(/ALL_SECRETS: \$\{\{ toJSON\(secrets\) \}\}/);
+    // A computed key, after masking the name. `toJSON(secrets)` made GitHub
+    // hold every run for approval.
+    expect(workflow).toMatch(
+      /NODE_LICENCE: \$\{\{ secrets\[env\.E2E_LICENCE_SECRET\] \}\}/
+    );
+    expect(workflow).not.toMatch(/toJSON\(secrets\)/);
     expect(workflow).not.toMatch(/secrets\.LIFERAY_LICENSE_[A-Z0-9_]+/);
   });
 });

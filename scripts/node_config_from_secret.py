@@ -129,6 +129,17 @@ def main(argv=None, environ=None, out=None, ldmrc=None) -> int:
     for value in masked:
         print(f"::add-mask::{value}", file=out)
 
+    if "\n" in raw:
+        # GitHub registers each LINE of a multi-line secret as a mask, so a
+        # pretty-printed config masks lines such as `{` and `}` - and then
+        # drops any job output containing a brace, the shard matrix included.
+        # Silent until the next job finds no matrix. See #1383.
+        print(
+            "::warning::NODE_POWER_CONFIG spans several lines; store it as "
+            "single-line JSON, or job outputs containing { or } are dropped.",
+            file=out,
+        )
+
     if args.redact:
         hosts = discovered_hosts(config, ldmrc or Path.home() / ".ldmrc")
         for host in hosts:

@@ -622,14 +622,19 @@ jobs:
       # spec, a hung teardown, anything after bring-up. See #1246, #1174.
       # Activation keys are per machine: each remote node has its own
       # LIFERAY_LICENSE_<NODE> secret. Naming them here would put the node
-      # names in this public file, so the secrets arrive as one JSON object
-      # and the script picks the target's by the same rule. Only the path to
-      # a private file is passed on; the key itself would print in every later
-      # step's environment. See #1383, #805.
+      # names in this public file, and passing toJSON(secrets) instead makes
+      # GitHub hold every run for approval. So the name is computed and masked
+      # first, and the one secret is read with a computed key. Only the path
+      # to a private file is passed on; the key itself would print in every
+      # later step's environment. See #1383, #805.
+      - name: Resolve the target node's licence secret
+        if: env.E2E_TARGET_NODE != 'local' && env.E2E_TARGET_NODE != ''
+        run: python3 scripts/select_node_licence.py --resolve
+
       - name: Select the target node's activation key
         if: env.E2E_TARGET_NODE != 'local' && env.E2E_TARGET_NODE != ''
         env:
-          ALL_SECRETS: ${{ toJSON(secrets) }}
+          NODE_LICENCE: ${{ secrets[env.E2E_LICENCE_SECRET] }}
         run: python3 scripts/select_node_licence.py
 
       - name: Start LDM and run tests
