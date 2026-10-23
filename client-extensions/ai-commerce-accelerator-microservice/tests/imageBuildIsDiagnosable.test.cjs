@@ -218,7 +218,7 @@ describe('a failed build is never called a warm cache (#1235)', () => {
     "ℹ  The LDM project 'aica-e2e' already exists and this command will reconfigure it.",
     '▶  Synchronizing Assets',
     '▶  Starting Container Stack',
-    '❌  Command failed (Exit 1): /usr/bin/docker --context aws-2 compose up -d --remove-orphans',
+    '❌  Command failed (Exit 1): /usr/bin/docker --context node-b compose up -d --remove-orphans',
     'Error Details: http2: server: error reading preface from client dummy-1',
     '',
     'Dockerfile:27',

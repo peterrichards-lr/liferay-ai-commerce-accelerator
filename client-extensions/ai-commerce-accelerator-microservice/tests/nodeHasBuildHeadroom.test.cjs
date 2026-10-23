@@ -82,7 +82,7 @@ function headroomSource() {
  */
 function runGate({
   dfOutput,
-  target = 'aws-2',
+  target = 'node-b',
   minGb,
   dfAfterPrune,
   pruneFails = false,
@@ -184,7 +184,7 @@ describe('the node is measured before it is asked to build (#1278)', () => {
 
       expect(out.stdout).toMatch(/RECLAIMABLE/);
       // `ldm prune` does not exist; the command is `ldm system prune`.
-      expect(out.stdout).toMatch(/ldm system prune --node aws-2/);
+      expect(out.stdout).toMatch(/ldm system prune --node node-b/);
       expect(out.stdout).not.toMatch(/ldm prune --node/);
     });
 
@@ -246,7 +246,7 @@ describe('the node is measured before it is asked to build (#1278)', () => {
         dfAfterPrune: HEALTHY_DISK,
         pruneFails: true,
       });
-      expect(healed.stdout).toMatch(/::warning::Pruning 'aws-2' failed/);
+      expect(healed.stdout).toMatch(/::warning::Pruning 'node-b' failed/);
       expect(healed.status).toBe(0);
 
       const stuck = runGate({ dfOutput: FULL_DISK, pruneFails: true });
@@ -284,7 +284,7 @@ describe('the node is measured before it is asked to build (#1278)', () => {
 
   describe('where it runs', () => {
     it('measures the daemon through a container, not a host path', () => {
-      // `Docker Root Dir` is /mnt/docker-data/docker on aws-2 and
+      // `Docker Root Dir` is /mnt/docker-data/docker on node-b and
       // /var/lib/docker elsewhere. A hardcoded path reads the wrong mount,
       // which is how `/` at 81% was first mistaken for a healthy node.
       const source = headroomSource();

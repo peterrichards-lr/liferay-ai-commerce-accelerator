@@ -62,7 +62,7 @@ describe('--probe-url is passed only when a tunnel justifies it (#1257)', () => 
 
   it('passes it for a remote node, where the tunnel makes it necessary', () => {
     // #1088's actual case must keep working — this is not a revert.
-    expect(probeArgsFor('aws-1')).toBe('--probe-url http://aica-e2e.demo');
+    expect(probeArgsFor('node-a')).toBe('--probe-url http://aica-e2e.demo');
   });
 
   it('uses the same notion of "is there a tunnel" as open_node_tunnel', () => {

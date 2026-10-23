@@ -86,14 +86,14 @@ function planFor(requestedNode) {
 
 describe('the E2E shard plan (#1077)', () => {
   it('runs a single shard against a remote node', () => {
-    const plan = planFor('aws-2');
+    const plan = planFor('node-b');
 
-    expect(plan.target).toBe('aws-2');
+    expect(plan.target).toBe('node-b');
     expect(plan.matrix).toEqual({ shardIndex: [1], shardTotal: [1] });
   });
 
   it('does so for any remote node, not just the one that broke', () => {
-    expect(planFor('aws-1').matrix.shardIndex).toHaveLength(1);
+    expect(planFor('node-a').matrix.shardIndex).toHaveLength(1);
   });
 
   it('keeps three shards for local, where each owns its runner', () => {
@@ -113,10 +113,37 @@ describe('the E2E shard plan (#1077)', () => {
   it('never plans more shards than the shard total claims', () => {
     // The pair has to agree: Playwright is told `--shard i/total`, so a total
     // that does not match the number of jobs silently skips or repeats tests.
-    for (const node of ['local', 'aws-1', 'aws-2', '']) {
+    for (const node of ['local', 'node-a', 'node-b', '']) {
       const { matrix } = planFor(node);
 
       expect(matrix.shardTotal).toEqual([matrix.shardIndex.length]);
     }
+  });
+});
+
+// A dispatch names the nightly's node as `nightly`, not by its name: a name
+// typed into an input is shown on the run's page, and the nodes are Peter's
+// own (#1383). Empty cannot mean it - GitHub fills an empty input with its
+// default. And the two chains that resolve the target must stay one rule:
+// #718 was two chains that disagreed.
+describe('the target chain (#1383, #718)', () => {
+  const {
+    withoutHashComments: strip,
+  } = require('./fixtures/sourceComments.cjs');
+  const chains = () =>
+    strip(fs.readFileSync(WORKFLOW, 'utf8')).match(
+      /\$\{\{ \(github\.event\.inputs\.node_target[^}]*\}\}/g
+    ) || [];
+
+  it('is the same expression wherever the target is resolved', () => {
+    const found = chains();
+    expect(found).toHaveLength(2);
+    expect(new Set(found).size).toBe(1);
+  });
+
+  it('treats `nightly` as the secret target, never as a node name', () => {
+    expect(chains()[0]).toBe(
+      "${{ (github.event.inputs.node_target != 'nightly' && github.event.inputs.node_target) || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
+    );
   });
 });

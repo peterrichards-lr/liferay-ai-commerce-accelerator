@@ -18,14 +18,14 @@ on:
           - wake
           - sleep
           - enforce
+      # Free text, not a choice list: the options named Peter's own nodes in a
+      # public file. Empty acts on the LDM_NODE_TARGET secret's node, masked.
+      # A name typed here is shown on this run's page. See #1383.
       node:
-        description: 'Target Node Name (aws-1 or aws-2)'
+        description: 'Target node name from NODE_POWER_CONFIG, or empty for the default target'
         required: false
-        default: 'aws-1'
-        type: choice
-        options:
-          - aws-1
-          - aws-2
+        default: ''
+        type: string
       ttl:
         description: 'Wake TTL Duration (e.g. 2h, 4h, 30m)'
         required: false
@@ -47,18 +47,44 @@ jobs:
         with:
           python-version: '3.12'
 
+      # From a secret, never this repository: the config names Peter's own
+      # infrastructure. Every value is masked before anything can print it,
+      # including the region the credentials step needs. See #1383.
+      - name: Load and mask the target-node config
+        env:
+          NODE_POWER_CONFIG: ${{ secrets.NODE_POWER_CONFIG }}
+        run: |
+          python3 scripts/node_config_from_secret.py --write
+          REGION="$(python3 -c 'import json; n=json.load(open(".node-power-config.json"))["nodes"]; print(next((v.get("region") for v in n.values() if v.get("region")), ""))')"
+          if [ -z "$REGION" ]; then
+            echo "::error::No node in NODE_POWER_CONFIG declares a region. See #1383."
+            exit 1
+          fi
+          echo "AWS_REGION=$REGION" >> "$GITHUB_ENV"
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'eu-north-1' }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Execute Node Power Command
+        env:
+          REQUESTED_NODE: ${{ inputs.node }}
+          DEFAULT_NODE: ${{ secrets.LDM_NODE_TARGET }}
         run: |
-          TARGET_NODE="${{ secrets.LDM_NODE_TARGET }}"
-          TARGET_NODE="${TARGET_NODE:-${{ inputs.node }}}"
-          TARGET_NODE="${TARGET_NODE:-aws-1}"
+          # The input first: the secret used to override it, so a node chosen
+          # in the UI was silently replaced by the default one.
+          TARGET_NODE="${REQUESTED_NODE:-$DEFAULT_NODE}"
+          case "${{ inputs.action }}" in
+            wake|sleep)
+              if [ -z "$TARGET_NODE" ]; then
+                echo "::error::No target node: give one, or set the LDM_NODE_TARGET secret. See #1383."
+                exit 1
+              fi
+              ;;
+          esac
 
           if [ "${{ github.event_name }}" = "schedule" ]; then
             python3 scripts/manage_target_nodes.py enforce

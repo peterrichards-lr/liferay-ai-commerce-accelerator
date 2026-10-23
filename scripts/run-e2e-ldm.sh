@@ -61,7 +61,7 @@ if [ $VERBOSE -eq 1 ]; then
   echo "🛠️  Verbose mode enabled. Realized commands will be displayed with [CMD]."
 fi
 
-# Wake remote target node if targeting AWS compute (aws-1, aws-2). CI wakes the
+# Wake remote target node if targeting AWS compute (node-a, node-b). CI wakes the
 # same node in its own step first, but this is the only wake on a local run
 # against a remote node, so it stays - and it is fatal. As `|| true` it hid a
 # credentials failure for weeks: the suite then spent two hours testing a host
@@ -580,7 +580,7 @@ capture_node_routes_permissions() {
 # badly each alternative failed when tried:
 #
 #   1. The daemon's storage is not on a predictable path. `Docker Root Dir` is
-#      /mnt/docker-data/docker on aws-2 and /var/lib/docker elsewhere. Reading
+#      /mnt/docker-data/docker on node-b and /var/lib/docker elsewhere. Reading
 #      the wrong one is not hypothetical: the first pass at this diagnosis read
 #      `/` at 81% and called the node healthy while the mount that mattered was
 #      at 100%.
@@ -2005,45 +2005,39 @@ bundle_symbolic_name() {
 #
 # Absent secret means no file and no change in behaviour, so this is inert
 # until someone sets it - a local run without one behaves exactly as before.
-# Which secret holds the licence for the node this run targets.
+# The licence for the node this run targets.
 #
 # Activation keys are issued against a specific machine, so one licence cannot
-# serve every node. The variable is named after the target - `aws-1` reads
-# LIFERAY_LICENSE_AWS_1 - which makes sending one node's licence to another a
-# naming error rather than a silent activation failure twenty minutes in.
+# serve every node: each remote node has its own LIFERAY_LICENSE_<NODE> secret.
+# In CI, scripts/select_node_licence.py picks it from the secrets without the
+# workflow naming it - the names are the node names, and the workflow is public
+# (#1383) - writes it to a private file and passes the path as
+# LIFERAY_LICENSE_FILE.
 #
-# LIFERAY_LICENSE remains the unqualified fallback, so a local run and a
-# single-licence setup both keep working untouched.
-license_env_var() {
-    local target="${LDM_NODE_TARGET:-local}"
-
-    if [ -z "$target" ] || [ "$target" = "local" ]; then
-        echo "LIFERAY_LICENSE"
-        return 0
+# LIFERAY_LICENSE, a developer licence, is the fallback: right for a local run,
+# and named when a remote run has to use it, because an activation key issued
+# for a different machine will not activate this one.
+deploy_activation_key() {
+    local license="" source_var="the target node's activation key"
+    if [ -n "${LIFERAY_LICENSE_FILE:-}" ] && [ -r "$LIFERAY_LICENSE_FILE" ]; then
+        license="$(cat "$LIFERAY_LICENSE_FILE")"
     fi
 
-    echo "LIFERAY_LICENSE_$(printf '%s' "$target" | tr '[:lower:]' '[:upper:]' | tr -c 'A-Z0-9\n' '_')"
-}
+    local remote=0
+    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] && remote=1
 
-deploy_activation_key() {
-    local var
-    var=$(license_env_var)
-
-    local license="${!var:-}"
-    local source_var="$var"
-
-    if [ -z "$license" ] && [ "$var" != "LIFERAY_LICENSE" ]; then
+    if [ -z "$license" ]; then
         license="${LIFERAY_LICENSE:-}"
         source_var="LIFERAY_LICENSE"
 
-        if [ -n "$license" ]; then
-            echo "⚠️  $var is not set; falling back to LIFERAY_LICENSE for node '${LDM_NODE_TARGET}'."
+        if [ -n "$license" ] && [ $remote -eq 1 ]; then
+            echo "⚠️  No activation key is configured for node '${LDM_NODE_TARGET}'; falling back to LIFERAY_LICENSE."
             echo "   An activation key issued for a different machine will not activate this one."
         fi
     fi
 
     if [ -z "$license" ]; then
-        echo "ℹ️  Neither $var nor LIFERAY_LICENSE is set; deploying no activation key."
+        echo "ℹ️  No node activation key and no LIFERAY_LICENSE; deploying no activation key."
         echo "   An unactivated DXP serves its activation page for every request (#805)."
         return 0
     fi

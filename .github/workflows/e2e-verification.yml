@@ -5,15 +5,17 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
+      # Free text, not a choice list: the options named Peter's own nodes in a
+      # public file. `nightly` runs against the nightly's node from the
+      # LDM_NODE_TARGET secret, masked. A node name typed here is shown on
+      # this run's page, which masking cannot reach, so prefer `nightly`.
+      # Empty does not mean the nightly: GitHub fills an empty input with its
+      # default, `local`. See #1383.
       node_target:
-        description: 'LDM Target Node (local, aws-1, aws-2)'
+        description: 'Target: local, nightly (the nightly node, unnamed), or a node name from NODE_POWER_CONFIG'
         required: false
         default: 'local'
-        type: choice
-        options:
-          - local
-          - aws-1
-          - aws-2
+        type: string
       ai_provider:
         description: 'Live AI provider. Choosing one spends money; none runs the pre-generated dataset.'
         required: false
@@ -138,10 +140,24 @@ jobs:
       # digest serves as well as the name - and leaks nothing.
       node_key: ${{ steps.plan.outputs.node_key }}
     steps:
+      # Masked before the target is resolved, so nothing below can print a
+      # node in clear. Masks are per job, so each job that names a node does
+      # this for itself. See #1383.
+      - name: Fetch the node-masking helper
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/node_config_from_secret.py
+          sparse-checkout-cone-mode: false
+
+      - name: Mask the target nodes
+        env:
+          NODE_POWER_CONFIG: ${{ secrets.NODE_POWER_CONFIG }}
+        run: python3 scripts/node_config_from_secret.py
+
       - name: Resolve the target node and the shard plan
         id: plan
         env:
-          REQUESTED_NODE: ${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
+          REQUESTED_NODE: ${{ (github.event.inputs.node_target != 'nightly' && github.event.inputs.node_target) || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
         run: |
           TARGET="${REQUESTED_NODE:-local}"
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
@@ -199,10 +215,10 @@ jobs:
       # Resolved once for the whole job so wake, run and sleep are incapable of
       # naming different nodes. They previously each re-derived it, and the
       # sleep step's chain omitted secrets.LDM_NODE_TARGET - the one the nightly
-      # actually uses - so it fell through to a literal 'aws-1' and powered off
+      # actually uses - so it fell through to a literal node name and powered off
       # an instance the suite had never touched, leaving the instance it did use
       # running and billable every night (#718).
-      E2E_TARGET_NODE: ${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
+      E2E_TARGET_NODE: ${{ (github.event.inputs.node_target != 'nightly' && github.event.inputs.node_target) || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
 
     steps:
       # Two places now decide what the target is: the plan job, to choose a
@@ -231,6 +247,14 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v7
+
+      # The node config comes from a secret, never this repository: it names
+      # Peter's own infrastructure. Every value is masked before it is written,
+      # and before any later step can print it. See #1383.
+      - name: Load and mask the target-node config
+        env:
+          NODE_POWER_CONFIG: ${{ secrets.NODE_POWER_CONFIG }}
+        run: python3 scripts/node_config_from_secret.py --write
 
       - name: Setup Java
         uses: actions/setup-java@v6
@@ -597,6 +621,23 @@ jobs:
       # 347 KB for a run that failed normally. It is a backstop against
       # unbounded cost, covering the stalls LDM's bound does not: a wedged
       # spec, a hung teardown, anything after bring-up. See #1246, #1174.
+      # Activation keys are per machine: each remote node has its own
+      # LIFERAY_LICENSE_<NODE> secret. Naming them here would put the node
+      # names in this public file, and passing toJSON(secrets) instead makes
+      # GitHub hold every run for approval. So the name is computed and masked
+      # first, and the one secret is read with a computed key. Only the path
+      # to a private file is passed on; the key itself would print in every
+      # later step's environment. See #1383, #805.
+      - name: Resolve the target node's licence secret
+        if: env.E2E_TARGET_NODE != 'local' && env.E2E_TARGET_NODE != ''
+        run: python3 scripts/select_node_licence.py --resolve
+
+      - name: Select the target node's activation key
+        if: env.E2E_TARGET_NODE != 'local' && env.E2E_TARGET_NODE != ''
+        env:
+          NODE_LICENCE: ${{ secrets[env.E2E_LICENCE_SECRET] }}
+        run: python3 scripts/select_node_licence.py
+
       - name: Start LDM and run tests
         timeout-minutes: 60
         run: |
@@ -630,11 +671,8 @@ jobs:
           # none of which names the cause (#805). Absent secret means no key is
           # deployed and the run behaves exactly as it did before.
           LIFERAY_LICENSE: ${{ secrets.LIFERAY_LICENSE }}
-          # Activation keys are issued per machine, so each node needs its own.
-          # The script reads LIFERAY_LICENSE_<TARGET> and falls back to the
-          # unqualified one (#805).
-          LIFERAY_LICENSE_AWS_1: ${{ secrets.LIFERAY_LICENSE_AWS_1 }}
-          LIFERAY_LICENSE_AWS_2: ${{ secrets.LIFERAY_LICENSE_AWS_2 }}
+          # The target node's own key arrives as LIFERAY_LICENSE_FILE, set by
+          # the selection step above; LIFERAY_LICENSE is the fallback (#805).
           # Injected only when a dispatch explicitly names a provider.
           #
           # `dashboard.spec.js` gates Live (AI) Mode on whether a key is
@@ -659,6 +697,23 @@ jobs:
       - name: Stop background resource monitor
         if: always()
         run: kill "$(cat resource-monitor.pid)" 2>/dev/null || true
+
+      # Masking reaches the live log only; artifacts are uploaded as written,
+      # and on a public repository anyone can download them. So every node
+      # value - from the secret, plus the hosts learned at run time - is
+      # replaced with *** in the files about to be uploaded. See #1383.
+      - name: Redact target-node details from the artifacts
+        if: always()
+        env:
+          NODE_POWER_CONFIG: ${{ secrets.NODE_POWER_CONFIG }}
+        run: |
+          shopt -s nullglob
+          paths=(resource-monitor.log logs client-extensions/*/logs test-results playwright-report)
+          existing=()
+          for p in "${paths[@]}"; do [ -e "$p" ] && existing+=("$p"); done
+          if [ ${#existing[@]} -gt 0 ]; then
+            python3 scripts/node_config_from_secret.py --redact "${existing[@]}"
+          fi
 
       - name: Upload resource monitor log
         uses: actions/upload-artifact@v7

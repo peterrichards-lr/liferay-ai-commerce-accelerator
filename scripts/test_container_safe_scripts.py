@@ -8,7 +8,7 @@ That is not a hypothetical. `check-docs-rendered.sh` was added on 2026-10-15
 without the guard the other three already carried. Liferay ran it with
 `/mnt/liferay/scripts` as its argument, it found no HTML and exited 1 - exactly
 as designed - and every bring-up from 2026-10-16 failed in ~130s with an empty
-Liferay log. Identical on ldm 2.26.3 and 2.26.6, and on aws-1 and aws-2, so
+Liferay log. Identical on ldm 2.26.3 and 2.26.6, and on node-a and node-b, so
 neither the version nor the node had anything to do with it. See #1360.
 
 The hazard is the DIRECTORY, not that one file. This checks all of them, so

@@ -52,7 +52,7 @@ function capture(stage, preamble) {
 }
 
 const REMOTE = [
-  'LDM_NODE_TARGET=aws-2',
+  'LDM_NODE_TARGET=node-b',
   'PROJECT_NAME=aica-e2e',
   'DOCKER_HOST=ssh://user@10.0.0.1',
   'node_ssh_endpoint() { echo "user@10.0.0.1"; }',

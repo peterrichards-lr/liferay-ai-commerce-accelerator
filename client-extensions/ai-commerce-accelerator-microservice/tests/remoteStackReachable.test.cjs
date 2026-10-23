@@ -180,7 +180,7 @@ function harness({ node, ldmrc, sshBehaviour = 'sleep 5' }) {
 const STANDIN = 'tunnel-standin';
 
 const LDMRC = {
-  targets: { 'aws-2': { host: '203.0.113.9', user: 'ldm-automation' } },
+  targets: { 'node-b': { host: '203.0.113.9', user: 'ldm-automation' } },
 };
 
 // Binding 443 needs privilege, so these assert what the tunnel is asked to do,
@@ -272,7 +272,7 @@ describe('the tunnel command is built, not guessed', () => {
       {
         cwd: dir,
         encoding: 'utf8',
-        env: { PATH: process.env.PATH, HOME: dir, LDM_NODE_TARGET: 'aws-2' },
+        env: { PATH: process.env.PATH, HOME: dir, LDM_NODE_TARGET: 'node-b' },
       }
     ).trim();
 
@@ -290,7 +290,7 @@ describe('a remote stack is reached through the tunnel, not the open internet', 
     // failure. Continuing would run the suite against nothing, which is the
     // failure mode that cost a full run.
     const result = harness({
-      node: 'aws-2',
+      node: 'node-b',
       ldmrc: LDMRC,
       sshBehaviour: 'exit 1',
     });
@@ -300,7 +300,7 @@ describe('a remote stack is reached through the tunnel, not the open internet', 
   });
 
   it('fails loudly when no address was ever recorded', () => {
-    const result = harness({ node: 'aws-2', ldmrc: undefined });
+    const result = harness({ node: 'node-b', ldmrc: undefined });
 
     expect(result.sshRan).toBe(false);
     expect(result.stdout).toMatch(/No SSH endpoint recorded/);

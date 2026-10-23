@@ -80,22 +80,22 @@ function planFor(requestedNode) {
 
 describe('runs serialise on the node they share', () => {
   it('gives each remote node its own key', () => {
-    // Two nodes must not collide, or a run on aws-1 would block aws-2.
-    expect(planFor('aws-1').nodeKey).not.toBe(planFor('aws-2').nodeKey);
+    // Two nodes must not collide, or a run on node-a would block node-b.
+    expect(planFor('node-a').nodeKey).not.toBe(planFor('node-b').nodeKey);
   });
 
   it('gives the same node the same key every time', () => {
     // The key is only useful if it is stable: a per-run value would put every
     // run in its own group and serialise nothing.
-    expect(planFor('aws-2').nodeKey).toBe(planFor('aws-2').nodeKey);
+    expect(planFor('node-b').nodeKey).toBe(planFor('node-b').nodeKey);
   });
 
   it('never puts the node name in the key', () => {
     // The name equals a secret. Emitting it gets the output scrubbed to empty,
     // which is the failure this exists to avoid.
-    const { nodeKey } = planFor('aws-2');
+    const { nodeKey } = planFor('node-b');
 
-    expect(nodeKey).not.toContain('aws-2');
+    expect(nodeKey).not.toContain('node-b');
     expect(nodeKey).toMatch(/^node-[0-9a-f]{12}$/);
   });
 

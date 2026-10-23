@@ -81,7 +81,7 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
     run(
       'remove_stale_node_dxp_tree',
       [
-        'LDM_NODE_TARGET=aws-1',
+        'LDM_NODE_TARGET=node-a',
         'PROJECT_NAME=aica-e2e',
         'TARGET_HOST=aica-e2e.demo',
         'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
@@ -163,7 +163,7 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
     const out = run(
       'remove_stale_node_dxp_tree',
       [
-        'LDM_NODE_TARGET=aws-1',
+        'LDM_NODE_TARGET=node-a',
         'PROJECT_NAME=""',
         'TARGET_HOST=aica-e2e.demo',
         'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
@@ -198,7 +198,7 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
     const out = run(
       'remove_stale_node_dxp_tree',
       [
-        'LDM_NODE_TARGET=aws-1',
+        'LDM_NODE_TARGET=node-a',
         'PROJECT_NAME=aica-e2e',
         'TARGET_HOST=aica-e2e.demo',
         'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
@@ -216,7 +216,7 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
     const out = run(
       'remove_stale_node_dxp_tree',
       [
-        'LDM_NODE_TARGET=aws-1',
+        'LDM_NODE_TARGET=node-a',
         'PROJECT_NAME=aica-e2e',
         'TARGET_HOST=aica-e2e.demo',
         'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
@@ -236,7 +236,7 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
     const out = run(
       'remove_stale_node_dxp_tree',
       [
-        'LDM_NODE_TARGET=aws-1',
+        'LDM_NODE_TARGET=node-a',
         'PROJECT_NAME=aica-e2e',
         'TARGET_HOST=aica-e2e.demo',
         'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
@@ -256,7 +256,7 @@ describe('the stale DXP tree is removed before the build (#1252)', () => {
     const out = run(
       'remove_stale_node_dxp_tree',
       [
-        'LDM_NODE_TARGET=aws-1',
+        'LDM_NODE_TARGET=node-a',
         'PROJECT_NAME=aica-e2e',
         'TARGET_HOST=aica-e2e.demo',
         'node_ssh_endpoint() { echo "user@10.0.0.1"; }',
