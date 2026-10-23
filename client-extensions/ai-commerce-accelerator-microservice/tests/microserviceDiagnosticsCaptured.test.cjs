@@ -342,7 +342,7 @@ describe('microservice container diagnostics', () => {
       // probe satisfy an assertion written for the other.
       return body.slice(
         body.indexOf("the company's virtual host"),
-        body.indexOf('OAuth2 applications and granted scopes')
+        body.indexOf('OAuth2 applications and the scope aliases that resolved')
       );
     };
 
@@ -377,19 +377,21 @@ describe('microservice container diagnostics', () => {
     });
   });
 
-  // Liferay refuses the microservice once it is reachable (#1375). What the
-  // yaml requests is no evidence of what was granted, so the grant is read
-  // from the database - from the same table that holds the client secret.
-  describe('the OAuth2 applications and their granted scopes (#1375)', () => {
+  // Liferay refuses the microservice once it is reachable (#1375). A scope
+  // alias the yaml requests resolves to a registered scope only if that scope
+  // existed when the aliases were saved - OAuth2ScopeGrant records the match,
+  // it is not an OAuth grant - so the resolution is read from the database,
+  // the same database that holds the client secret.
+  describe('the OAuth2 applications and the aliases that resolved (#1375)', () => {
     const probe = () => {
       const body = functionSource('capture_microservice_diagnostics');
       return body.slice(
-        body.indexOf('OAuth2 applications and granted scopes'),
+        body.indexOf('OAuth2 applications and the scope aliases that resolved'),
         body.indexOf('as the running Liferay reads them')
       );
     };
 
-    test('reads applications and the scopes actually granted', () => {
+    test('reads applications and the aliases that resolved', () => {
       expect(probe()).toMatch(/from oauth2application/i);
       expect(probe()).toMatch(/from oauth2scopegrant/i);
       expect(probe()).toMatch(/scopealiases/i);

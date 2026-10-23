@@ -1633,17 +1633,23 @@ capture_microservice_diagnostics() {
             2>&1 | head -20 \
             || echo "(virtual host unreadable - the db container may not be up at this stage)"
         echo
-        # The OAuth2 applications Liferay holds now, and what each was actually
-        # GRANTED - not what client-extension.yaml asked for. Liferay drops a
-        # scope it does not know at registration time, and the object scope
-        # `c_aicaconfiguration.everything` was requested four seconds after the
-        # object definition was added, so the yaml is no evidence the grant
-        # exists. The client-credentials user is listed because a 403 on an
-        # object is as likely that user's permissions as a missing scope. The
-        # client id is a sha256 prefix, matching the routes-tree
-        # listing below, so a stale id in the tree shows up as a hash with no
-        # row here. See #1375.
-        echo "=== OAuth2 applications and granted scopes (#1375) ==="
+        # The OAuth2 applications Liferay holds now, and which of the scope
+        # aliases each requests RESOLVED to a registered scope.
+        #
+        # OAuth2ScopeGrant is not an OAuth grant - nothing is issued to a token
+        # and nobody consents. When an application's aliases are saved,
+        # Liferay resolves each against the REST scopes registered at that
+        # moment and writes one row per match; an alias matching nothing gets
+        # no row, silently, and nothing re-resolves it until the aliases are
+        # saved again (OAuth2ApplicationScopeAliasesLocalServiceImpl). So
+        # client-extension.yaml is no evidence an alias resolved: the object
+        # scope `c_aicaconfiguration.everything` was requested before the
+        # object's REST scope existed. The client-credentials user is listed
+        # because a 403 on an object is as likely that user's permissions. The
+        # client id is a sha256 prefix, matching the routes-tree listing below,
+        # so a stale id in the tree shows up as a hash with no row here. See
+        # #1375, #1379.
+        echo "=== OAuth2 applications and the scope aliases that resolved (#1375) ==="
         docker exec "${PROJECT_NAME:-aica-e2e}-db" sh -c \
             'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
                 "select a.externalreferencecode,
