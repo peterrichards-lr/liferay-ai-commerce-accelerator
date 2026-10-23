@@ -6,7 +6,11 @@ const axios = require('axios');
 const { logger } = require('../utils/logger.cjs');
 const { ENV } = require('../utils/constants.cjs');
 const { CORRELATION_ID_HEADER } = require('../utils/sharedConstants.cjs');
-const { isValidAbsoluteUrl } = require('../utils/liferayEnv.cjs');
+const {
+  isUsableLiferayUrl,
+  isValidAbsoluteUrl,
+  tryBuildColocatedLiferayUrl,
+} = require('../utils/liferayEnv.cjs');
 
 const JWKS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -134,6 +138,21 @@ async function verifyBearerToken(token, liferayUrl) {
     return null;
   };
 
+  if (!liferayUrl) {
+    // Named, not attempted: with no usable address the old fallback fetched
+    // the JWKS from localhost inside the container and reported only that
+    // verification failed. See #1378.
+    logger.error(
+      'JWT Verification Failed: no usable Liferay URL to fetch the JWKS from',
+      { operation: 'jwt-verify' }
+    );
+    const err = new Error(
+      'Internal identity verification failure: Liferay URL unresolved'
+    );
+    err.status = 500;
+    throw err;
+  }
+
   let key;
   try {
     const jwks = await fetchLiferayJwks(liferayUrl);
@@ -183,10 +202,18 @@ function resolveLiferayUrl(req) {
   // token is verified, so inverting the resolution needs an issuer allowlist
   // and is tracked separately on #824.
   //
-  // Through ENV so the LXC configuration layer is consulted as well as the
-  // environment, and so the localhost default is written once (#933).
-  return (
-    configurationSourceUrl(req) || req?.config?.liferayUrl || ENV.LIFERAY_URL
+  // After those, the same resolution the rest of the microservice uses: the
+  // DXP config tree, which the watcher keeps current (#1373), then the
+  // environment. A loopback answer is refused when colocated - `localhost`
+  // inside this container is this container - which is the rule #1137
+  // applied everywhere except here. A browser request names no source and
+  // carries no config, so it fell straight through to `ENV.LIFERAY_URL`'s
+  // localhost default and every call failed fetching the JWKS. See #1378.
+  const explicit = configurationSourceUrl(req) || req?.config?.liferayUrl;
+  if (explicit) return explicit;
+
+  return [tryBuildColocatedLiferayUrl(), ENV.LIFERAY_URL].find(
+    isUsableLiferayUrl
   );
 }
 
