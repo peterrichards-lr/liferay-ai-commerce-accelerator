@@ -217,7 +217,13 @@ describe('the JWKS URL follows the DXP tree when colocated (#1378)', () => {
   });
 
   it('names the missing URL rather than fetching from localhost', async () => {
-    const token = jwt.sign({ sub: 'u' }, 'not-the-real-key');
+    // Any decodable token will do: verification fails before any key is used.
+    // A random key, not a literal - a hardcoded JWT secret is what Semgrep
+    // blocks, and rightly, even in a test.
+    const token = jwt.sign(
+      { sub: 'u' },
+      require('crypto').randomBytes(32).toString('hex')
+    );
 
     await expect(verifyBearerToken(token, undefined)).rejects.toMatchObject({
       status: 500,
