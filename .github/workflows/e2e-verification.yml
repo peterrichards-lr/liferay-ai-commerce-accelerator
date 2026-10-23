@@ -6,12 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       # Free text, not a choice list: the options named Peter's own nodes in a
-      # public file. Empty runs the nightly's target from the LDM_NODE_TARGET
-      # secret, masked. A name typed here is shown on this run's page, which
-      # masking cannot reach - so leave it empty unless a specific node is
-      # needed. See #1383.
+      # public file. `nightly` runs against the nightly's node from the
+      # LDM_NODE_TARGET secret, masked. A node name typed here is shown on
+      # this run's page, which masking cannot reach, so prefer `nightly`.
+      # Empty does not mean the nightly: GitHub fills an empty input with its
+      # default, `local`. See #1383.
       node_target:
-        description: 'Target node: local, a node name from NODE_POWER_CONFIG, or empty for the nightly target'
+        description: 'Target: local, nightly (the nightly node, unnamed), or a node name from NODE_POWER_CONFIG'
         required: false
         default: 'local'
         type: string
@@ -156,7 +157,7 @@ jobs:
       - name: Resolve the target node and the shard plan
         id: plan
         env:
-          REQUESTED_NODE: ${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
+          REQUESTED_NODE: ${{ (github.event.inputs.node_target != 'nightly' && github.event.inputs.node_target) || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
         run: |
           TARGET="${REQUESTED_NODE:-local}"
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
@@ -217,7 +218,7 @@ jobs:
       # actually uses - so it fell through to a literal node name and powered off
       # an instance the suite had never touched, leaving the instance it did use
       # running and billable every night (#718).
-      E2E_TARGET_NODE: ${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
+      E2E_TARGET_NODE: ${{ (github.event.inputs.node_target != 'nightly' && github.event.inputs.node_target) || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
 
     steps:
       # Two places now decide what the target is: the plan job, to choose a

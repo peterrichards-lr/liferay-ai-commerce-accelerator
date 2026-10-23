@@ -156,7 +156,7 @@ docker exec -u 0 <container> mv /tmp/aica-staging/artifact.zip /opt/liferay/depl
 | `LIFERAY_LICENSE`        | A developer licence, used locally and as the named fallback                                                                                                                                                                                                   |
 
 - **Masking**: GitHub masks a secret only as its exact full value, and the parts of `NODE_POWER_CONFIG` are printed separately (a node name in a log line, an instance id by the AWS CLI). So every job that touches a node runs `scripts/node_config_from_secret.py` first. It emits `::add-mask::` for each node name, instance id, region and host, and with `--write` writes `.node-power-config.json` for `node_power.sh` and the E2E. Masks are per job, so each job does this for itself.
-- **What masking cannot reach**: a `workflow_dispatch` input is shown on that run's page. Leave `node_target` empty to run against the nightly's target from the secret; a node name typed there is published on that run.
+- **What masking cannot reach**: a `workflow_dispatch` input is shown on that run's page. Dispatch with `node_target=nightly` to run against the nightly's node from the secret without naming it; a node name typed there is published on that run. An empty input is not the nightly: GitHub fills it with the default, `local`.
 
 ## LDM URL Resolution and Protocol Support
 

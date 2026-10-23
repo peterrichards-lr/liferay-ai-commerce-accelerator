@@ -120,3 +120,30 @@ describe('the E2E shard plan (#1077)', () => {
     }
   });
 });
+
+// A dispatch names the nightly's node as `nightly`, not by its name: a name
+// typed into an input is shown on the run's page, and the nodes are Peter's
+// own (#1383). Empty cannot mean it - GitHub fills an empty input with its
+// default. And the two chains that resolve the target must stay one rule:
+// #718 was two chains that disagreed.
+describe('the target chain (#1383, #718)', () => {
+  const {
+    withoutHashComments: strip,
+  } = require('./fixtures/sourceComments.cjs');
+  const chains = () =>
+    strip(fs.readFileSync(WORKFLOW, 'utf8')).match(
+      /\$\{\{ \(github\.event\.inputs\.node_target[^}]*\}\}/g
+    ) || [];
+
+  it('is the same expression wherever the target is resolved', () => {
+    const found = chains();
+    expect(found).toHaveLength(2);
+    expect(new Set(found).size).toBe(1);
+  });
+
+  it('treats `nightly` as the secret target, never as a node name', () => {
+    expect(chains()[0]).toBe(
+      "${{ (github.event.inputs.node_target != 'nightly' && github.event.inputs.node_target) || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}"
+    );
+  });
+});
