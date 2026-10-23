@@ -82,10 +82,29 @@ function configurationSourceError(message, userMessage, detail) {
  * set have to be told apart, or a panel setting can appear to work while doing
  * nothing.
  */
+/**
+ * A 403 reading the configuration object, which right after boot means Liferay
+ * has not resolved this application's `c_aicaconfiguration` scope alias yet.
+ *
+ * Liferay resolves an application's scope aliases against the REST scopes
+ * registered when the aliases are saved, and the object's scope only exists
+ * once the batch extension has imported its definition - after the extensions
+ * register. The alias stays unresolved until the applications are re-saved,
+ * about ten minutes into a fresh install. A 403 can also be the client
+ * credentials user's permissions, so the message names both. See #1379.
+ */
+function isScopeNotYetResolved(cause) {
+  return cause?.status === 403;
+}
+
 function configurationUnavailable(cause, description) {
   const where = description?.sameAsTarget
     ? `the target instance (${description?.liferayUrl})`
     : `the configuration source (${description?.liferayUrl})`;
+
+  if (isScopeNotYetResolved(cause)) {
+    return scopeNotYetResolved(cause, description, where);
+  }
 
   const error = new Error(
     `AICA configuration could not be read from ${where}: ${cause?.message || cause}`
@@ -106,6 +125,49 @@ function configurationUnavailable(cause, description) {
     detail: `The configuration read against ${where} did not complete.`,
   };
   return error;
+}
+
+function scopeNotYetResolved(cause, description, where) {
+  const error = new Error(
+    `AICA configuration is not readable yet from ${where}: Liferay refused it (403)`
+  );
+  // The same name as any unavailable configuration, so every caller that
+  // already refuses to substitute a default keeps doing so.
+  error.name = 'ConfigurationSourceUnavailableError';
+  error.statusCode = 503;
+  error.operation = 'configuration-source-read';
+  error.cause = cause;
+  error.configurationSource = description;
+  error.userMessage =
+    `Liferay refused AICA's configuration read from ${where}. Right after a ` +
+    'fresh install this is expected for up to about ten minutes, while ' +
+    "Liferay finishes registering the configuration object's API scope; AICA " +
+    'keeps retrying. If it lasts longer, check that the OAuth application ' +
+    'includes the c_aicaconfiguration scope and that its user can read the ' +
+    'AICA Configuration object.';
+  error.errorReference = cause?.errorReference || createERC(ERC_PREFIX.ERROR);
+  error.problem = {
+    status: 'CONFIGURATION_SCOPE_NOT_RESOLVED',
+    detail: `Liferay answered 403 for the configuration object at ${where}.`,
+  };
+  return error;
+}
+
+/**
+ * Logs a failed configuration read once, at the level it deserves. The
+ * expected startup 403 is a warning without a stack trace: logged as an error
+ * with a stack on every request, it buried the log for ten minutes and read
+ * like a permissions bug. Anything else keeps the full error. See #1379.
+ */
+function logConfigurationReadFailure(logger, cause, context) {
+  if (isScopeNotYetResolved(cause)) {
+    logger?.warn?.(
+      "Liferay refused the AICA configuration read (403): the configuration object's scope is not resolved yet, which is expected for about ten minutes after a fresh install. Retrying on the next request. See #1379.",
+      { ...context, status: 403 }
+    );
+    return;
+  }
+  logger?.errorWithStack?.(cause, context);
 }
 
 /**
@@ -261,6 +323,8 @@ module.exports = {
   CONFIGURATION_SOURCE: SOURCE,
   configurationUnavailable,
   describeConfigurationSource,
+  isScopeNotYetResolved,
+  logConfigurationReadFailure,
   normalizeConfigurationSource,
   resolveConfigurationSource,
 };

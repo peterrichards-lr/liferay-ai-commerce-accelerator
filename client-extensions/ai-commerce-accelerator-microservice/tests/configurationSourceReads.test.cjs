@@ -176,6 +176,73 @@ describe('ConfigService reads over the configuration source (#824)', () => {
     });
   });
 
+  // Right after a fresh install Liferay answers 403 until it resolves the
+  // configuration object's scope alias, about ten minutes in. #1379.
+  describe('a configuration object Liferay refuses (403)', () => {
+    const forbidden = () => {
+      const e = new Error('Forbidden');
+      e.name = 'LiferayRequestError';
+      e.status = 403;
+      return e;
+    };
+
+    beforeEach(() => {
+      configService.liferay.getConfig.mockRejectedValue(forbidden());
+    });
+
+    it('says it is not readable yet, as a 503 to retry', async () => {
+      const error = await configService
+        .getAIConfig({ ...TARGET, configSource: CONFIG_SOURCE })
+        .catch((e) => e);
+
+      // The same name, so nothing that refuses to substitute a default changes.
+      expect(error.name).toBe('ConfigurationSourceUnavailableError');
+      expect(error.statusCode).toBe(503);
+      expect(error.problem.status).toBe('CONFIGURATION_SCOPE_NOT_RESOLVED');
+      expect(error.userMessage).toMatch(/up to about ten minutes/);
+      // Both causes named: a 403 is also the user's permissions.
+      expect(error.userMessage).toMatch(/c_aicaconfiguration scope/);
+      expect(error.userMessage).toMatch(/its user can read/);
+    });
+
+    it('logs a warning, not a stack trace on every request', async () => {
+      await configService
+        .getAIChunkSizes({ ...TARGET, configSource: CONFIG_SOURCE })
+        .catch(() => {});
+
+      expect(mockCtx.logger.errorWithStack).not.toHaveBeenCalled();
+      expect(mockCtx.logger.warn).toHaveBeenCalledWith(
+        expect.stringMatching(/not resolved yet.*#1379/),
+        expect.objectContaining({ status: 403 })
+      );
+    });
+
+    it('keeps retrying: a later read that succeeds is used', async () => {
+      await configService
+        .getAIConfig({ ...TARGET, configSource: CONFIG_SOURCE })
+        .catch(() => {});
+      configService.liferay.getConfig.mockResolvedValue({
+        items: [{ configValue: JSON.stringify({ provider: 'openai' }) }],
+      });
+
+      await expect(
+        configService.getAIConfig({ ...TARGET, configSource: CONFIG_SOURCE })
+      ).resolves.toBeTruthy();
+    });
+  });
+
+  it('still reports any other failure with its stack', async () => {
+    configService.liferay.getConfig.mockRejectedValue(
+      new Error('connect ECONNREFUSED 127.0.0.1:8080')
+    );
+    const error = await configService
+      .getAIConfig({ ...TARGET, configSource: CONFIG_SOURCE })
+      .catch((e) => e);
+
+    expect(error.statusCode).toBe(502);
+    expect(mockCtx.logger.errorWithStack).toHaveBeenCalled();
+  });
+
   describe('a configuration source that answers but holds nothing', () => {
     it('does not invent a model, and says the default was applied', async () => {
       ENV.AI_API_KEY = 'sk-from-env';

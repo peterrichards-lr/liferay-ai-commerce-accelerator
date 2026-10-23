@@ -16,6 +16,7 @@ const {
 const {
   configurationUnavailable,
   describeConfigurationSource,
+  logConfigurationReadFailure,
   resolveConfigurationSource,
 } = require('../utils/configurationSource.cjs');
 const { emptyExcludeLists } = require('@liferay/accelerator-sdk');
@@ -290,7 +291,7 @@ class ConfigService {
       response = await liferay.getConfig(connection, configKey);
     } catch (err) {
       const erc = err?.errorReference || createERC(ERC_PREFIX.ERROR);
-      logger?.errorWithStack?.(err, {
+      logConfigurationReadFailure(logger, err, {
         operation: 'liferay-get-config',
         errorReference: erc,
         configurationSource: description,
@@ -965,7 +966,7 @@ class ConfigService {
       resp = await liferay.getConfig(connection, AI_CONFIG_KEY);
     } catch (error) {
       const erc = error?.errorReference || createERC(ERC_PREFIX.ERROR);
-      this.logger?.errorWithStack?.(error, {
+      logConfigurationReadFailure(this.logger, error, {
         operation: 'get-ai-config',
         errorReference: erc,
         configurationSource: description,
