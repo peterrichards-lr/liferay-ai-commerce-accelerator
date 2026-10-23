@@ -61,7 +61,7 @@ if [ $VERBOSE -eq 1 ]; then
   echo "🛠️  Verbose mode enabled. Realized commands will be displayed with [CMD]."
 fi
 
-# Wake remote target node if targeting AWS compute (aws-1, aws-2). CI wakes the
+# Wake remote target node if targeting AWS compute (node-a, node-b). CI wakes the
 # same node in its own step first, but this is the only wake on a local run
 # against a remote node, so it stays - and it is fatal. As `|| true` it hid a
 # credentials failure for weeks: the suite then spent two hours testing a host
@@ -580,7 +580,7 @@ capture_node_routes_permissions() {
 # badly each alternative failed when tried:
 #
 #   1. The daemon's storage is not on a predictable path. `Docker Root Dir` is
-#      /mnt/docker-data/docker on aws-2 and /var/lib/docker elsewhere. Reading
+#      /mnt/docker-data/docker on node-b and /var/lib/docker elsewhere. Reading
 #      the wrong one is not hypothetical: the first pass at this diagnosis read
 #      `/` at 81% and called the node healthy while the mount that mattered was
 #      at 100%.
@@ -2005,45 +2005,57 @@ bundle_symbolic_name() {
 #
 # Absent secret means no file and no change in behaviour, so this is inert
 # until someone sets it - a local run without one behaves exactly as before.
-# Which secret holds the licence for the node this run targets.
+# The licence for the node this run targets.
 #
 # Activation keys are issued against a specific machine, so one licence cannot
-# serve every node. The variable is named after the target - `aws-1` reads
-# LIFERAY_LICENSE_AWS_1 - which makes sending one node's licence to another a
-# naming error rather than a silent activation failure twenty minutes in.
+# serve every node. LIFERAY_LICENSES holds them all, as one JSON secret mapping
+# each node name to its activation key, base64-encoded so the XML survives JSON
+# and the shell exactly. It replaced one secret per node: those were named after
+# the node, and the names sat in the public workflow (#1383).
 #
-# LIFERAY_LICENSE remains the unqualified fallback, so a local run and a
-# single-licence setup both keep working untouched.
-license_env_var() {
+# LIFERAY_LICENSE remains the unqualified fallback, verbatim XML, so a local run
+# and a single-licence setup both keep working untouched.
+#
+# Prints the licence to stdout, never to the log, and nothing at all when the
+# map has no entry for this node.
+node_license_from_map() {
     local target="${LDM_NODE_TARGET:-local}"
+    [ -n "${LIFERAY_LICENSES:-}" ] || return 0
+    [ -n "$target" ] && [ "$target" != "local" ] || return 0
 
-    if [ -z "$target" ] || [ "$target" = "local" ]; then
-        echo "LIFERAY_LICENSE"
-        return 0
-    fi
-
-    echo "LIFERAY_LICENSE_$(printf '%s' "$target" | tr '[:lower:]' '[:upper:]' | tr -c 'A-Z0-9\n' '_')"
+    LIFERAY_LICENSES="$LIFERAY_LICENSES" python3 - "$target" <<'PY'
+import base64, json, os, sys
+try:
+    entry = json.loads(os.environ["LIFERAY_LICENSES"]).get(sys.argv[1])
+except ValueError:
+    sys.exit(0)
+if isinstance(entry, str) and entry.strip():
+    try:
+        sys.stdout.write(base64.b64decode(entry.strip(), validate=True).decode())
+    except ValueError:
+        pass
+PY
 }
 
 deploy_activation_key() {
-    local var
-    var=$(license_env_var)
+    local license source_var="LIFERAY_LICENSES"
+    license="$(node_license_from_map)" || license=""
 
-    local license="${!var:-}"
-    local source_var="$var"
+    local remote=0
+    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] && remote=1
 
-    if [ -z "$license" ] && [ "$var" != "LIFERAY_LICENSE" ]; then
+    if [ -z "$license" ]; then
         license="${LIFERAY_LICENSE:-}"
         source_var="LIFERAY_LICENSE"
 
-        if [ -n "$license" ]; then
-            echo "⚠️  $var is not set; falling back to LIFERAY_LICENSE for node '${LDM_NODE_TARGET}'."
+        if [ -n "$license" ] && [ $remote -eq 1 ]; then
+            echo "⚠️  LIFERAY_LICENSES has no usable entry for node '${LDM_NODE_TARGET}'; falling back to LIFERAY_LICENSE."
             echo "   An activation key issued for a different machine will not activate this one."
         fi
     fi
 
     if [ -z "$license" ]; then
-        echo "ℹ️  Neither $var nor LIFERAY_LICENSE is set; deploying no activation key."
+        echo "ℹ️  Neither LIFERAY_LICENSES nor LIFERAY_LICENSE provides a key; deploying no activation key."
         echo "   An unactivated DXP serves its activation page for every request (#805)."
         return 0
     fi

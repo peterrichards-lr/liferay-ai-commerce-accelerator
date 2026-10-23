@@ -5,15 +5,16 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
+      # Free text, not a choice list: the options named Peter's own nodes in a
+      # public file. Empty runs the nightly's target from the LDM_NODE_TARGET
+      # secret, masked. A name typed here is shown on this run's page, which
+      # masking cannot reach - so leave it empty unless a specific node is
+      # needed. See #1383.
       node_target:
-        description: 'LDM Target Node (local, aws-1, aws-2)'
+        description: 'Target node: local, a node name from NODE_POWER_CONFIG, or empty for the nightly target'
         required: false
         default: 'local'
-        type: choice
-        options:
-          - local
-          - aws-1
-          - aws-2
+        type: string
       ai_provider:
         description: 'Live AI provider. Choosing one spends money; none runs the pre-generated dataset.'
         required: false
@@ -138,6 +139,20 @@ jobs:
       # digest serves as well as the name - and leaks nothing.
       node_key: ${{ steps.plan.outputs.node_key }}
     steps:
+      # Masked before the target is resolved, so nothing below can print a
+      # node in clear. Masks are per job, so each job that names a node does
+      # this for itself. See #1383.
+      - name: Fetch the node-masking helper
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/node_config_from_secret.py
+          sparse-checkout-cone-mode: false
+
+      - name: Mask the target nodes
+        env:
+          NODE_POWER_CONFIG: ${{ secrets.NODE_POWER_CONFIG }}
+        run: python3 scripts/node_config_from_secret.py
+
       - name: Resolve the target node and the shard plan
         id: plan
         env:
@@ -199,7 +214,7 @@ jobs:
       # Resolved once for the whole job so wake, run and sleep are incapable of
       # naming different nodes. They previously each re-derived it, and the
       # sleep step's chain omitted secrets.LDM_NODE_TARGET - the one the nightly
-      # actually uses - so it fell through to a literal 'aws-1' and powered off
+      # actually uses - so it fell through to a literal node name and powered off
       # an instance the suite had never touched, leaving the instance it did use
       # running and billable every night (#718).
       E2E_TARGET_NODE: ${{ github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local' }}
@@ -231,6 +246,14 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v7
+
+      # The node config comes from a secret, never this repository: it names
+      # Peter's own infrastructure. Every value is masked before it is written,
+      # and before any later step can print it. See #1383.
+      - name: Load and mask the target-node config
+        env:
+          NODE_POWER_CONFIG: ${{ secrets.NODE_POWER_CONFIG }}
+        run: python3 scripts/node_config_from_secret.py --write
 
       - name: Setup Java
         uses: actions/setup-java@v6
@@ -630,11 +653,12 @@ jobs:
           # none of which names the cause (#805). Absent secret means no key is
           # deployed and the run behaves exactly as it did before.
           LIFERAY_LICENSE: ${{ secrets.LIFERAY_LICENSE }}
-          # Activation keys are issued per machine, so each node needs its own.
-          # The script reads LIFERAY_LICENSE_<TARGET> and falls back to the
-          # unqualified one (#805).
-          LIFERAY_LICENSE_AWS_1: ${{ secrets.LIFERAY_LICENSE_AWS_1 }}
-          LIFERAY_LICENSE_AWS_2: ${{ secrets.LIFERAY_LICENSE_AWS_2 }}
+          # Activation keys are issued per machine, so each node needs its own:
+          # one secret holding {"<node>": "<base64 licence>"}, picked by target,
+          # with the unqualified one as the fallback (#805). One secret rather
+          # than one per node, because per-node secret names put the node names
+          # in this public file. See #1383.
+          LIFERAY_LICENSES: ${{ secrets.LIFERAY_LICENSES }}
           # Injected only when a dispatch explicitly names a provider.
           #
           # `dashboard.spec.js` gates Live (AI) Mode on whether a key is

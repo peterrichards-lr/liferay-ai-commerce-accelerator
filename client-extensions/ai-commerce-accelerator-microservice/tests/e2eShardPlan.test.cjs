@@ -86,14 +86,14 @@ function planFor(requestedNode) {
 
 describe('the E2E shard plan (#1077)', () => {
   it('runs a single shard against a remote node', () => {
-    const plan = planFor('aws-2');
+    const plan = planFor('node-b');
 
-    expect(plan.target).toBe('aws-2');
+    expect(plan.target).toBe('node-b');
     expect(plan.matrix).toEqual({ shardIndex: [1], shardTotal: [1] });
   });
 
   it('does so for any remote node, not just the one that broke', () => {
-    expect(planFor('aws-1').matrix.shardIndex).toHaveLength(1);
+    expect(planFor('node-a').matrix.shardIndex).toHaveLength(1);
   });
 
   it('keeps three shards for local, where each owns its runner', () => {
@@ -113,7 +113,7 @@ describe('the E2E shard plan (#1077)', () => {
   it('never plans more shards than the shard total claims', () => {
     // The pair has to agree: Playwright is told `--shard i/total`, so a total
     // that does not match the number of jobs silently skips or repeats tests.
-    for (const node of ['local', 'aws-1', 'aws-2', '']) {
+    for (const node of ['local', 'node-a', 'node-b', '']) {
       const { matrix } = planFor(node);
 
       expect(matrix.shardTotal).toEqual([matrix.shardIndex.length]);

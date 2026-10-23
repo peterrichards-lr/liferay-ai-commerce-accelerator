@@ -137,11 +137,26 @@ docker exec -u 0 <container> mv /tmp/aica-staging/artifact.zip /opt/liferay/depl
 
 ## Remote Target Node Power: One Name, Credentials Everywhere, No Silent Failures
 
-- **The Issue**: `.github/workflows/e2e-verification.yml` re-derived the target node name in every step that needed it, and the chains disagreed. Wake read `github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local'`; the mandatory cleanup read `... || env.LDM_NODE_TARGET || 'aws-1'`, which never consults `secrets`. The nightly's node name comes from `secrets.LDM_NODE_TARGET`, so the cleanup fell through to the literal `aws-1` and stopped an instance the suite had never used, while the instance it did use stayed up and billable. Compounding it, the `Start LDM and run tests` step passed no AWS credentials, so both `node_power.sh` calls `scripts/run-e2e-ldm.sh` makes for itself — the wake at the top and the `sleep` in its `EXIT` trap — died at the AWS CLI with `NoCredentials`, and `|| true` on the wake discarded that for weeks (#718).
+- **The Issue**: `.github/workflows/e2e-verification.yml` re-derived the target node name in every step that needed it, and the chains disagreed. Wake read `github.event.inputs.node_target || vars.LDM_NODE_TARGET || secrets.LDM_NODE_TARGET || 'local'`; the mandatory cleanup read `... || env.LDM_NODE_TARGET || 'node-a'`, which never consults `secrets`. The nightly's node name comes from `secrets.LDM_NODE_TARGET`, so the cleanup fell through to the literal `node-a` and stopped an instance the suite had never used, while the instance it did use stayed up and billable. Compounding it, the `Start LDM and run tests` step passed no AWS credentials, so both `node_power.sh` calls `scripts/run-e2e-ldm.sh` makes for itself — the wake at the top and the `sleep` in its `EXIT` trap — died at the AWS CLI with `NoCredentials`, and `|| true` on the wake discarded that for weeks (#718).
 - **The Fix**: The node name is resolved once into the job-level `E2E_TARGET_NODE`, and `Configure SSH Key`, `Wake remote target node`, `Start LDM and run tests` and `Sleep remote target node` all read that one value, so they cannot name different nodes. `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` are on the step that runs the orchestrator as well as the wake and sleep steps. The env var is deliberately not called `LDM_NODE_TARGET`: that is the orchestrator's own variable, set by its `--node` flag, and a job-level env of that name would enter every step's environment.
 - **Why the Script Still Wakes**: `scripts/run-e2e-ldm.sh` keeps its own wake even though CI wakes the node a step earlier, because on a local run against a remote node it is the only wake there is. It is fatal now rather than `|| true` — a power-on failure stops the run wherever it happens. The `sleep` in the `EXIT` trap stays non-fatal, since exiting non-zero from the trap would replace the run's own exit code, but it prints a warning naming the node instead of discarding the failure; the workflow's mandatory sleep step is the backstop, and it raises a workflow error annotation without failing the job.
 
 ---
+
+## Target Nodes Live in Secrets, Masked Value by Value
+
+- **The Issue**: The remote target nodes are the maintainer's own infrastructure, not this project's. Their names, EC2 instance id, region and a public address were committed in workflows, scripts, tests and docs, and printed in public Actions logs. The node config itself was downloaded at run time from another public repository, which stopped hosting it (#1383).
+- **The Fix**: Everything about a node comes from secrets, and nothing in this repository names one. Examples use placeholders: `node-a`/`node-b`, `203.0.113.0/24` (RFC 5737) and `i-0123456789abcdef0`. `scripts/test_no_infrastructure_in_repo.py` fails if a tracked file reintroduces a real instance id or public address.
+
+| Secret              | Holds                                                                                                                                                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_POWER_CONFIG` | `{"nodes": {"node-a": {"name": "node-a", "ec2_instance_id": "i-0123456789abcdef0", "region": "xx-example-1", "schedule": "auto", "user": "ubuntu"}}}`, the same shape as a local `.node-power-config.json` (gitignored) |
+| `LDM_NODE_TARGET`   | The node the nightly targets                                                                                                                                                                                            |
+| `LIFERAY_LICENSES`  | `{"node-a": "<base64 activation key>"}`. Activation keys are issued per machine; one secret rather than one per node, because per-node secret names put node names in the public workflow                               |
+| `LIFERAY_LICENSE`   | The unqualified key, used locally and as the fallback                                                                                                                                                                   |
+
+- **Masking**: GitHub masks a secret only as its exact full value, and the parts of `NODE_POWER_CONFIG` are printed separately (a node name in a log line, an instance id by the AWS CLI). So every job that touches a node runs `scripts/node_config_from_secret.py` first. It emits `::add-mask::` for each node name, instance id, region and host, and with `--write` writes `.node-power-config.json` for `node_power.sh` and the E2E. Masks are per job, so each job does this for itself.
+- **What masking cannot reach**: a `workflow_dispatch` input is shown on that run's page. Leave `node_target` empty to run against the nightly's target from the secret; a node name typed there is published on that run.
 
 ## LDM URL Resolution and Protocol Support
 
@@ -170,4 +185,4 @@ docker exec -u 0 <container> mv /tmp/aica-staging/artifact.zip /opt/liferay/depl
 
 ---
 
-_Last Reviewed: 2026-09-17_
+_Last Reviewed: 2026-10-23_

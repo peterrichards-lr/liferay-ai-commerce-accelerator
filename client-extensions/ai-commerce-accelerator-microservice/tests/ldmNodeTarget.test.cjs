@@ -64,17 +64,20 @@ function ldmCmdArgv({ target, args }) {
 
 describe('the compute target reaches every LDM call', () => {
   it('appends --node when a remote target is named', () => {
-    const argv = ldmCmdArgv({ target: 'aws-2', args: ['run', 'aica-e2e'] });
+    const argv = ldmCmdArgv({ target: 'node-b', args: ['run', 'aica-e2e'] });
 
-    expect(argv).toEqual(['run', 'aica-e2e', '--node', 'aws-2']);
+    expect(argv).toEqual(['run', 'aica-e2e', '--node', 'node-b']);
   });
 
   it('does so for import as well as run', () => {
     // Every subcommand this script issues accepts --node; the wrapper is the
     // single place that knows, so none of them can be forgotten individually.
-    const argv = ldmCmdArgv({ target: 'aws-1', args: ['import', '.', 'proj'] });
+    const argv = ldmCmdArgv({
+      target: 'node-a',
+      args: ['import', '.', 'proj'],
+    });
 
-    expect(argv).toEqual(['import', '.', 'proj', '--node', 'aws-1']);
+    expect(argv).toEqual(['import', '.', 'proj', '--node', 'node-a']);
   });
 
   it('adds nothing when the target is local', () => {
@@ -91,7 +94,7 @@ describe('the compute target reaches every LDM call', () => {
 
   it('keeps the caller flags intact ahead of it', () => {
     const argv = ldmCmdArgv({
-      target: 'aws-2',
+      target: 'node-b',
       args: ['run', 'proj', '--sidecar', '--no-wait'],
     });
 
@@ -101,7 +104,7 @@ describe('the compute target reaches every LDM call', () => {
       '--sidecar',
       '--no-wait',
       '--node',
-      'aws-2',
+      'node-b',
     ]);
   });
 });

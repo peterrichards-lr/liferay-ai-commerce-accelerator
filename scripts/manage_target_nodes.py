@@ -2,7 +2,7 @@
 """Standalone Target Node Power & Cost Control Utility.
 
 Manages power states (wake/sleep/enforce/status) for remote compute target nodes
-(e.g., aws-1, aws-2) for cost control.
+(e.g., node-a, node-b) for cost control.
 
 Last Updated: 2026-08-20 | Last Reviewed: 2026-08-20
 """
@@ -22,7 +22,6 @@ from pathlib import Path
 CONFIG_FILE = Path(__file__).parent.parent / ".node-power-config.json"
 STATE_FILE = Path(__file__).parent.parent / ".node-power-state.json"
 LDMRC_FILE = Path.home() / ".ldmrc"
-CONFIG_URL = "https://raw.githubusercontent.com/peterrichards-lr/liferay-docker-manager/master/.node-power-config.json"
 
 # Where this script's progress output goes. None means "wherever stdout points
 # at the moment", so `contextlib.redirect_stdout` and a shell redirect both
@@ -50,47 +49,16 @@ def _say(*args, **kwargs):
 
 
 def load_target_nodes() -> dict:
-    """Loads target node definitions from .node-power-config.json or ~/.ldmrc fallback."""
-    nodes = {
-        "aws-1": {
-            "name": "aws-1",
-            "schedule": "auto",
-            "ec2_instance_id": "",
-            "region": "",
-            "host": "",
-            "user": "ubuntu",
-        },
-        "aws-2": {
-            "name": "aws-2",
-            "schedule": "auto",
-            "ec2_instance_id": "",
-            "region": "",
-            "host": "",
-            "user": "ubuntu",
-        },
-    }
+    """Loads target node definitions from .node-power-config.json and ~/.ldmrc.
 
-    # Auto-sync central config if missing locally
-    if not CONFIG_FILE.exists():
-        import os
-        import urllib.request
-
-        urls_to_try = [
-            os.getenv("NODE_POWER_CONFIG_URL"),
-            "https://raw.githubusercontent.com/peterrichards-lr/liferay-docker-manager/master/.node-power-config.json",
-            "https://raw.githubusercontent.com/peterrichards-lr/liferay-docker-manager/main/.node-power-config.json",
-            "https://raw.githubusercontent.com/peterrichards-lr/liferay-docker-manager/release/v2.15.30/.node-power-config.json",
-        ]
-        for url in urls_to_try:
-            if not url:
-                continue
-            try:
-                urllib.request.urlretrieve(url, CONFIG_FILE)
-                if CONFIG_FILE.exists() and CONFIG_FILE.stat().st_size > 20:
-                    _say(f"✅ Auto-synced central target node config from {url}")
-                    break
-            except Exception:
-                pass
+    Nothing is built in and nothing is downloaded. The nodes are Peter's own
+    infrastructure, not this project's: in CI the file is written from the
+    NODE_POWER_CONFIG secret, with every value masked, and on a workstation it
+    is the operator's own copy. It used to be fetched from LDM's public
+    repository and seeded with two named nodes, which published those details
+    and broke the day LDM stopped hosting them. See #1383.
+    """
+    nodes = {}
 
     # Override from ~/.ldmrc if present
     if LDMRC_FILE.exists():
@@ -388,7 +356,8 @@ def cmd_wake(args: argparse.Namespace) -> None:
     node_name = args.node
     if node_name not in nodes:
         _say(
-            f"❌ Target node '{node_name}' not found. Available nodes: {', '.join(nodes.keys())}"
+            f"❌ Target node '{node_name}' not found. Available nodes: {', '.join(nodes.keys()) or 'none'}. "
+            f"Define it in {CONFIG_FILE.name} (CI writes it from the NODE_POWER_CONFIG secret) or ~/.ldmrc."
         )
         sys.exit(1)
 
@@ -422,7 +391,8 @@ def cmd_sleep(args: argparse.Namespace) -> None:
     node_name = args.node
     if node_name not in nodes:
         _say(
-            f"❌ Target node '{node_name}' not found. Available nodes: {', '.join(nodes.keys())}"
+            f"❌ Target node '{node_name}' not found. Available nodes: {', '.join(nodes.keys()) or 'none'}. "
+            f"Define it in {CONFIG_FILE.name} (CI writes it from the NODE_POWER_CONFIG secret) or ~/.ldmrc."
         )
         sys.exit(1)
 
@@ -592,13 +562,13 @@ def main() -> None:
     wake_p = subparsers.add_parser(
         "wake", help="Temporarily wake a target node during shutdown hours"
     )
-    wake_p.add_argument("node", help="Name of the target node (e.g. aws-1, aws-2)")
+    wake_p.add_argument("node", help="Name of the target node (e.g. node-a, node-b)")
     wake_p.add_argument(
         "--ttl", default="2h", help="Wake duration (e.g. 2h, 30m, 4h). Default: 2h"
     )
 
     sleep_p = subparsers.add_parser("sleep", help="Immediately shut down a target node")
-    sleep_p.add_argument("node", help="Name of the target node (e.g. aws-1, aws-2)")
+    sleep_p.add_argument("node", help="Name of the target node (e.g. node-a, node-b)")
 
     subparsers.add_parser(
         "enforce", help="Enforce scheduled overnight/weekend shutdowns and expire TTLs"

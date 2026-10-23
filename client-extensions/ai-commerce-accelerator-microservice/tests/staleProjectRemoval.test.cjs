@@ -84,7 +84,7 @@ function run({ args = [], cwd, envOverrides = {} }) {
   // The script never writes LDM_NODE_TARGET except from `--node`, but reads it
   // from the ambient environment everywhere (`${LDM_NODE_TARGET:-}`). CI sets
   // it to the run's node, so inheriting the environment made the "local run"
-  // case address aws-1 and assert against it. Targeting here comes from `args`
+  // case address node-a and assert against it. Targeting here comes from `args`
   // alone; CI-shape flags are pinned so the cases read the same everywhere.
   const env = { ...process.env, ...envOverrides };
   delete env.LDM_NODE_TARGET;
@@ -124,7 +124,7 @@ const removals = (calls) =>
 describe('stale project removal', () => {
   test('removes the project on a remote target with no local directory', () => {
     sandbox((dir) => {
-      const { calls } = run({ args: ['--node', 'aws-1'], cwd: dir });
+      const { calls } = run({ args: ['--node', 'node-a'], cwd: dir });
       // No local directory exists here - which is precisely the CI shape that
       // the old `[ -d "$PROJECT_NAME" ]` guard read as "nothing to remove".
       expect(removals(calls).length).toBeGreaterThan(0);
@@ -133,9 +133,9 @@ describe('stale project removal', () => {
 
   test('addresses the node, not this host', () => {
     sandbox((dir) => {
-      const { calls } = run({ args: ['--node', 'aws-1'], cwd: dir });
+      const { calls } = run({ args: ['--node', 'node-a'], cwd: dir });
       const rm = removals(calls)[0];
-      expect(rm).toMatch(/--node aws-1/);
+      expect(rm).toMatch(/--node node-a/);
     });
   });
 
@@ -150,7 +150,7 @@ describe('stale project removal', () => {
   test('leaves a project the caller named alone', () => {
     sandbox((dir) => {
       const { calls } = run({
-        args: ['--node', 'aws-1', '--project', 'mine'],
+        args: ['--node', 'node-a', '--project', 'mine'],
         cwd: dir,
       });
       expect(removals(calls)).toEqual([]);
@@ -159,7 +159,7 @@ describe('stale project removal', () => {
 
   test('deletes the volume, not just the containers', () => {
     sandbox((dir) => {
-      const { calls } = run({ args: ['--node', 'aws-1'], cwd: dir });
+      const { calls } = run({ args: ['--node', 'node-a'], cwd: dir });
       // NoSuchCompanyException came from a retained database volume: `rm`
       // without --delete leaves it, and the next run attaches to it.
       expect(removals(calls)[0]).toMatch(/--delete/);
@@ -168,7 +168,7 @@ describe('stale project removal', () => {
 
   test('runs after docker is routed to the node', () => {
     sandbox((dir) => {
-      const { stdout } = run({ args: ['--node', 'aws-1'], cwd: dir });
+      const { stdout } = run({ args: ['--node', 'node-a'], cwd: dir });
       const routed = stdout.indexOf('Routing docker');
       const removed = stdout.indexOf('Removing any stale');
       expect(routed).toBeGreaterThan(-1);
@@ -184,7 +184,7 @@ describe('stale project removal', () => {
       const { calls } = run({
         args: [],
         cwd: dir,
-        envOverrides: { LDM_NODE_TARGET: 'aws-1' },
+        envOverrides: { LDM_NODE_TARGET: 'node-a' },
       });
       expect(removals(calls)[0]).not.toMatch(/--node/);
     });

@@ -81,7 +81,7 @@ function runAgreement({ target, shardTotal }) {
 
 describe('the shard plan and the target must agree', () => {
   it('accepts one shard for a remote target', () => {
-    expect(runAgreement({ target: 'aws-2', shardTotal: 1 }).ok).toBe(true);
+    expect(runAgreement({ target: 'node-b', shardTotal: 1 }).ok).toBe(true);
   });
 
   it('accepts three shards for local', () => {
@@ -109,6 +109,6 @@ describe('the shard plan and the target must agree', () => {
 
   it('refuses a remote target planned as three shards', () => {
     // The other direction: three shards would share one node and one project.
-    expect(runAgreement({ target: 'aws-1', shardTotal: 3 }).ok).toBe(false);
+    expect(runAgreement({ target: 'node-a', shardTotal: 3 }).ok).toBe(false);
   });
 });

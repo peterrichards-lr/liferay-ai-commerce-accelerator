@@ -87,14 +87,14 @@ function runRouting({ node, ldmrc, dockerHost }) {
 }
 
 const LDMRC = {
-  targets: { 'aws-2': { host: '203.0.113.9', user: 'ldm-automation' } },
+  targets: { 'node-b': { host: '203.0.113.9', user: 'ldm-automation' } },
 };
 
 describe('docker follows the target', () => {
   it('routes every docker call to the node, not this host', () => {
     // One place, because the alternative is annotating nine call sites and
     // missing the tenth.
-    expect(runRouting({ node: 'aws-2', ldmrc: LDMRC })).toContain(
+    expect(runRouting({ node: 'node-b', ldmrc: LDMRC })).toContain(
       'DOCKER_HOST=ssh://ldm-automation@203.0.113.9'
     );
   });
@@ -109,7 +109,7 @@ describe('docker follows the target', () => {
   it('does not override a DOCKER_HOST the caller already set', () => {
     expect(
       runRouting({
-        node: 'aws-2',
+        node: 'node-b',
         ldmrc: LDMRC,
         dockerHost: 'ssh://someone@elsewhere',
       })
@@ -118,7 +118,7 @@ describe('docker follows the target', () => {
 
   it('stops the run when no address was recorded', () => {
     // Continuing would silently address this host for the whole run.
-    const out = runRouting({ node: 'aws-2', ldmrc: undefined });
+    const out = runRouting({ node: 'node-b', ldmrc: undefined });
 
     expect(out).toMatch(/No SSH endpoint recorded/);
     expect(out).toContain('rc=1');
