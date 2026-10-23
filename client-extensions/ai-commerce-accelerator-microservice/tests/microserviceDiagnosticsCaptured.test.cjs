@@ -342,7 +342,7 @@ describe('microservice container diagnostics', () => {
       // probe satisfy an assertion written for the other.
       return body.slice(
         body.indexOf("the company's virtual host"),
-        body.indexOf('as the running Liferay reads them')
+        body.indexOf('OAuth2 applications and the scope aliases that resolved')
       );
     };
 
@@ -373,6 +373,45 @@ describe('microservice container diagnostics', () => {
     test('cannot fail the run if the database is not up', () => {
       // #1238: a diagnostic must not become a second way for the run to die.
       // At this stage the db container may legitimately be gone.
+      expect(probe()).toMatch(/\|\| echo/);
+    });
+  });
+
+  // Liferay refuses the microservice once it is reachable (#1375). A scope
+  // alias the yaml requests resolves to a registered scope only if that scope
+  // existed when the aliases were saved - OAuth2ScopeGrant records the match,
+  // it is not an OAuth grant - so the resolution is read from the database,
+  // the same database that holds the client secret.
+  describe('the OAuth2 applications and the aliases that resolved (#1375)', () => {
+    const probe = () => {
+      const body = functionSource('capture_microservice_diagnostics');
+      return body.slice(
+        body.indexOf('OAuth2 applications and the scope aliases that resolved'),
+        body.indexOf('as the running Liferay reads them')
+      );
+    };
+
+    test('reads applications and the aliases that resolved', () => {
+      expect(probe()).toMatch(/from oauth2application/i);
+      expect(probe()).toMatch(/from oauth2scopegrant/i);
+      expect(probe()).toMatch(/scopealiases/i);
+      expect(probe()).toMatch(/clientcredentialusername/i);
+    });
+
+    test('never selects the client secret', () => {
+      expect(probe()).not.toMatch(/clientsecret/i);
+    });
+
+    test('emits the client id only as a hash prefix', () => {
+      // Comparable with the routes-tree listing, which hashes the same way.
+      expect(probe()).toMatch(/sha256\(convert_to\(a\.clientid/i);
+      // Raw, the column would follow `select` or a comma directly.
+      expect(probe()).not.toMatch(/(select|,)\s*a\.clientid\b/i);
+    });
+
+    test('hardcodes no database credential, and cannot fail the run', () => {
+      expect(probe()).toMatch(/\$POSTGRES_USER/);
+      expect(probe()).not.toMatch(/PGPASSWORD=\S/);
       expect(probe()).toMatch(/\|\| echo/);
     });
   });
