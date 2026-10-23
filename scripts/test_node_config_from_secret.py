@@ -95,6 +95,47 @@ class Writing(unittest.TestCase):
                 self.assertEqual(json.loads(target.read_text()), CONFIG)
 
 
+class Redacting(unittest.TestCase):
+    """Masking reaches the live log only; artifacts are uploaded as written."""
+
+    def test_replaces_config_values_and_discovered_hosts_in_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            logs = Path(tmp) / "logs"
+            (logs / "nested").mkdir(parents=True)
+            trace = logs / "nested" / "trace.txt"
+            trace.write_text(
+                "ssh ldm-automation@203.0.113.77 on node-a (i-0123456789abcdef0)\n"
+            )
+            untouched = logs / "plain.txt"
+            untouched.write_text("nothing to hide\n")
+            ldmrc = Path(tmp) / ".ldmrc"
+            ldmrc.write_text(
+                json.dumps({"targets": {"node-a": {"host": "203.0.113.77"}}})
+            )
+
+            out = io.StringIO()
+            code = subject.main(
+                ["--redact", str(logs)],
+                environ={"NODE_POWER_CONFIG": json.dumps(CONFIG)},
+                out=out,
+                ldmrc=ldmrc,
+            )
+
+            self.assertEqual(code, 0)
+            self.assertEqual(
+                trace.read_text(), "ssh ldm-automation@*** on *** (***)\n"
+            )
+            self.assertEqual(untouched.read_text(), "nothing to hide\n")
+            self.assertIn("::add-mask::203.0.113.77", out.getvalue())
+            self.assertIn("in 1 file(s)", out.getvalue())
+
+    def test_ignores_ldmrc_hosts_of_nodes_it_does_not_manage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ldmrc = Path(tmp) / ".ldmrc"
+            ldmrc.write_text(json.dumps({"targets": {"other": {"host": "x.example"}}}))
+            self.assertEqual(subject.discovered_hosts(CONFIG, ldmrc), [])
+
+
 class RefusesQuietlyOrLoudlyAsAppropriate(unittest.TestCase):
     def test_an_absent_secret_is_not_an_error(self):
         # A fork, or a run against `local`, has nothing to hide.

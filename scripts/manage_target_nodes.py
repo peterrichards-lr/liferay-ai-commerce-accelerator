@@ -48,6 +48,19 @@ def _say(*args, **kwargs):
     builtins.print(*args, **kwargs)
 
 
+def _mask(value: str) -> None:
+    """Masks a value discovered at run time in a GitHub Actions log.
+
+    A node's public address is not in NODE_POWER_CONFIG - EC2 assigns it at
+    each start - so the job's up-front masking cannot know it. It is masked
+    here, the moment it is learned and before anything prints it. Outside
+    Actions this does nothing, so a workstation's terminal stays readable.
+    See #1383.
+    """
+    if value and os.environ.get("GITHUB_ACTIONS") == "true":
+        _say(f"::add-mask::{value}")
+
+
 def load_target_nodes() -> dict:
     """Loads target node definitions from .node-power-config.json and ~/.ldmrc.
 
@@ -171,6 +184,7 @@ def get_ec2_public_ip(ec2_id: str, region: str = "") -> str:
         cmd.extend(["--region", region])
     res = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if res.returncode == 0 and res.stdout.strip() and res.stdout.strip() != "None":
+        _mask(res.stdout.strip())
         return res.stdout.strip()
     return ""
 
@@ -517,6 +531,8 @@ def cmd_status(args: argparse.Namespace) -> None:
                 parts = check_res.stdout.strip().split()
                 aws_state = parts[0].upper() if parts else "UNKNOWN"
                 public_ip = parts[1] if len(parts) > 1 else ""
+                if public_ip != "None":
+                    _mask(public_ip)
                 status_label = f"EC2:{aws_state}"
                 if public_ip:
                     details = f"IP: {public_ip}"

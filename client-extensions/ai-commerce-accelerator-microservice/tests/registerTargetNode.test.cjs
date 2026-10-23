@@ -36,7 +36,7 @@ const describePayload = (over = {}) => ({
         {
           InstanceId: 'i-0123456789abcdef0',
           PublicIpAddress: '203.0.113.10',
-          NetworkInterfaces: [{ MacAddress: '06:D0:95:E5:26:A7' }],
+          NetworkInterfaces: [{ MacAddress: '00:00:5E:00:53:A7' }],
           ...over,
         },
       ],
@@ -83,14 +83,14 @@ describe('register-target-node (#805)', () => {
     it('takes the public address and the primary NIC MAC', () => {
       expect(parseDescribe(describePayload())).toEqual({
         host: '203.0.113.10',
-        mac: '06:d0:95:e5:26:a7',
+        mac: '00:00:5e:00:53:a7',
       });
     });
 
     // Liferay compares lowercase; AWS returns uppercase. A licence that matches
     // would appear not to.
     it('lowercases the MAC, because AWS returns it uppercase', () => {
-      expect(parseDescribe(describePayload()).mac).toBe('06:d0:95:e5:26:a7');
+      expect(parseDescribe(describePayload()).mac).toBe('00:00:5e:00:53:a7');
     });
 
     // A stopped instance has no address. Saying so beats a parse error,
@@ -114,6 +114,53 @@ describe('register-target-node (#805)', () => {
     });
   });
 
+  // EC2 assigns the address at each start, so it is not in NODE_POWER_CONFIG
+  // for the job's up-front masking to know. #1383.
+  describe('masking what it discovers (#1383)', () => {
+    const captured = () => {
+      const lines = [];
+      const spy = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation((chunk) => {
+          lines.push(String(chunk));
+          return true;
+        });
+      return { lines, restore: () => spy.mockRestore() };
+    };
+
+    it('masks the address and MAC in a GitHub Actions log', () => {
+      const saved = process.env.GITHUB_ACTIONS;
+      process.env.GITHUB_ACTIONS = 'true';
+      const out = captured();
+      try {
+        parseDescribe(describePayload());
+      } finally {
+        out.restore();
+        if (saved === undefined) delete process.env.GITHUB_ACTIONS;
+        else process.env.GITHUB_ACTIONS = saved;
+      }
+
+      expect(out.lines).toContain('::add-mask::203.0.113.10\n');
+      expect(
+        out.lines.some((l) => /^::add-mask::[0-9a-f:]{17}\n$/.test(l))
+      ).toBe(true);
+    });
+
+    it('prints nothing outside Actions', () => {
+      const saved = process.env.GITHUB_ACTIONS;
+      delete process.env.GITHUB_ACTIONS;
+      const out = captured();
+      try {
+        parseDescribe(describePayload());
+      } finally {
+        out.restore();
+        if (saved !== undefined) process.env.GITHUB_ACTIONS = saved;
+      }
+
+      expect(out.lines.filter((l) => l.startsWith('::add-mask::'))).toEqual([]);
+    });
+  });
+
   describe('the command it runs', () => {
     it('passes the MAC, host, user and key to ldm target add', () => {
       const args = buildTargetAddArgs({
@@ -121,12 +168,12 @@ describe('register-target-node (#805)', () => {
         host: '203.0.113.10',
         user: 'ldm-automation',
         keyPath: '/home/runner/.ssh/aws-key.pem',
-        mac: '06:d0:95:e5:26:a7',
+        mac: '00:00:5e:00:53:a7',
       });
 
       expect(args.slice(0, 3)).toEqual(['target', 'add', 'node-a']);
       expect(args).toContain('--mac-address');
-      expect(args[args.indexOf('--mac-address') + 1]).toBe('06:d0:95:e5:26:a7');
+      expect(args[args.indexOf('--mac-address') + 1]).toBe('00:00:5e:00:53:a7');
       expect(args[args.indexOf('--host') + 1]).toBe('203.0.113.10');
       expect(args[args.indexOf('--user') + 1]).toBe('ldm-automation');
       expect(args).toContain('-y');
@@ -148,7 +195,7 @@ describe('register-target-node (#805)', () => {
         name: 'node-a',
         host: '203.0.113.10',
         user: 'ldm-automation',
-        mac: '06:d0:95:e5:26:a7',
+        mac: '00:00:5e:00:53:a7',
       });
       expect(run).toHaveBeenCalledTimes(1);
       expect(run.mock.calls[0][0]).toContain('--mac-address');

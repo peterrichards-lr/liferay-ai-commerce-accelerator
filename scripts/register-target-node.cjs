@@ -76,7 +76,19 @@ function parseDescribe(payload) {
     throw new Error('Instance reports no network interface MAC address');
   }
 
+  // Masked the moment they are learned: EC2 assigns the address at each start,
+  // so it is not in NODE_POWER_CONFIG for the job's up-front masking to know,
+  // and later steps print it - `ssh://user@<host>`. See #1383.
+  maskInActions(host);
+  maskInActions(mac.toLowerCase());
+
   return { host, mac: mac.toLowerCase() };
+}
+
+function maskInActions(value) {
+  if (value && process.env.GITHUB_ACTIONS === 'true') {
+    process.stdout.write(`::add-mask::${value}\n`);
+  }
 }
 
 function buildTargetAddArgs({ name, host, user, keyPath, mac }) {

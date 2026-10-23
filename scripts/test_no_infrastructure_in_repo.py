@@ -22,6 +22,10 @@ ROOT = Path(__file__).resolve().parent.parent
 
 INSTANCE_ID = re.compile(r"\bi-[0-9a-f]{17}\b")
 IPV4 = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
+MAC = re.compile(r"(?<![0-9A-Fa-f:])(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}(?![0-9A-Fa-f:])")
+
+# RFC 7042 documentation range for unicast MAC addresses.
+DOCUMENTATION_MAC_PREFIX = "00:00:5e:00:53:"
 
 # Placeholders, never real instances.
 ALLOWED_INSTANCE_IDS = {"i-0123456789abcdef0", "i-0fedcba9876543210"}
@@ -88,6 +92,16 @@ class NoInfrastructureInTrackedFiles(unittest.TestCase):
             "Use 203.0.113.0/24 (RFC 5737) in examples; real hosts belong in NODE_POWER_CONFIG",
         )
 
+    def test_no_real_mac_address(self):
+        # A NIC's MAC identifies the instance as surely as its id does.
+        found = [
+            f"{name}: {match}"
+            for name, text in tracked_text_files()
+            for match in set(MAC.findall(text))
+            if not match.lower().startswith(DOCUMENTATION_MAC_PREFIX)
+        ]
+        self.assertEqual(found, [], "Use 00:00:5E:00:53:xx (RFC 7042) in examples")
+
     def test_the_patterns_catch_what_they_are_for(self):
         # A guard that matches nothing passes forever. The samples are made up,
         # and assembled at run time: written out, this file would fail its own
@@ -96,6 +110,7 @@ class NoInfrastructureInTrackedFiles(unittest.TestCase):
         public = ".".join(["8"] * 4)
         self.assertTrue(INSTANCE_ID.search(f"id {made_up_id} here"))
         self.assertTrue(is_public_address(public))
+        self.assertTrue(MAC.search("nic " + ":".join(["0a"] * 6) + " here"))
         self.assertFalse(is_public_address("203.0.113.10"))
         self.assertFalse(is_public_address("10.0.0.1"))
         self.assertFalse(is_public_address("127.0.0.1"))

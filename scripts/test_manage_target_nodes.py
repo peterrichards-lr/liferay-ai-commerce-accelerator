@@ -240,5 +240,42 @@ class ProgressOutputStaysOutOfTheTerminal(unittest.TestCase):
         self.assertIn("would not authenticate", terminal)
 
 
+
+class MasksTheAddressItDiscovers(unittest.TestCase):
+    """EC2 assigns the address at each start, so it is not in NODE_POWER_CONFIG
+    for the job's up-front masking to know. Masked when learned (#1383)."""
+
+    def lookup(self, actions):
+        out = io.StringIO()
+        reply = unittest.mock.Mock(returncode=0, stdout="203.0.113.10\n")
+        env = {"GITHUB_ACTIONS": "true"} if actions else {}
+        with unittest.mock.patch.object(mtn, "OUTPUT", out), unittest.mock.patch.object(
+            mtn.subprocess, "run", return_value=reply
+        ), unittest.mock.patch.dict(os.environ, env, clear=False):
+            if not actions:
+                os.environ.pop("GITHUB_ACTIONS", None)
+            ip = mtn.get_ec2_public_ip("i-0123456789abcdef0", "xx-example-1")
+        return ip, out.getvalue()
+
+    def test_masks_it_in_actions(self):
+        ip, out = self.lookup(actions=True)
+        self.assertEqual(ip, "203.0.113.10")
+        self.assertIn("::add-mask::203.0.113.10", out)
+
+    def test_says_nothing_on_a_workstation(self):
+        ip, out = self.lookup(actions=False)
+        self.assertEqual(ip, "203.0.113.10")
+        self.assertNotIn("::add-mask::", out)
+
+    def test_seeds_no_nodes_and_downloads_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with unittest.mock.patch.object(
+                mtn, "CONFIG_FILE", Path(tmp) / "absent.json"
+            ), unittest.mock.patch.object(
+                mtn, "LDMRC_FILE", Path(tmp) / "absent-ldmrc"
+            ), unittest.mock.patch("urllib.request.urlretrieve") as fetch:
+                self.assertEqual(mtn.load_target_nodes(), {})
+                fetch.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()

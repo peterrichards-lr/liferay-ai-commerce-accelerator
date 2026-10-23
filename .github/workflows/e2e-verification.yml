@@ -684,6 +684,23 @@ jobs:
         if: always()
         run: kill "$(cat resource-monitor.pid)" 2>/dev/null || true
 
+      # Masking reaches the live log only; artifacts are uploaded as written,
+      # and on a public repository anyone can download them. So every node
+      # value - from the secret, plus the hosts learned at run time - is
+      # replaced with *** in the files about to be uploaded. See #1383.
+      - name: Redact target-node details from the artifacts
+        if: always()
+        env:
+          NODE_POWER_CONFIG: ${{ secrets.NODE_POWER_CONFIG }}
+        run: |
+          shopt -s nullglob
+          paths=(resource-monitor.log logs client-extensions/*/logs test-results playwright-report)
+          existing=()
+          for p in "${paths[@]}"; do [ -e "$p" ] && existing+=("$p"); done
+          if [ ${#existing[@]} -gt 0 ]; then
+            python3 scripts/node_config_from_secret.py --redact "${existing[@]}"
+          fi
+
       - name: Upload resource monitor log
         uses: actions/upload-artifact@v7
         if: always()
