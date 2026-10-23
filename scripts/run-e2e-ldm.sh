@@ -2008,38 +2008,20 @@ bundle_symbolic_name() {
 # The licence for the node this run targets.
 #
 # Activation keys are issued against a specific machine, so one licence cannot
-# serve every node. LIFERAY_LICENSES holds them all, as one JSON secret mapping
-# each node name to its activation key, base64-encoded so the XML survives JSON
-# and the shell exactly. It replaced one secret per node: those were named after
-# the node, and the names sat in the public workflow (#1383).
+# serve every node: each remote node has its own LIFERAY_LICENSE_<NODE> secret.
+# In CI, scripts/select_node_licence.py picks it from the secrets without the
+# workflow naming it - the names are the node names, and the workflow is public
+# (#1383) - writes it to a private file and passes the path as
+# LIFERAY_LICENSE_FILE.
 #
-# LIFERAY_LICENSE remains the unqualified fallback, verbatim XML, so a local run
-# and a single-licence setup both keep working untouched.
-#
-# Prints the licence to stdout, never to the log, and nothing at all when the
-# map has no entry for this node.
-node_license_from_map() {
-    local target="${LDM_NODE_TARGET:-local}"
-    [ -n "${LIFERAY_LICENSES:-}" ] || return 0
-    [ -n "$target" ] && [ "$target" != "local" ] || return 0
-
-    LIFERAY_LICENSES="$LIFERAY_LICENSES" python3 - "$target" <<'PY'
-import base64, json, os, sys
-try:
-    entry = json.loads(os.environ["LIFERAY_LICENSES"]).get(sys.argv[1])
-except ValueError:
-    sys.exit(0)
-if isinstance(entry, str) and entry.strip():
-    try:
-        sys.stdout.write(base64.b64decode(entry.strip(), validate=True).decode())
-    except ValueError:
-        pass
-PY
-}
-
+# LIFERAY_LICENSE, a developer licence, is the fallback: right for a local run,
+# and named when a remote run has to use it, because an activation key issued
+# for a different machine will not activate this one.
 deploy_activation_key() {
-    local license source_var="LIFERAY_LICENSES"
-    license="$(node_license_from_map)" || license=""
+    local license="" source_var="the target node's activation key"
+    if [ -n "${LIFERAY_LICENSE_FILE:-}" ] && [ -r "$LIFERAY_LICENSE_FILE" ]; then
+        license="$(cat "$LIFERAY_LICENSE_FILE")"
+    fi
 
     local remote=0
     [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] && remote=1
@@ -2049,13 +2031,13 @@ deploy_activation_key() {
         source_var="LIFERAY_LICENSE"
 
         if [ -n "$license" ] && [ $remote -eq 1 ]; then
-            echo "⚠️  LIFERAY_LICENSES has no usable entry for node '${LDM_NODE_TARGET}'; falling back to LIFERAY_LICENSE."
+            echo "⚠️  No activation key is configured for node '${LDM_NODE_TARGET}'; falling back to LIFERAY_LICENSE."
             echo "   An activation key issued for a different machine will not activate this one."
         fi
     fi
 
     if [ -z "$license" ]; then
-        echo "ℹ️  Neither LIFERAY_LICENSES nor LIFERAY_LICENSE provides a key; deploying no activation key."
+        echo "ℹ️  No node activation key and no LIFERAY_LICENSE; deploying no activation key."
         echo "   An unactivated DXP serves its activation page for every request (#805)."
         return 0
     fi

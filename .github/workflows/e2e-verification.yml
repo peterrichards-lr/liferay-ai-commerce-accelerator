@@ -620,6 +620,18 @@ jobs:
       # 347 KB for a run that failed normally. It is a backstop against
       # unbounded cost, covering the stalls LDM's bound does not: a wedged
       # spec, a hung teardown, anything after bring-up. See #1246, #1174.
+      # Activation keys are per machine: each remote node has its own
+      # LIFERAY_LICENSE_<NODE> secret. Naming them here would put the node
+      # names in this public file, so the secrets arrive as one JSON object
+      # and the script picks the target's by the same rule. Only the path to
+      # a private file is passed on; the key itself would print in every later
+      # step's environment. See #1383, #805.
+      - name: Select the target node's activation key
+        if: env.E2E_TARGET_NODE != 'local' && env.E2E_TARGET_NODE != ''
+        env:
+          ALL_SECRETS: ${{ toJSON(secrets) }}
+        run: python3 scripts/select_node_licence.py
+
       - name: Start LDM and run tests
         timeout-minutes: 60
         run: |
@@ -653,12 +665,8 @@ jobs:
           # none of which names the cause (#805). Absent secret means no key is
           # deployed and the run behaves exactly as it did before.
           LIFERAY_LICENSE: ${{ secrets.LIFERAY_LICENSE }}
-          # Activation keys are issued per machine, so each node needs its own:
-          # one secret holding {"<node>": "<base64 licence>"}, picked by target,
-          # with the unqualified one as the fallback (#805). One secret rather
-          # than one per node, because per-node secret names put the node names
-          # in this public file. See #1383.
-          LIFERAY_LICENSES: ${{ secrets.LIFERAY_LICENSES }}
+          # The target node's own key arrives as LIFERAY_LICENSE_FILE, set by
+          # the selection step above; LIFERAY_LICENSE is the fallback (#805).
           # Injected only when a dispatch explicitly names a provider.
           #
           # `dashboard.spec.js` gates Live (AI) Mode on whether a key is

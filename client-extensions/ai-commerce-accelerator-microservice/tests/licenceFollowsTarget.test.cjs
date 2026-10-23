@@ -7,10 +7,11 @@ const { withoutHashComments } = require('./fixtures/sourceComments.cjs');
 /**
  * The activation key deployed for the node this run targets (#805).
  *
- * One secret, LIFERAY_LICENSES, maps node names to base64 activation keys. It
- * replaced one secret per node, because those were named after Peter's nodes
- * and the names sat in the public workflow (#1383). LIFERAY_LICENSE stays the
- * unqualified fallback. Node names here are placeholders.
+ * Each remote node has its own LIFERAY_LICENSE_<NODE> secret. The workflow
+ * never names them - the names are the node names (#1383) - so
+ * scripts/select_node_licence.py picks the target's from `toJSON(secrets)` and
+ * passes the path of a private file as LIFERAY_LICENSE_FILE. LIFERAY_LICENSE,
+ * a developer licence, is the fallback. Node names here are placeholders.
  */
 const SCRIPT = path.resolve(
   __dirname,
@@ -29,12 +30,19 @@ function extract(source, name) {
 }
 
 const KEY_A = '<license>for node-a</license>';
-const KEY_ANY = '<license>unqualified</license>';
-const b64 = (text) => Buffer.from(text).toString('base64');
+const KEY_DEV = '<license>developer</license>';
 
-function deploy(env) {
+function deploy(env, nodeKey) {
   const project = fs.mkdtempSync(path.join(os.tmpdir(), 'licence-'));
   const source = fs.readFileSync(SCRIPT, 'utf8');
+  const extra = {};
+
+  if (nodeKey !== undefined) {
+    const keyFile = path.join(project, 'node-key.xml');
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    fs.writeFileSync(keyFile, nodeKey);
+    extra.LIFERAY_LICENSE_FILE = keyFile;
+  }
 
   try {
     const out = execFileSync(
@@ -43,14 +51,18 @@ function deploy(env) {
         '-c',
         [
           'set -eu',
-          extract(source, 'node_license_from_map'),
           extract(source, 'deploy_activation_key'),
           'deploy_activation_key',
         ].join('\n'),
       ],
       {
         encoding: 'utf8',
-        env: { PATH: process.env.PATH, PROJECT_NAME: project, ...env },
+        env: {
+          PATH: process.env.PATH,
+          PROJECT_NAME: project,
+          ...extra,
+          ...env,
+        },
       }
     );
     const file = path.join(project, 'deploy', 'activation-key.xml');
@@ -63,50 +75,37 @@ function deploy(env) {
 }
 
 describe('the activation key follows the target node (#805, #1383)', () => {
-  it("deploys the node's own key from the map", () => {
-    const { out, written } = deploy({
-      LDM_NODE_TARGET: 'node-a',
-      LIFERAY_LICENSES: JSON.stringify({ 'node-a': b64(KEY_A) }),
-      LIFERAY_LICENSE: KEY_ANY,
-    });
+  it("deploys the node's own key when one was selected", () => {
+    const { out, written } = deploy(
+      { LDM_NODE_TARGET: 'node-a', LIFERAY_LICENSE: KEY_DEV },
+      KEY_A
+    );
 
     expect(written).toBe(KEY_A);
-    expect(out).toMatch(/from LIFERAY_LICENSES/);
+    expect(out).toMatch(/from the target node's activation key/);
   });
 
-  it('falls back to the unqualified key, saying so, when the node has none', () => {
+  it('falls back to the developer licence, saying so, when the node has none', () => {
     const { out, written } = deploy({
       LDM_NODE_TARGET: 'node-b',
-      LIFERAY_LICENSES: JSON.stringify({ 'node-a': b64(KEY_A) }),
-      LIFERAY_LICENSE: KEY_ANY,
+      LIFERAY_LICENSE: KEY_DEV,
     });
 
-    expect(written).toBe(KEY_ANY);
-    expect(out).toMatch(/no usable entry for node 'node-b'/);
+    expect(written).toBe(KEY_DEV);
+    expect(out).toMatch(/No activation key is configured for node 'node-b'/);
   });
 
-  it('treats an unreadable map as no entry, not as a failure', () => {
-    const { written } = deploy({
-      LDM_NODE_TARGET: 'node-a',
-      LIFERAY_LICENSES: '{not json',
-      LIFERAY_LICENSE: KEY_ANY,
-    });
-
-    expect(written).toBe(KEY_ANY);
-  });
-
-  it('uses the unqualified key locally, ignoring the map', () => {
+  it('uses the developer licence locally, without a warning', () => {
     const { out, written } = deploy({
       LDM_NODE_TARGET: 'local',
-      LIFERAY_LICENSES: JSON.stringify({ 'node-a': b64(KEY_A) }),
-      LIFERAY_LICENSE: KEY_ANY,
+      LIFERAY_LICENSE: KEY_DEV,
     });
 
-    expect(written).toBe(KEY_ANY);
+    expect(written).toBe(KEY_DEV);
     expect(out).not.toMatch(/falling back/);
   });
 
-  it('deploys nothing, and does not fail, with neither secret', () => {
+  it('deploys nothing, and does not fail, with no key at all', () => {
     const { out, written } = deploy({ LDM_NODE_TARGET: 'node-a' });
 
     expect(written).toBeNull();
@@ -114,18 +113,14 @@ describe('the activation key follows the target node (#805, #1383)', () => {
   });
 
   it('never prints the key itself', () => {
-    const { out } = deploy({
-      LDM_NODE_TARGET: 'node-a',
-      LIFERAY_LICENSES: JSON.stringify({ 'node-a': b64(KEY_A) }),
-    });
+    const { out } = deploy({ LDM_NODE_TARGET: 'node-a' }, KEY_A);
 
     expect(out).not.toContain(KEY_A);
-    expect(out).not.toContain(b64(KEY_A));
   });
 
   it('names no node-specific secret in the workflow', () => {
-    // Comments stripped: the workflow's prose explains the old per-node
-    // secrets, and must neither satisfy nor fail this.
+    // Comments stripped: the workflow's prose explains the per-node secrets,
+    // and must neither satisfy nor fail this.
     const workflow = withoutHashComments(
       fs.readFileSync(
         path.resolve(
@@ -141,9 +136,7 @@ describe('the activation key follows the target node (#805, #1383)', () => {
       )
     );
 
-    expect(workflow).toMatch(
-      /LIFERAY_LICENSES: \$\{\{ secrets\.LIFERAY_LICENSES \}\}/
-    );
-    expect(workflow).not.toMatch(/LIFERAY_LICENSE_[A-Z0-9_]+:/);
+    expect(workflow).toMatch(/ALL_SECRETS: \$\{\{ toJSON\(secrets\) \}\}/);
+    expect(workflow).not.toMatch(/secrets\.LIFERAY_LICENSE_[A-Z0-9_]+/);
   });
 });
