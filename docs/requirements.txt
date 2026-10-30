@@ -1,7 +1,7 @@
 # Pinned exactly: a docs build that resolves differently from one week to the
 # next cannot be a gate. See #1297.
 mkdocs==1.6.1
-mkdocs-material==9.7.7
+mkdocs-material==9.8.0
 pymdown-extensions==12.3
 
 # Generates "Last updated" from git history. The footer in each file carries
@@ -13,4 +13,4 @@ pymdown-extensions==12.3
 # just the one that deploys: a shallow clone makes this plugin fall back to a
 # wrong date silently, so a strict build would pass on a page the deploy
 # renders differently.
-mkdocs-git-revision-date-localized-plugin==1.6.0
+mkdocs-git-revision-date-localized-plugin==1.6.2
