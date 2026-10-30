@@ -12,4 +12,4 @@
 # from the registry at scan time, so new rules arrive without a bump here -
 # which is the right way round: the engine is infrastructure, the rules are the
 # point.
-semgrep==1.181.0
+semgrep==1.182.1
