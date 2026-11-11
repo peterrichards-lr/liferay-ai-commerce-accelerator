@@ -20,6 +20,10 @@ const JWKS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 // second instance's tokens - rejecting valid tokens, or worse. See #824.
 const jwksCacheByUrl = new Map();
 
+function liferayBaseUrl(liferayUrl) {
+  return liferayUrl.startsWith('http') ? liferayUrl : `http://${liferayUrl}`;
+}
+
 async function fetchLiferayJwks(liferayUrl, forceRefresh = false) {
   const now = Date.now();
   const cacheKey = String(liferayUrl || '');
@@ -35,10 +39,9 @@ async function fetchLiferayJwks(liferayUrl, forceRefresh = false) {
   ) {
     return jwksCache.data;
   }
-  const baseUrl = liferayUrl.startsWith('http')
-    ? liferayUrl
-    : `http://${liferayUrl}`;
-  const response = await axios.get(`${baseUrl}/o/oauth2/jwks`);
+  const response = await axios.get(
+    `${liferayBaseUrl(liferayUrl)}/o/oauth2/jwks`
+  );
   jwksCacheByUrl.set(cacheKey, {
     data: response.data,
     fetchedAt: Date.now(),
@@ -232,9 +235,12 @@ function userContextMiddleware(req, res, next) {
   }
 
   const token = authHeader.substring(7);
-  verifyBearerToken(token, resolveLiferayUrl(req))
+  const liferayUrl = resolveLiferayUrl(req);
+  verifyBearerToken(token, liferayUrl)
     .then((verifiedClaims) => {
-      req.user = { token, claims: verifiedClaims };
+      // The instance that verified the token is the only one it is valid
+      // against, so anything that calls Liferay as this caller must use it.
+      req.user = { token, claims: verifiedClaims, liferayUrl };
       next();
     })
     .catch((err) => {
@@ -301,6 +307,7 @@ module.exports = {
   basicRateLimitMiddleware,
   verifyBearerToken,
   resolveLiferayUrl,
+  liferayBaseUrl,
   // Exported so the per-instance keying can be asserted. It was a single cache
   // slot, which was harmless while there was one Liferay in the system and is
   // not once a configuration source can name a second (#824).
