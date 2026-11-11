@@ -1,13 +1,25 @@
+const axios = require('axios');
 const { logger } = require('../utils/logger.cjs');
+const { liferayBaseUrl } = require('./loggingMiddleware.cjs');
+
+// RoleConstants.ADMINISTRATOR: the portal's regular Administrator role, by its
+// name rather than its title.
+const ADMINISTRATOR_ROLE_NAME = 'Administrator';
+
+// Short, so revoking the role takes effect within a minute, but long enough
+// that a deletion flow's burst of admin calls costs one lookup, not one each.
+const ROLE_CACHE_TTL_MS = 60 * 1000;
+const ROLE_LOOKUP_TIMEOUT_MS = 10 * 1000;
+const administratorRoleCache = new Map();
 
 // The grant a client-credentials application uses. Liferay stamps it into the
 // token, and it is the only claim that distinguishes a machine caller from the
 // user that application is bound to.
 const MACHINE_GRANT_TYPE = 'client_credentials';
 
-// Both allowlists are comma-separated, trimmed and compared lowercase. Empty
-// means empty: neither grants anything by default, so an unconfigured service
-// refuses every destructive call rather than guessing.
+// Both allowlists are comma-separated, trimmed and compared lowercase. An
+// empty AICA_ADMIN_CLIENTS grants no machine anything; an empty AICA_ADMINS
+// defers to the portal's Administrator role (#1388).
 function allowlistFrom(...values) {
   return (values.find(Boolean) || '')
     .split(',')
@@ -24,13 +36,9 @@ function allowlistFrom(...values) {
 // destructive action, so any authenticated Liferay account could call these
 // routes.
 //
-// This is deliberately a narrow, verifiable allowlist rather than a full
-// Liferay role/permission integration: this codebase has no existing
-// pattern for reading role claims from the verified JWT (grep confirms
-// `req.user.claims` is set but never read anywhere in routes/), and getting
-// a from-scratch Liferay role-API integration subtly wrong would be worse
-// than not attempting one without a live instance to verify against. Track
-// upgrading this to a real Liferay role check as a follow-up.
+// An explicit AICA_ADMINS allowlist decides when it is set. Without one, a
+// human caller is admitted if Liferay says they hold the Administrator role -
+// see admitPortalAdministrator below.
 function requireAdmin(req, res, next) {
   if (!req.user?.claims) {
     return res.status(401).json({
@@ -97,18 +105,7 @@ function requireAdmin(req, res, next) {
   );
 
   if (allowlist.length === 0) {
-    logger.error(
-      'requireAdmin: AICA_ADMINS is not configured -- denying all requests to this route by default',
-      {
-        correlationId: req.correlationId,
-        operation: `${req.method} ${req.path}`,
-      }
-    );
-    return res.status(503).json({
-      success: false,
-      error: 'This action requires AICA_ADMINS to be configured on the service',
-      timestamp: new Date().toISOString(),
-    });
+    return admitPortalAdministrator(req, res, next);
   }
 
   // Only `sub` is matched. Liferay issues no `email` claim to any caller -
@@ -158,4 +155,88 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireAdmin };
+// With no AICA_ADMINS, the portal's own Administrator role decides. Every fresh
+// install, quickstart and E2E stack has that role on its first user, and
+// nothing in them sets AICA_ADMINS, so failing closed refused every
+// destructive action on a stack nobody had configured yet (#1388). An explicit
+// AICA_ADMINS still wins; this is only the unconfigured default.
+//
+// Read as the caller, with their own token, from the instance that verified
+// it - so the answer is Liferay's, not ours, and no extra credential is held.
+async function admitPortalAdministrator(req, res, next) {
+  let isAdministrator;
+  try {
+    isAdministrator = await holdsAdministratorRole(req.user);
+  } catch (error) {
+    // Unknown, not "no": a Liferay that did not answer has not said the caller
+    // lacks the role. Refusing is right; calling it a policy decision is not.
+    logger.error("requireAdmin: could not read the caller's portal roles", {
+      correlationId: req.correlationId,
+      operation: `${req.method} ${req.path}`,
+      userId: req.user.claims.sub,
+      status: error?.response?.status,
+      error: error?.message,
+    });
+    return res.status(503).json({
+      success: false,
+      error:
+        "This action requires an administrator, and the caller's Liferay roles could not be read. Retry, or set AICA_ADMINS on the service.",
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  if (!isAdministrator) {
+    logger.warn(
+      'requireAdmin: rejected a caller without the Administrator role',
+      {
+        correlationId: req.correlationId,
+        operation: `${req.method} ${req.path}`,
+        userId: req.user.claims.sub,
+      }
+    );
+    return res.status(403).json({
+      success: false,
+      error: 'This action requires an administrator account',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  logger.info('requireAdmin: admitted a portal Administrator', {
+    correlationId: req.correlationId,
+    operation: `${req.method} ${req.path}`,
+    userId: req.user.claims.sub,
+  });
+  return next();
+}
+
+// Matched on `key`, the role's name, because `name` is its title in the
+// caller's locale (RoleBriefUtil) and would not say "Administrator" on a
+// non-English portal. Top-level roleBriefs come from the user's UserBag, so a
+// role held through a user group or organization counts too.
+async function holdsAdministratorRole(user) {
+  const cacheKey = `${user.liferayUrl}|${user.claims.sub}`;
+  const cached = administratorRoleCache.get(cacheKey);
+  if (cached && Date.now() - cached.checkedAt < ROLE_CACHE_TTL_MS) {
+    return cached.isAdministrator;
+  }
+
+  const response = await axios.get(
+    `${liferayBaseUrl(user.liferayUrl)}/o/headless-admin-user/v1.0/my-user-account`,
+    {
+      headers: { Authorization: `Bearer ${user.token}` },
+      params: { fields: 'roleBriefs' },
+      timeout: ROLE_LOOKUP_TIMEOUT_MS,
+    }
+  );
+
+  const isAdministrator = (response.data?.roleBriefs || []).some(
+    (role) => role?.key === ADMINISTRATOR_ROLE_NAME
+  );
+  administratorRoleCache.set(cacheKey, {
+    isAdministrator,
+    checkedAt: Date.now(),
+  });
+  return isAdministrator;
+}
+
+module.exports = { requireAdmin, administratorRoleCache };
