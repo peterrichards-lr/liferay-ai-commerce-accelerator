@@ -1,9 +1,15 @@
 import { test, expect } from '../../fixtures/diagnostics.js';
+import {
+  CLI_NEEDS_LOCAL_STACK,
+  remoteTargetNode,
+} from '../../fixtures/target.js';
 import { exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
 test.describe.serial('AICA Headless CLI Client E2E Verification', () => {
+  test.skip(Boolean(remoteTargetNode()), CLI_NEEDS_LOCAL_STACK);
+
   // Leverage the same authenticated context or credentials
   test.use({ storageState: '.auth/user.json' });
 
