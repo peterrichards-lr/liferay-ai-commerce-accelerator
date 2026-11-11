@@ -28,7 +28,11 @@
  * isolation with mock req/res/next, consistent with authGate.test.cjs.
  */
 
-const { requireAdmin } = require('../middleware/authorizationMiddleware.cjs');
+const axios = require('axios');
+const {
+  requireAdmin,
+  administratorRoleCache,
+} = require('../middleware/authorizationMiddleware.cjs');
 
 function mockReq(overrides = {}) {
   return {
@@ -97,17 +101,164 @@ describe('requireAdmin', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('denies with 503 when no allowlist is configured, even for an authenticated caller', () => {
-    delete process.env.AICA_ADMINS;
-    delete process.env.AICA_ADMIN_EMAILS;
-    const req = mockReq({ user: { claims: humanClaims('20132') } });
-    const res = mockRes();
-    const next = vi.fn();
+  // With no AICA_ADMINS, Liferay's Administrator role decides (#1388). The
+  // shapes are my-user-account's: `key` is the role's name, `name` its title
+  // in the caller's locale (RoleBriefUtil).
+  describe('no AICA_ADMINS: the portal Administrator role decides', () => {
+    const LIFERAY = 'https://aica.demo';
+    let realGet;
+    let httpGet;
 
-    requireAdmin(req, res, next);
+    const userOf = (sub) => ({
+      token: 'user-token',
+      claims: humanClaims(sub),
+      liferayUrl: LIFERAY,
+    });
+    const roles = (...keys) => ({
+      data: {
+        roleBriefs: keys.map((key) => ({ key, name: `title of ${key}` })),
+      },
+    });
 
-    expect(res.status).toHaveBeenCalledWith(503);
-    expect(next).not.toHaveBeenCalled();
+    beforeEach(() => {
+      delete process.env.AICA_ADMINS;
+      delete process.env.AICA_ADMIN_EMAILS;
+      administratorRoleCache.clear();
+      realGet = axios.get;
+      httpGet = vi.fn();
+      axios.get = httpGet;
+    });
+
+    afterEach(() => {
+      axios.get = realGet;
+    });
+
+    it('admits a caller holding the Administrator role, asked as that caller', async () => {
+      httpGet.mockResolvedValue(roles('User', 'Administrator'));
+      const res = mockRes();
+      const next = vi.fn();
+
+      await requireAdmin(mockReq({ user: userOf('20132') }), res, next);
+
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(httpGet).toHaveBeenCalledWith(
+        `${LIFERAY}/o/headless-admin-user/v1.0/my-user-account`,
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer user-token' },
+          params: { fields: 'roleBriefs' },
+        })
+      );
+    });
+
+    it('matches the role name, not its localised title', async () => {
+      httpGet.mockResolvedValue({
+        data: { roleBriefs: [{ key: 'Power User', name: 'Administrator' }] },
+      });
+      const res = mockRes();
+      const next = vi.fn();
+
+      await requireAdmin(mockReq({ user: userOf('20132') }), res, next);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('rejects a caller without the role with 403', async () => {
+      httpGet.mockResolvedValue(roles('User', 'Power User'));
+      const res = mockRes();
+      const next = vi.fn();
+
+      await requireAdmin(mockReq({ user: userOf('20456') }), res, next);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('fails closed with 503 when the roles cannot be read: unknown is not "no"', async () => {
+      httpGet.mockRejectedValue(
+        Object.assign(new Error('timeout'), { response: { status: 504 } })
+      );
+      const res = mockRes();
+      const next = vi.fn();
+
+      await requireAdmin(mockReq({ user: userOf('20132') }), res, next);
+
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('fails closed with 503 when the verifying instance is not known', async () => {
+      const res = mockRes();
+      const next = vi.fn();
+
+      await requireAdmin(
+        mockReq({ user: { claims: humanClaims('20132') } }),
+        res,
+        next
+      );
+
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(httpGet).not.toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('does not cache a failed lookup', async () => {
+      httpGet.mockRejectedValueOnce(new Error('ECONNRESET'));
+      httpGet.mockResolvedValueOnce(roles('Administrator'));
+      const next = vi.fn();
+
+      await requireAdmin(mockReq({ user: userOf('20132') }), mockRes(), next);
+      await requireAdmin(mockReq({ user: userOf('20132') }), mockRes(), next);
+
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(httpGet).toHaveBeenCalledTimes(2);
+    });
+
+    it('asks once per caller and instance within the cache window', async () => {
+      httpGet.mockResolvedValue(roles('Administrator'));
+      const next = vi.fn();
+
+      await requireAdmin(mockReq({ user: userOf('20132') }), mockRes(), next);
+      await requireAdmin(mockReq({ user: userOf('20132') }), mockRes(), next);
+      await requireAdmin(
+        mockReq({ user: { ...userOf('20132'), liferayUrl: 'https://other' } }),
+        mockRes(),
+        next
+      );
+
+      expect(next).toHaveBeenCalledTimes(3);
+      expect(httpGet).toHaveBeenCalledTimes(2);
+    });
+
+    it('never admits a machine by role, even one bound to an Administrator', async () => {
+      httpGet.mockResolvedValue(roles('Administrator'));
+      const res = mockRes();
+      const next = vi.fn();
+
+      await requireAdmin(
+        mockReq({
+          user: { ...userOf('20132'), claims: machineClaims('20132') },
+        }),
+        res,
+        next
+      );
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(httpGet).not.toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('is not consulted when AICA_ADMINS is set', async () => {
+      process.env.AICA_ADMINS = '99999';
+      httpGet.mockResolvedValue(roles('Administrator'));
+      const res = mockRes();
+      const next = vi.fn();
+
+      await requireAdmin(mockReq({ user: userOf('20132') }), res, next);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(httpGet).not.toHaveBeenCalled();
+    });
   });
 
   describe('machine credentials', () => {
@@ -192,14 +343,16 @@ describe('requireAdmin', () => {
 
     // The boundary in the other direction: naming an application must not let a
     // human in through it. The two lists grant different things.
-    it('does not admit a human because their client_id is a named application', () => {
+    it('does not admit a human because their client_id is a named application', async () => {
       process.env.AICA_ADMINS = '';
       process.env.AICA_ADMIN_CLIENTS = 'FragmentRenderer';
       const req = mockReq({ user: { claims: humanClaims('20132') } });
       const res = mockRes();
       const next = vi.fn();
 
-      requireAdmin(req, res, next);
+      // Falls through to the role check, which cannot run without the
+      // verifying instance - so refused, and not by AICA_ADMIN_CLIENTS.
+      await requireAdmin(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(next).not.toHaveBeenCalled();
