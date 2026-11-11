@@ -41,9 +41,11 @@ The base URL for MCP endpoints under the microservice is `/api/v1/mcp`.
 Both endpoints are protected by `requireAdmin` (`middleware/authorizationMiddleware.cjs`) — since the MCP tools include destructive operations (`aica_teardown_all`, `aica_delete_session`), an authenticated request alone is not enough:
 
 1. The request must carry a valid Liferay JWT (`Authorization: Bearer <token>`), verified by the existing `userContextMiddleware`.
-2. The JWT's caller email must additionally appear in the **`AICA_ADMIN_EMAILS`** environment variable — a comma-separated allowlist configured on the microservice.
+2. The caller must be an administrator. By default that means holding Liferay's **Administrator** role. The microservice asks Liferay with the caller's own token, so nothing needs configuring. To restrict access to particular people instead, set **`AICA_ADMINS`** on the microservice to a comma-separated list of numeric Liferay user IDs. When it is set, only those users are admitted, whatever their roles.
 
-Without a valid JWT you'll get `401`; if `AICA_ADMIN_EMAILS` isn't configured on the service at all, every request is denied with `503` (fails closed by design); if the caller's email isn't on the allowlist, `403`. The client integration examples below will need a valid Bearer token and a configured `AICA_ADMIN_EMAILS` on the service to work as written; they are shown without auth headers purely for brevity.
+A client-credentials (machine) token is never admitted by role or by `AICA_ADMINS`. Name its application's client ID in **`AICA_ADMIN_CLIENTS`** instead.
+
+Without a valid JWT you'll get `401`. If the caller is not an administrator, `403`. If Liferay cannot be asked for the caller's roles, `503`: that fails closed, because an unanswered lookup has not said the caller lacks the role. The client integration examples below need a valid Bearer token for an administrator to work as written; they are shown without auth headers purely for brevity.
 
 ---
 
@@ -132,4 +134,4 @@ console.log('AICA status:', status.content[0].text);
 
 ---
 
-_Last Reviewed: 2026-09-08_
+_Last Reviewed: 2026-11-11_
