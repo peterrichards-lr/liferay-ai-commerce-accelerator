@@ -1,4 +1,8 @@
 import { test, expect } from '../../fixtures/diagnostics.js';
+import {
+  CLI_NEEDS_LOCAL_STACK,
+  remoteTargetNode,
+} from '../../fixtures/target.js';
 import { exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -20,6 +24,8 @@ function runCliCommand(cmd) {
 }
 
 test.describe('AICA Price List Teardown Locks E2E', () => {
+  test.skip(Boolean(remoteTargetNode()), CLI_NEEDS_LOCAL_STACK);
+
   test.use({ storageState: '.auth/user.json' });
 
   const aicaBin = path.resolve(__dirname, '../../../scripts/aica-cli.cjs');
