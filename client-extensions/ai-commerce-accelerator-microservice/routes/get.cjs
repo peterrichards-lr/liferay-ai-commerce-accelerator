@@ -496,7 +496,10 @@ module.exports = (app, { commerceSiteTypeService, liferayService, logger }) => {
       try {
         const { liferayUrl, clientId, clientSecret, localeCode } = req.body;
 
-        const warehouses = await liferayService.getWarehouses({
+        // The SDK answers { items, totalCount, truncated }. The form reads an
+        // array under `warehouses`; given the whole object, it counted nothing
+        // and never learned how many warehouses existed (#1420).
+        const { items, truncated } = await liferayService.getWarehouses({
           liferayUrl,
           clientId,
           clientSecret,
@@ -505,7 +508,8 @@ module.exports = (app, { commerceSiteTypeService, liferayService, logger }) => {
 
         res.json({
           success: true,
-          warehouses,
+          warehouses: items,
+          truncated: truncated === true,
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
