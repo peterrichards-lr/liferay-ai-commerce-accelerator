@@ -1008,6 +1008,11 @@
   resolved "https://registry.npmjs.org/@inquirer/type/-/type-4.0.7.tgz"
   integrity sha512-t28inv14nMQ1PhKpsJPY+kEs/c00qzeCOS2gTNRyTjG5d6qsVA2fItxW4hkvGZ5lvanGLdtCzVIx5dwdRpN1+g==
 
+"@isaacs/nonrecursive-glob-match@^1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@isaacs/nonrecursive-glob-match/-/nonrecursive-glob-match-1.1.0.tgz#b1d69b8938aab4c292f7fde628c47dc1dbd737ef"
+  integrity sha512-GPm/Dbvk5RLmhRnxXIa7nTpK0xtl4E0wj0MslsuNiJ1FIROU+2+9lgUC/dgF7Ey4QCWhfEsgxilMRMCdHPfDfw==
+
 "@jridgewell/gen-mapping@^0.3.12", "@jridgewell/gen-mapping@^0.3.5":
   version "0.3.13"
   resolved "https://registry.npmjs.org/@jridgewell/gen-mapping/-/gen-mapping-0.3.13.tgz"
@@ -2153,10 +2158,10 @@ brace-expansion@^1.1.7:
     balanced-match "^1.0.0"
     concat-map "0.0.1"
 
-brace-expansion@^5.0.8:
-  version "5.0.12"
-  resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-5.0.12.tgz#995fbb4750a77c4d16a7dc942ff2ca6ef8e675ec"
-  integrity sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==
+brace-expansion@^5.0.12:
+  version "5.0.13"
+  resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-5.0.13.tgz#e2d4497370f7e385e6f96b57bd7ff11d77d85851"
+  integrity sha512-Vh3dmFbc4wZeox7M9I/0L9GfFd83Su4+yCck/OF9Gi/P/dAHn0RT7X4K9R7gMNMhDck3DvhR6QXsnQdjjgwNvQ==
   dependencies:
     balanced-match "^4.0.2"
 
@@ -2371,15 +2376,15 @@ combined-stream@^1.0.8:
   dependencies:
     delayed-stream "~1.0.0"
 
+commander@^15.0.0:
+  version "15.1.0"
+  resolved "https://registry.yarnpkg.com/commander/-/commander-15.1.0.tgz#397e6a353fda8e9d4e1eb9e3c0c28644cfd69406"
+  integrity sha512-cgnQ88TRrWcC7pVq46RzJVRMktu3W2RcbnoidnfBsl1bmDCBwJS/udcIZpKoCrbAYYaCqsz1yZCVIgbIaU3ddQ==
+
 commander@^5.1.0:
   version "5.1.0"
   resolved "https://registry.yarnpkg.com/commander/-/commander-5.1.0.tgz#46abbd1652f8e059bddaef99bbdcb2ad9cf179ae"
   integrity sha512-P0CysNDQ7rtVw4QIQtm+MRxV66vKFSvlsQvGYXZWR3qFU0jlMKHZZZgw8e+8DSah4UDKMqnknRDQz+xuQXQ/Zg==
-
-commander@^8.3.0:
-  version "8.3.0"
-  resolved "https://registry.npmjs.org/commander/-/commander-8.3.0.tgz"
-  integrity sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==
 
 commander@~15.0.0:
   version "15.0.0"
@@ -4328,12 +4333,12 @@ jws@^4.0.0, jws@^4.0.1:
     jwa "^2.0.1"
     safe-buffer "^5.0.1"
 
-katex@^0.16.0:
-  version "0.16.45"
-  resolved "https://registry.npmjs.org/katex/-/katex-0.16.45.tgz"
-  integrity sha512-pQpZbdBu7wCTmQUh7ufPmLr0pFoObnGUoL/yhtwJDgmmQpbkg/0HSVti25Fu4rmd1oCR6NGWe9vqTWuWv3GcNA==
+katex@^0.16.0, katex@^0.19.1:
+  version "0.19.1"
+  resolved "https://registry.yarnpkg.com/katex/-/katex-0.19.1.tgz#ba2685811cdbffc54dfb7d55bd440c6cc6bb8795"
+  integrity sha512-jG8uKntjSEcm2EpQOh0XturpPuuC9r3Sq5HLHdsFdWZT27E672SF19QEi+of0/YeOy15lDgRhKvr5614uRrEfA==
   dependencies:
-    commander "^8.3.0"
+    commander "^15.0.0"
 
 keyv@^5.6.0:
   version "5.6.0"
@@ -4599,9 +4604,9 @@ markdownlint-cli@^0.50.0:
     tinyglobby "~0.2.17"
 
 markdownlint@~0.42.0:
-  version "0.42.0"
-  resolved "https://registry.yarnpkg.com/markdownlint/-/markdownlint-0.42.0.tgz#7cd7ad9d9afe5b2ac19aace77f8928c178507606"
-  integrity sha512-kzsCV/rPWRFn3jUhcB919YF4Qgeh0g9tcogoXFadGSo6Zxj6662YOqWXv0jDn8nv5KCCxDfMKJZv6N4HkNkvTg==
+  version "0.42.1"
+  resolved "https://registry.yarnpkg.com/markdownlint/-/markdownlint-0.42.1.tgz#c5c16f10235351cf182933ee691039a1944c1012"
+  integrity sha512-Otolm9JX12iO2NG5cetlKfzGygpiLSlHuqXKxoT6HGhN5HtbxprJPicKZqqCQd88qOvUi/TEs3o1AmcYioVscA==
   dependencies:
     micromark "4.0.3"
     micromark-core-commonmark "2.0.4"
@@ -4611,7 +4616,7 @@ markdownlint@~0.42.0:
     micromark-extension-gfm-table "2.1.2"
     micromark-extension-math "3.1.0"
     micromark-util-types "2.0.3"
-    re2js "2.8.6"
+    re2js "2.9.1"
     string-width "8.3.0"
 
 math-intrinsics@^1.1.0:
@@ -4997,12 +5002,13 @@ minimalistic-crypto-utils@^1.0.1:
   resolved "https://registry.npmjs.org/minimalistic-crypto-utils/-/minimalistic-crypto-utils-1.0.1.tgz"
   integrity sha512-JIYlbt6g8i5jKfJ3xz7rF0LXmv2TkDxBLUkiBeZ7bAx4GnnNMr8xFpGnOxn6GhTEHx3SjRrZEoU+j04prX1ktg==
 
-minimatch@^10.2.4, minimatch@^10.2.6, minimatch@~10.2.6:
-  version "10.2.6"
-  resolved "https://registry.yarnpkg.com/minimatch/-/minimatch-10.2.6.tgz#fd956bbe0b77241e9f15ac5dccb1c638060968ef"
-  integrity sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==
+minimatch@^10.2.4, minimatch@^10.2.6, minimatch@^11.0.8, minimatch@~10.2.6:
+  version "11.0.8"
+  resolved "https://registry.yarnpkg.com/minimatch/-/minimatch-11.0.8.tgz#715fc3509cd7f76ed9af2f702a98411b1b0288c8"
+  integrity sha512-nFQuYSTVrGvysVBps5Ih+0BdnYFN/Cj3C816r6+p7yK+FHrVLGE4O4N9AFwykrlNlvM2HYt+Rad1Uiro6h88Ig==
   dependencies:
-    brace-expansion "^5.0.8"
+    "@isaacs/nonrecursive-glob-match" "^1.1.0"
+    brace-expansion "^5.0.12"
 
 minimatch@^3.1.2:
   version "3.1.5"
@@ -5485,10 +5491,10 @@ raw-body@^3.0.0, raw-body@^3.0.2:
     iconv-lite "~0.7.0"
     unpipe "~1.0.0"
 
-re2js@2.8.6:
-  version "2.8.6"
-  resolved "https://registry.yarnpkg.com/re2js/-/re2js-2.8.6.tgz#acbd17a1ad0e98c1f2ee0a2adc17ba0903d9ca95"
-  integrity sha512-xLgQil4kIUCrAzVk9fRSkxkFNwmygLFjVxXrLc65aE1F0+Zsb8rxumFBy4XKyvgMCTL6kilDq3EZ0piE2dP/Dg==
+re2js@2.9.1:
+  version "2.9.1"
+  resolved "https://registry.yarnpkg.com/re2js/-/re2js-2.9.1.tgz#79e661007980cc6a07edf0d8bcbcbc94046aa381"
+  integrity sha512-JIT3bEEUZTOR2YS1walNEIfH4cF/cQeZcBUFq7ldqO6lR6g0X5CBq/S8rsa9omzZcsNf8qc36jCkWpKKtncrZg==
 
 react-codemirror2@9.0.1, react-codemirror2@^9.0.1:
   version "9.0.1"
