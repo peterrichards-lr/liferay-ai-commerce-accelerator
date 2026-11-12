@@ -89,9 +89,11 @@ function configurationSourceError(message, userMessage, detail) {
  * Liferay resolves an application's scope aliases against the REST scopes
  * registered when the aliases are saved, and the object's scope only exists
  * once the batch extension has imported its definition - after the extensions
- * register. The alias stays unresolved until the applications are re-saved,
- * about ten minutes into a fresh install. A 403 can also be the client
- * credentials user's permissions, so the message names both. See #1379.
+ * register. The alias stays unresolved until the applications are re-saved.
+ * Nothing guarantees that happens: the E2E re-saves them by redeploying every
+ * extension, but a quickstart never does, and only a Liferay restart heals it
+ * (#1379, measured 2026-11-11). A 403 can also be the client credentials
+ * user's permissions, so the message names both.
  */
 function isScopeNotYetResolved(cause) {
   return cause?.status === 403;
@@ -139,12 +141,13 @@ function scopeNotYetResolved(cause, description, where) {
   error.cause = cause;
   error.configurationSource = description;
   error.userMessage =
-    `Liferay refused AICA's configuration read from ${where}. Right after a ` +
-    'fresh install this is expected for up to about ten minutes, while ' +
-    "Liferay finishes registering the configuration object's API scope; AICA " +
-    'keeps retrying. If it lasts longer, check that the OAuth application ' +
-    'includes the c_aicaconfiguration scope and that its user can read the ' +
-    'AICA Configuration object.';
+    `Liferay refused AICA's configuration read from ${where}. On a fresh ` +
+    "install this happens because Liferay registered AICA's OAuth application " +
+    "before the configuration object's API scope existed, and it does not " +
+    'correct that by itself: restart Liferay once, and AICA recovers within ' +
+    'about a minute. If it continues after a restart, check that the OAuth ' +
+    'application includes the c_aicaconfiguration scope and that its user can ' +
+    'read the AICA Configuration object.';
   error.errorReference = cause?.errorReference || createERC(ERC_PREFIX.ERROR);
   error.problem = {
     status: 'CONFIGURATION_SCOPE_NOT_RESOLVED',
@@ -162,7 +165,7 @@ function scopeNotYetResolved(cause, description, where) {
 function logConfigurationReadFailure(logger, cause, context) {
   if (isScopeNotYetResolved(cause)) {
     logger?.warn?.(
-      "Liferay refused the AICA configuration read (403): the configuration object's scope is not resolved yet, which is expected for about ten minutes after a fresh install. Retrying on the next request. See #1379.",
+      "Liferay refused the AICA configuration read (403): the configuration object's scope is not resolved. On a fresh install, restart Liferay once to resolve it. Retrying on the next request. See #1379.",
       { ...context, status: 403 }
     );
     return;
