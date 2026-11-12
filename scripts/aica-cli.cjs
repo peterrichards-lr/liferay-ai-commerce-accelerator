@@ -1085,6 +1085,47 @@ async function machineToken() {
   return body.access_token;
 }
 
+// One exchange or sign-in per run, whichever route asked first. A remote target
+// asks on every request (#1405), and a browser sign-in per request would be
+// unusable.
+let obtainedToken = null;
+
+/**
+ * A Liferay bearer token from whichever source was supplied, or null.
+ *
+ * In order of how directly it was supplied: a token given as `--token` or
+ * AICA_ADMIN_TOKEN, used as given; then the automation application's
+ * credentials, exchanged for one; then, on a terminal only, a browser sign-in.
+ * A browser opened by an unattended run would hang until something timed out,
+ * with nothing to say why.
+ */
+async function suppliedToken(opts, purpose) {
+  const supplied = (opts && opts.token) || ADMIN_TOKEN;
+
+  if (supplied) {
+    return supplied;
+  }
+
+  if (ADMIN_CLIENT_ID && ADMIN_CLIENT_SECRET) {
+    obtainedToken ??= machineToken();
+    return obtainedToken;
+  }
+
+  if (CLI_CLIENT_ID && process.stdin.isTTY) {
+    const { login } = require('./pkce-login.cjs');
+
+    // Resolved before the browser is opened, not after: a sign-in against a
+    // host the operator never named is the failure #1053 is about.
+    obtainedToken ??= login({
+      liferayUrl: requireLiferayUrl(purpose),
+      clientId: CLI_CLIENT_ID,
+    });
+    return obtainedToken;
+  }
+
+  return null;
+}
+
 /**
  * The credential for a route reserved for administrators.
  *
@@ -1099,28 +1140,10 @@ async function machineToken() {
  * authenticate the microservice to Liferay and are not an operator (#930).
  */
 async function adminToken(opts, command) {
-  const supplied = (opts && opts.token) || ADMIN_TOKEN;
+  const token = await suppliedToken(opts, `Signing in for ${command}`);
 
-  if (supplied) {
-    return supplied;
-  }
-
-  if (ADMIN_CLIENT_ID && ADMIN_CLIENT_SECRET) {
-    return machineToken();
-  }
-
-  // Last, because it needs a person. Offered only on a terminal: a browser
-  // opened by an unattended run would hang until something timed out, with
-  // nothing to say why.
-  if (CLI_CLIENT_ID && process.stdin.isTTY) {
-    const { login } = require('./pkce-login.cjs');
-
-    // Resolved before the browser is opened, not after: a sign-in against a
-    // host the operator never named is the failure this issue is about.
-    return login({
-      liferayUrl: requireLiferayUrl(`Signing in for ${command}`),
-      clientId: CLI_CLIENT_ID,
-    });
+  if (token) {
+    return token;
   }
 
   throw new Error(
@@ -1129,8 +1152,8 @@ async function adminToken(opts, command) {
       `   Liferay; they are not an operator identity, so this route cannot\n` +
       `   accept them.\n` +
       `   Interactively, supply an administrator's bearer token with\n` +
-      `   --token <token> or AICA_ADMIN_TOKEN, and add that account to\n` +
-      `   AICA_ADMINS on the service.\n` +
+      `   --token <token> or AICA_ADMIN_TOKEN. The account needs Liferay's\n` +
+      `   Administrator role, or to be named in AICA_ADMINS on the service.\n` +
       `   Unattended, set AICA_ADMIN_CLIENT_ID and AICA_ADMIN_CLIENT_SECRET for\n` +
       `   a dedicated application named in AICA_ADMIN_CLIENTS.\n` +
       `   To sign in through a browser instead, set AICA_CLI_CLIENT_ID and run\n` +
@@ -1637,12 +1660,55 @@ async function pollProgress(sessionId) {
   }
 }
 
+function isLocalTarget(url) {
+  try {
+    return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The Authorization header for a request to the microservice.
+ *
+ * A microservice on this machine trusts a loopback caller, so a local run needs
+ * nothing. Anywhere else the microservice admits a request carrying a verified
+ * Liferay token, and refuses the rest with a 401 about request-signing headers,
+ * which nothing in this CLI produces. So a remote target gets a token on every
+ * request, from the same sources as an administrator's (#1405). A token a
+ * route was given explicitly - an administrator's - always wins.
+ */
+async function authorizationHeaders(token) {
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  if (isLocalTarget(MICROSERVICE_URL)) {
+    return {};
+  }
+
+  const remote = await suppliedToken({}, 'Reaching a remote microservice');
+
+  if (!remote) {
+    throw new Error(
+      `AICA_MICROSERVICE_URL is ${MICROSERVICE_URL}, which is not this machine.\n` +
+        `   A microservice elsewhere admits only a caller with a Liferay token.\n` +
+        `   Supply one as AICA_ADMIN_TOKEN, or set AICA_ADMIN_CLIENT_ID and\n` +
+        `   AICA_ADMIN_CLIENT_SECRET for an application that allows the\n` +
+        `   client_credentials grant. To sign in through a browser instead, set\n` +
+        `   AICA_CLI_CLIENT_ID and run this from a terminal.`
+    );
+  }
+
+  return { Authorization: `Bearer ${remote}` };
+}
+
 async function nativePost(url, payload, { token } = {}) {
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(await authorizationHeaders(token)),
     },
     body: JSON.stringify(payload),
   });
@@ -1662,14 +1728,15 @@ async function nativePost(url, payload, { token } = {}) {
  * contain.
  */
 async function nativeDownload(url, { method = 'GET', payload } = {}) {
+  const auth = await authorizationHeaders();
   const res = await fetch(url, {
     method,
     ...(payload
       ? {
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...auth },
           body: JSON.stringify(payload),
         }
-      : {}),
+      : { headers: auth }),
   });
 
   if (!res.ok) {
@@ -1705,7 +1772,11 @@ async function nativeUpload(url, fields, { bytes, field, filename }) {
 
   form.append(field, new Blob([bytes]), filename);
 
-  const res = await fetch(url, { method: 'POST', body: form });
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: await authorizationHeaders(),
+    body: form,
+  });
 
   if (!res.ok) {
     const text = await res.text();
@@ -1718,6 +1789,7 @@ async function nativeUpload(url, fields, { bytes, field, filename }) {
 async function nativeGet(url) {
   const res = await fetch(url, {
     method: 'GET',
+    headers: await authorizationHeaders(),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -1911,6 +1983,7 @@ module.exports = {
   GENERATE_OPTIONS,
   WITHHELD_GENERATE_KEYS,
   adminToken,
+  authorizationHeaders,
   buildGeneratePayload,
   parseControlOptions,
   parseGenerateArgs,
