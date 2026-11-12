@@ -176,8 +176,8 @@ describe('ConfigService reads over the configuration source (#824)', () => {
     });
   });
 
-  // Right after a fresh install Liferay answers 403 until it resolves the
-  // configuration object's scope alias, about ten minutes in. #1379.
+  // On a fresh install Liferay answers 403 until the configuration object's
+  // scope alias is resolved, which takes a restart on a quickstart. #1379.
   describe('a configuration object Liferay refuses (403)', () => {
     const forbidden = () => {
       const e = new Error('Forbidden');
@@ -199,7 +199,9 @@ describe('ConfigService reads over the configuration source (#824)', () => {
       expect(error.name).toBe('ConfigurationSourceUnavailableError');
       expect(error.statusCode).toBe(503);
       expect(error.problem.status).toBe('CONFIGURATION_SCOPE_NOT_RESOLVED');
-      expect(error.userMessage).toMatch(/up to about ten minutes/);
+      // The remedy a quickstart needs, not a wait that never ends (#1379).
+      expect(error.userMessage).toMatch(/restart Liferay once/);
+      expect(error.userMessage).not.toMatch(/ten minutes/);
       // Both causes named: a 403 is also the user's permissions.
       expect(error.userMessage).toMatch(/c_aicaconfiguration scope/);
       expect(error.userMessage).toMatch(/its user can read/);
@@ -212,7 +214,7 @@ describe('ConfigService reads over the configuration source (#824)', () => {
 
       expect(mockCtx.logger.errorWithStack).not.toHaveBeenCalled();
       expect(mockCtx.logger.warn).toHaveBeenCalledWith(
-        expect.stringMatching(/not resolved yet.*#1379/),
+        expect.stringMatching(/not resolved.*restart Liferay once.*#1379/),
         expect.objectContaining({ status: 403 })
       );
     });
