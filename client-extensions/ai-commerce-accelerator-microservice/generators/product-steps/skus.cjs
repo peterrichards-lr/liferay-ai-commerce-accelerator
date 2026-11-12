@@ -642,6 +642,7 @@ async function runProductSkusStep(sessionId) {
 }
 
 module.exports = {
+  priceFields,
   runResolveSkuIdsStep,
   runLinkProductOptionsStep,
   runProductSkusStep,

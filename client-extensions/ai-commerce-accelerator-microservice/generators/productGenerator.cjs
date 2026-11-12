@@ -55,20 +55,9 @@ class ProductGenerator extends BaseGenerator {
     return products.cleanProductForLiferay.call(this, product, options);
   }
 
-  async handleBatchCallback(_sessionId, batchERC) {
-    const batch = await this.persistence.getBatch(batchERC);
-    if (
-      [
-        S.GENERATE_PRICE_LISTS,
-        S.GENERATE_BULK_PRICING,
-        S.GENERATE_TIER_PRICING,
-      ].includes(batch.step_key)
-    ) {
-      await this._verifyPricing(_sessionId, batchERC);
-    }
-  }
-
-  async _verifyPricing(_sessionId, _batchERC) {
+  // Prices are not read back once their batches complete. This used to call a
+  // verifier that returned true unconditionally, which read as a check (#1372).
+  async handleBatchCallback(_sessionId, _batchERC) {
     return true;
   }
 }

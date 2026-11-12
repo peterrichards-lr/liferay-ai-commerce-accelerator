@@ -495,28 +495,6 @@ class WarehouseGenerator extends BaseGenerator {
     }
   }
 
-  async _verifyWarehouses(sessionId, batchERC) {
-    const session = await this.persistence.getSession(sessionId);
-    const { config } = session.context;
-
-    this.logger.info('Verifying warehouse creation', {
-      sessionId,
-      batchERC,
-    });
-
-    try {
-      const warehouses = await this.liferay.getWarehouses(config);
-      this.logger.info('Successfully verified warehouses', {
-        count: warehouses.length,
-      });
-    } catch (error) {
-      this.logger.warn('Warehouse verification failed (non-fatal)', {
-        sessionId,
-        error: error.message,
-      });
-    }
-  }
-
   async handleBatchCallback(_sessionId, _batchERC) {
     return true;
   }
