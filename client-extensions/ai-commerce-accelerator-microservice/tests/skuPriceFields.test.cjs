@@ -44,6 +44,20 @@ describe('priceFields', () => {
     expect(priceFields({ price: -5 }, { price: 10 })).toEqual({});
   });
 
+  it.each([
+    ['a blank string', ''],
+    ['a whitespace string', '   '],
+    ['an empty array', []],
+    ['false', false],
+    ['true', true],
+  ])('treats %s as no price, rather than 0 or 1 (#1422)', (_label, value) => {
+    expect(priceFields({ price: value, cost: 3 })).toEqual({ cost: 3 });
+  });
+
+  it('falls back past a blank value, as it does past a missing one', () => {
+    expect(priceFields({ price: '' }, { price: 10 })).toEqual({ price: 10 });
+  });
+
   it('returns nothing for no source at all', () => {
     expect(priceFields()).toEqual({});
   });
