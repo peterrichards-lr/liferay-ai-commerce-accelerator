@@ -1,5 +1,6 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import AppRoot from './App';
+import { TEST_SPRITEMAP } from './testUtils/render';
 
 // Mock child components but allow them to render enough to be identified
 vi.mock('./components/data-generator/DataGeneratorForm', () => ({
@@ -42,6 +43,7 @@ describe('App', () => {
       clientSecret: 'test-secret',
       microserviceUrl: 'http://localhost:3001',
       liferayUrl: 'http://localhost:8080',
+      spritemap: TEST_SPRITEMAP,
     };
     render(<AppRoot config={config} />);
 
@@ -77,6 +79,7 @@ describe('App', () => {
       clientId: 'test-client',
       clientSecret: 'test-secret',
       microserviceUrl: 'http://localhost:3001',
+      spritemap: TEST_SPRITEMAP,
     };
     render(<AppRoot config={config} />);
 
@@ -91,7 +94,7 @@ describe('App', () => {
   });
 
   it('renders the main sections', async () => {
-    render(<AppRoot />);
+    render(<AppRoot config={{ spritemap: TEST_SPRITEMAP }} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('generator-form')).toBeInTheDocument();

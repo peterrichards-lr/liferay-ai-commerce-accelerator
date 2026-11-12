@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import AdminRootWithContext from './AdminApp';
+import { TEST_SPRITEMAP } from './testUtils/render';
 
 describe('AdminApp UI', () => {
   it('should render AI Media as inherited with a success tick when correctly configured', async () => {
@@ -46,6 +47,7 @@ describe('AdminApp UI', () => {
     const config = {
       microserviceUrl: 'http://localhost:3001',
       liferayUrl: 'http://localhost:8080',
+      spritemap: TEST_SPRITEMAP,
     };
 
     render(<AdminRootWithContext config={config} />);
