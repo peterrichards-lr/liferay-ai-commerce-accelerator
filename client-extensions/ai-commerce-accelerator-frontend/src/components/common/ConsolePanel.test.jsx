@@ -83,7 +83,7 @@ describe('ConsolePanel', () => {
     expect(await screen.findByText('Copied')).toBeInTheDocument();
   });
 
-  it('copies only what the filter leaves visible', () => {
+  it('copies only what the filter leaves visible', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     // navigator.clipboard is getter-only under happy-dom.
     Object.defineProperty(navigator, 'clipboard', {
@@ -98,6 +98,9 @@ describe('ConsolePanel', () => {
     fireEvent.click(screen.getByTitle(/Copy the visible log entries/i));
 
     expect(writeText).toHaveBeenCalledWith('[12:01:02] [ERROR] Boom');
+    // The copy confirms once the clipboard write resolves. Waiting for it keeps
+    // that state update inside the test rather than after it (#1353).
+    expect(await screen.findByText('Copied')).toBeInTheDocument();
   });
 
   it('reports expansion so a collapsed consumer can defer rendering', () => {
