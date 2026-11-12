@@ -57,8 +57,11 @@ jobs:
           fi
           echo "📥 Packaging with LDM '${LDM_VER}' from ${DOWNLOAD_URL}"
           wget "$DOWNLOAD_URL" -O ldm
-          chmod +x ldm
-          sudo mv ldm /usr/local/bin/
+          # Owned by root, not the runner account that downloaded it: mv keeps
+          # the owner, and LDM warns that a binary its user can rewrite could
+          # have been replaced (GHSA-cq82-rxm7-vw5c, #1425).
+          sudo install -o root -g root -m 755 ldm /usr/local/bin/ldm
+          rm -f ldm
           echo "✅ Packaging LDM: $(ldm --version 2>&1 | head -1)"
 
       - name: Setup Node.js

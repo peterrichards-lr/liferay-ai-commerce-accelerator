@@ -285,8 +285,11 @@ jobs:
           fi
           echo "📥 Downloading LDM binary version '${LDM_VER}' from ${DOWNLOAD_URL}..."
           wget -q "$DOWNLOAD_URL" -O ldm
-          chmod +x ldm
-          sudo mv ldm /usr/local/bin/
+          # Owned by root, not the runner account that downloaded it: mv keeps
+          # the owner, and LDM warns that a binary its user can rewrite could
+          # have been replaced (GHSA-cq82-rxm7-vw5c, #1425).
+          sudo install -o root -g root -m 755 ldm /usr/local/bin/ldm
+          rm -f ldm
           ldm --version
 
       - name: Configure local hosts file
