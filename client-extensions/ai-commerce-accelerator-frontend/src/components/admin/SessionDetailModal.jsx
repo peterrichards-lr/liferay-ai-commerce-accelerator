@@ -103,6 +103,7 @@ function SessionDetailModal({ session, onClose }) {
                       copyToClipboard(session.session_id, 'Session ID')
                     }
                     title="Copy Session ID"
+                    aria-label="Copy Session ID"
                   >
                     <ClayIcon
                       symbol="copy"

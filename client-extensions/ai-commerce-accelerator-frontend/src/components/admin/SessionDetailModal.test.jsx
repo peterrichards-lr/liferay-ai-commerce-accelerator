@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { AppProvider } from '../../context/AppContext';
+import { TEST_SPRITEMAP } from '../../testUtils/render';
 import SessionDetailModal from './SessionDetailModal';
 
 describe('SessionDetailModal', () => {
@@ -28,7 +29,12 @@ describe('SessionDetailModal', () => {
 
   const renderWithProvider = (ui) => {
     return render(
-      <AppProvider initialConfig={{ microserviceUrl: 'http://localhost:3001' }}>
+      <AppProvider
+        initialConfig={{
+          microserviceUrl: 'http://localhost:3001',
+          spritemap: TEST_SPRITEMAP,
+        }}
+      >
         {ui}
       </AppProvider>
     );
