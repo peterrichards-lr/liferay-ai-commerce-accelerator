@@ -153,6 +153,14 @@ jobs:
             chmod -R a+rwX /project/scripts /project/routes || true
           node scripts/sanitize-ldm-package.cjs project aica-e2e
 
+          # LDM's own dxp-routes-domain bundle, which `ldm run` installs into
+          # osgi/modules and the snapshot would carry into the package. AICA did
+          # not build it, so the verify step refuses it, and the consumer's own
+          # `ldm run` installs the right one for their Liferay line. A stopgap
+          # until LDM-#2359 (v2.26.10) leaves it out of the snapshot; remove this
+          # once LDM_VERSION is there. Globbed for per-line variants. See #1427.
+          sudo rm -f aica-e2e/osgi/modules/com.liferay.custom.dxp.routes.domain*.jar
+
           # Take the snapshot explicitly so its meta can be enriched before packaging.
           ldm snapshot -p aica-e2e -y
 
