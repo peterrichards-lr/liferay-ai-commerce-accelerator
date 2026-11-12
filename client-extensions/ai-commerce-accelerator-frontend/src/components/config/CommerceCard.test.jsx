@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen } from '../../testUtils/render';
 import userEvent from '@testing-library/user-event';
 import CommerceCard from './CommerceCard';
 import { useApp } from '../../context/AppContext';

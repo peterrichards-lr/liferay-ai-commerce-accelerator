@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '../../testUtils/render';
 import userEvent from '@testing-library/user-event';
 import CommerceSetupDialog from './CommerceSetupDialog';
 

@@ -141,6 +141,7 @@ function Dashboard({
                     className="text-secondary p-1 mr-2 d-flex align-items-center"
                     onClick={onResetStatus}
                     title="Clear Workflow Status"
+                    aria-label="Clear Workflow Status"
                   >
                     <ClayIcon symbol="times-circle" />
                   </ClayButton>
@@ -149,6 +150,7 @@ function Dashboard({
                     className="text-secondary p-1 d-flex align-items-center"
                     onClick={onResetAll}
                     title="Clear Status & Logs"
+                    aria-label="Clear Status & Logs"
                   >
                     <ClayIcon symbol="trash" />
                   </ClayButton>

@@ -1,5 +1,6 @@
 import { render, waitFor } from '@testing-library/react';
 import AppRoot from './App';
+import { TEST_SPRITEMAP } from './testUtils/render';
 
 /**
  * What the four write flows put on the wire (#1044).
@@ -76,6 +77,7 @@ const CONNECTED = {
   subtitle: 'Generate comprehensive Commerce data',
   title: 'Test Accelerator',
   wsLoggingLevel: 'debug',
+  spritemap: TEST_SPRITEMAP,
 };
 
 const mountWith = async (config) => {

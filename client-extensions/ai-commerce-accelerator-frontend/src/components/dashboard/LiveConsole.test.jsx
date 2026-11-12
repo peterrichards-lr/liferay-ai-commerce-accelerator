@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen } from '../../testUtils/render';
 import ActivityLog from './ActivityLog';
 import { stubScrollMetrics } from '../../testUtils/scrollMetrics';
 

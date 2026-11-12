@@ -8,11 +8,7 @@ function StatusBadge({ status }) {
   if (status === 'CANCELLED') displayType = 'warning';
   if (status === 'STARTED' || status === 'PROCESSING') displayType = 'info';
 
-  return (
-    <ClayLabel displayType={displayType} outline={true}>
-      {status}
-    </ClayLabel>
-  );
+  return <ClayLabel displayType={displayType}>{status}</ClayLabel>;
 }
 
 export default StatusBadge;
