@@ -151,6 +151,33 @@ describe('collectProblems', () => {
     );
   });
 
+  it("refuses the build's company virtual host in custom_env, as v3.3.59 shipped it (#1435)", () => {
+    const problem = onlyProblem((facts) => {
+      facts.meta.custom_env = JSON.stringify({
+        LIFERAY_COMPANY_PERIOD_DEFAULT_PERIOD_VIRTUAL_PERIOD_HOST_PERIOD_NAME:
+          'aica-e2e.demo',
+      });
+    });
+
+    expect(problem).toContain('custom_env pins');
+  });
+
+  // The backstop: a key no prefix knows about, carrying the build's host. It
+  // is reported once, by this check, not again by the pinned-prefix one.
+  it("refuses any custom_env value naming the build's host, under a key nobody listed (#1435)", () => {
+    const problem = onlyProblem((facts) => {
+      facts.meta.custom_env = JSON.stringify({
+        LIFERAY_SOME_PERIOD_FUTURE_PERIOD_HOST: 'https://aica-e2e.demo',
+        LIFERAY_LOG4J2_CONFIGURATION_FILE:
+          '/opt/liferay/osgi/log4j/portal-log4j-ext.xml',
+      });
+    });
+
+    expect(problem).toContain("names the build's host");
+    expect(problem).toContain('LIFERAY_SOME_PERIOD_FUTURE_PERIOD_HOST');
+    expect(problem).not.toContain('LIFERAY_LOG4J2_CONFIGURATION_FILE');
+  });
+
   it("refuses the build environment's search topology in custom_env (#563)", () => {
     const problem = onlyProblem((facts) => {
       facts.meta.custom_env = JSON.stringify({

@@ -23,11 +23,18 @@ const path = require('path');
  * (`has_jdbc_env`), so the packaged `jdbc.default.url`, which names the build's
  * own database container, would survive into the consumer's project. None has
  * been captured yet; nothing else would stop one. See #1365.
+ *
+ * LDM sets the default company's virtual host through the environment
+ * (LDM-#2154), so the build container's `aica-e2e.demo` was captured too. On
+ * import it named the consumer's company after the CI host; Liferay wrote that
+ * into the DXP tree and the microservice, following the tree, called a host
+ * that resolves to its own loopback. v3.3.59 shipped it. See #1435.
  */
 const PINNED_ENV_PREFIXES = [
   'LIFERAY_ROUTES_CLIENT_EXTENSION_',
   'LIFERAY_ELASTICSEARCH_',
   'LIFERAY_JDBC_PERIOD_',
+  'LIFERAY_COMPANY_PERIOD_DEFAULT_PERIOD_VIRTUAL_PERIOD_HOST_',
 ];
 
 /**

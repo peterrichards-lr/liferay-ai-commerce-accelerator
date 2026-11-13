@@ -51,6 +51,22 @@ describe('stripPinnedEnv', () => {
     expect(customEnv).toEqual({});
   });
 
+  it("drops the build's company virtual host, which named the consumer's company aica-e2e.demo (#1435)", () => {
+    // Verbatim from the v3.3.59 package.
+    const { customEnv, dropped } = stripPinnedEnv({
+      LIFERAY_COMPANY_PERIOD_DEFAULT_PERIOD_VIRTUAL_PERIOD_HOST_PERIOD_NAME:
+        'aica-e2e.demo',
+      LIFERAY_COMPANY_PERIOD_DEFAULT_PERIOD_VIRTUAL_PERIOD_HOST_PERIOD_SYNC_PERIOD_ON_PERIOD_STARTUP:
+        'true',
+      LIFERAY_WEB_PERIOD_SERVER_PERIOD_DISPLAY_PERIOD_NODE_PERIOD_NAME: 'true',
+    });
+
+    expect(customEnv).toEqual({
+      LIFERAY_WEB_PERIOD_SERVER_PERIOD_DISPLAY_PERIOD_NODE_PERIOD_NAME: 'true',
+    });
+    expect(Object.keys(dropped)).toHaveLength(2);
+  });
+
   it('keeps environment that is not machine-specific', () => {
     const { customEnv, dropped } = stripPinnedEnv({
       LIFERAY_LOG4J2_CONFIGURATION_FILE:
