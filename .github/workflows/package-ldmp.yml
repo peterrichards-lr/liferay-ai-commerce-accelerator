@@ -57,8 +57,11 @@ jobs:
           fi
           echo "📥 Packaging with LDM '${LDM_VER}' from ${DOWNLOAD_URL}"
           wget "$DOWNLOAD_URL" -O ldm
-          chmod +x ldm
-          sudo mv ldm /usr/local/bin/
+          # Owned by root, not the runner account that downloaded it: mv keeps
+          # the owner, and LDM warns that a binary its user can rewrite could
+          # have been replaced (GHSA-cq82-rxm7-vw5c, #1425).
+          sudo install -o root -g root -m 755 ldm /usr/local/bin/ldm
+          rm -f ldm
           echo "✅ Packaging LDM: $(ldm --version 2>&1 | head -1)"
 
       - name: Setup Node.js
@@ -149,6 +152,14 @@ jobs:
           docker run --rm -v "$PWD/aica-e2e:/project" alpine \
             chmod -R a+rwX /project/scripts /project/routes || true
           node scripts/sanitize-ldm-package.cjs project aica-e2e
+
+          # LDM's own dxp-routes-domain bundle, which `ldm run` installs into
+          # osgi/modules and the snapshot would carry into the package. AICA did
+          # not build it, so the verify step refuses it, and the consumer's own
+          # `ldm run` installs the right one for their Liferay line. A stopgap
+          # until LDM-#2359 (v2.26.10) leaves it out of the snapshot; remove this
+          # once LDM_VERSION is there. Globbed for per-line variants. See #1427.
+          sudo rm -f aica-e2e/osgi/modules/com.liferay.custom.dxp.routes.domain*.jar
 
           # Take the snapshot explicitly so its meta can be enriched before packaging.
           ldm snapshot -p aica-e2e -y
