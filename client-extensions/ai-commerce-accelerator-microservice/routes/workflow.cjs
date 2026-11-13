@@ -1,5 +1,9 @@
 const { INTERNAL_API_PATHS } = require('../utils/internalApiPaths.cjs');
-const { planSessionResume } = require('../utils/resumePlan.cjs');
+const {
+  STEP_STATE,
+  deriveStepStates,
+  planSessionResume,
+} = require('../utils/resumePlan.cjs');
 const { sweepOrphanMediaArchives } = require('../utils/mediaArchive.cjs');
 const { createERC, resolveErrorReference } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
@@ -221,6 +225,32 @@ function summariseSessionProgress({ batches = [], options = {} }) {
       { completed, total },
     ])
   );
+}
+
+/**
+ * How many of a session's steps are finished, for the frontend's step gauge.
+ *
+ * This read `session.currentSteps.length`. Those are the steps in flight, and
+ * the SDK empties the list when a session ends, so every COMPLETED session
+ * reported 0 of its steps done. The frontend reads an outstanding step as
+ * proof a run has not finished (#786), so a run it learned about from this
+ * route - a page reload, or a browser with no WebSocket - showed 0% for good
+ * (#1390).
+ *
+ * A COMPLETED session has finished every step. Otherwise each step key whose
+ * batch rows are all terminal counts, as resume reads them, capped at the
+ * total because a structured step can hold several keys.
+ */
+function countCompletedSteps(session, batches, totalSteps) {
+  if (session.status === 'COMPLETED') {
+    return totalSteps;
+  }
+
+  const complete = [...deriveStepStates(batches).values()].filter(
+    (state) => state === STEP_STATE.COMPLETE
+  ).length;
+
+  return Math.min(totalSteps, complete);
 }
 
 module.exports = (
@@ -568,7 +598,7 @@ module.exports = (
       const progress = summariseSessionProgress({ batches, options });
 
       const totalSteps = session.context?.steps?.length || 0;
-      const completedSteps = session.currentSteps?.length || 0;
+      const completedSteps = countCompletedSteps(session, batches, totalSteps);
 
       let overallProgress = 0;
       if (session.status === 'COMPLETED') {
@@ -792,3 +822,4 @@ module.exports = (
 module.exports.STEP_ENTITY_MAP = STEP_ENTITY_MAP;
 module.exports.requestedTotals = requestedTotals;
 module.exports.summariseSessionProgress = summariseSessionProgress;
+module.exports.countCompletedSteps = countCompletedSteps;
