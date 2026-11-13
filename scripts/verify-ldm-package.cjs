@@ -40,6 +40,15 @@ const REQUIRED_META_KEYS = [
 ];
 
 const EXPECTED_HOST_NAME = 'aica.demo';
+
+/**
+ * What every name the CI harness gives itself contains: its project, its host
+ * and its containers are all `aica-e2e…`. A captured value carrying it pins the
+ * consumer to the build, whichever key it arrived under. The pinned-prefix
+ * check knows the keys that have leaked before; this catches the next one,
+ * which is how #1435 reached a release - through a key nobody had listed.
+ */
+const BUILD_HOST_MARKER = 'aica-e2e';
 const MAX_PACKAGE_MB = 250;
 const FORBIDDEN_MEMBERS = ['database.sql', 'database.gz'];
 const DEFAULT_STAGED_DIR = 'bundles/osgi/modules';
@@ -86,6 +95,18 @@ const parseCustomEnv = (meta) => {
 
 const pinnedEnvKeys = (customEnv) =>
   Object.keys(stripPinnedEnv(customEnv).dropped).sort();
+
+const buildHostEnvKeys = (customEnv) => {
+  const pinned = new Set(pinnedEnvKeys(customEnv));
+
+  return Object.entries(customEnv)
+    .filter(
+      ([key, value]) =>
+        !pinned.has(key) && String(value).includes(BUILD_HOST_MARKER)
+    )
+    .map(([key]) => key)
+    .sort();
+};
 
 const pinnedPropertyKeys = (contents) =>
   [...stripPinnedProperties(contents || '').dropped].sort();
@@ -199,6 +220,15 @@ function collectProblems(facts) {
       `custom_env pins ${formatList(pinnedEnv)}; these carry the build environment's` +
         ' container hostnames and search topology, and win over the settings' +
         " LDM derives for the consumer's own project"
+    );
+  }
+
+  const buildHostEnv = buildHostEnvKeys(parseCustomEnv(meta));
+  if (buildHostEnv.length) {
+    problems.push(
+      `custom_env names the build's host in ${formatList(buildHostEnv)};` +
+        " these win over the consumer's own settings on import, and the" +
+        ' sanitiser does not strip them (#1435)'
     );
   }
 
@@ -394,6 +424,7 @@ module.exports = {
   EXPECTED_HOST_NAME,
   MAX_PACKAGE_MB,
   REQUIRED_META_KEYS,
+  buildHostEnvKeys,
   collectProblems,
   describePackage,
   parseCustomEnv,
