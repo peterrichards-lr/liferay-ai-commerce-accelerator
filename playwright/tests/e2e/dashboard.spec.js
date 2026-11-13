@@ -67,11 +67,13 @@ test.describe('AICA End-to-End Verification', () => {
       .first()
       .fill('5');
 
-    // Ensure we create a fresh warehouse since database is clean
-    const warehouseCheckbox = page.getByLabel(/Create Warehouses/i).first();
-    if (!(await warehouseCheckbox.isChecked())) {
-      await warehouseCheckbox.check();
-    }
+    // Top up to the count, which creates them on a clean database. The
+    // "Create Warehouses" checkbox this used to tick became a strategy
+    // dropdown in #730, so the spec waited a minute for it and never started
+    // the run (#1390).
+    await page
+      .locator('#dataGeneration_warehouseStrategy')
+      .selectOption('top-up');
 
     // 3. Trigger Generation
     const generateBtn = page.getByRole('button', {
@@ -125,11 +127,13 @@ test.describe('AICA End-to-End Verification', () => {
       .first()
       .fill('5');
 
-    // Ensure we create a fresh warehouse since database is clean
-    const warehouseCheckbox = page.getByLabel(/Create Warehouses/i).first();
-    if (!(await warehouseCheckbox.isChecked())) {
-      await warehouseCheckbox.check();
-    }
+    // Top up to the count, which creates them on a clean database. The
+    // "Create Warehouses" checkbox this used to tick became a strategy
+    // dropdown in #730, so the spec waited a minute for it and never started
+    // the run (#1390).
+    await page
+      .locator('#dataGeneration_warehouseStrategy')
+      .selectOption('top-up');
 
     // 3. Trigger Generation
     const generateBtn = page.getByRole('button', {
@@ -172,11 +176,13 @@ test.describe('AICA End-to-End Verification', () => {
       .first()
       .fill('5');
 
-    // Ensure we create a fresh warehouse since database is clean
-    const warehouseCheckbox = page.getByLabel(/Create Warehouses/i).first();
-    if (!(await warehouseCheckbox.isChecked())) {
-      await warehouseCheckbox.check();
-    }
+    // Top up to the count, which creates them on a clean database. The
+    // "Create Warehouses" checkbox this used to tick became a strategy
+    // dropdown in #730, so the spec waited a minute for it and never started
+    // the run (#1390).
+    await page
+      .locator('#dataGeneration_warehouseStrategy')
+      .selectOption('top-up');
 
     // 3. Trigger Generation
     const generateBtn = page.getByRole('button', {
