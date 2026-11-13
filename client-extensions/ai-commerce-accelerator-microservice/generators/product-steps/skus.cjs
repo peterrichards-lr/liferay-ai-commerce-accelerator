@@ -32,15 +32,21 @@ const {
  * base price list showing 0.00 and, because order items resolve
  * `sku.price || ...`, every order total came out as zero.
  */
+// Number('') and Number([]) are 0 and Number(true) is 1, so anything but a
+// number or a non-blank string would reach Liferay as a price (#1422). Those
+// count as no price given, the same as a missing one.
+function priceCandidate(value) {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim() !== '') return Number(value);
+  return undefined;
+}
+
 function priceFields(source = {}, fallback = {}) {
   const fields = {};
 
   for (const name of ['price', 'promoPrice', 'cost']) {
-    const value = Number(
-      source[name] !== undefined && source[name] !== null
-        ? source[name]
-        : fallback[name]
-    );
+    const value =
+      priceCandidate(source[name]) ?? priceCandidate(fallback[name]);
 
     if (Number.isFinite(value) && value >= 0) {
       fields[name] = value;

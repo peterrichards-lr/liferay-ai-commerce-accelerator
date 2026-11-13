@@ -27,8 +27,13 @@ describe('SessionDetailModal', () => {
     }),
   };
 
-  const renderWithProvider = (ui) => {
-    return render(
+  // The modal fetches the session's events as it mounts. Each test waits for
+  // them, so its assertions describe the settled modal, and the request does
+  // not outlive the test, where unmounting aborted it and the component logged
+  // the abort as a failure (#1353). 'Workflow started' is the MSW handler's
+  // event.
+  const renderSettled = async (ui) => {
+    const view = render(
       <AppProvider
         initialConfig={{
           microserviceUrl: 'http://localhost:3001',
@@ -38,10 +43,12 @@ describe('SessionDetailModal', () => {
         {ui}
       </AppProvider>
     );
+    await screen.findByText('Workflow started');
+    return view;
   };
 
-  it('renders session basic information correctly', () => {
-    renderWithProvider(
+  it('renders session basic information correctly', async () => {
+    await renderSettled(
       <SessionDetailModal session={mockSession} onClose={() => {}} />
     );
 
@@ -51,8 +58,8 @@ describe('SessionDetailModal', () => {
     expect(screen.getByText('generate')).toBeInTheDocument();
   });
 
-  it('redacts sensitive information in the JSON view', () => {
-    renderWithProvider(
+  it('redacts sensitive information in the JSON view', async () => {
+    await renderSettled(
       <SessionDetailModal session={mockSession} onClose={() => {}} />
     );
 
@@ -60,8 +67,8 @@ describe('SessionDetailModal', () => {
     expect(screen.getByText(/\[REDACTED\]/i)).toBeInTheDocument();
   });
 
-  it('renders target totals if present', () => {
-    renderWithProvider(
+  it('renders target totals if present', async () => {
+    await renderSettled(
       <SessionDetailModal session={mockSession} onClose={() => {}} />
     );
 
@@ -72,13 +79,13 @@ describe('SessionDetailModal', () => {
     expect(screen.getByText('5')).toBeInTheDocument();
   });
 
-  it('renders the terminal error message if session failed', () => {
+  it('renders the terminal error message if session failed', async () => {
     const failedSession = {
       ...mockSession,
       status: 'FAILED',
       error_message: 'Out of memory',
     };
-    renderWithProvider(
+    await renderSettled(
       <SessionDetailModal session={failedSession} onClose={() => {}} />
     );
 
@@ -86,9 +93,9 @@ describe('SessionDetailModal', () => {
     expect(screen.getByText('Out of memory')).toBeInTheDocument();
   });
 
-  it('handles sessions with missing or invalid context gracefully', () => {
+  it('handles sessions with missing or invalid context gracefully', async () => {
     const brokenSession = { ...mockSession, context: 'invalid-json' };
-    renderWithProvider(
+    await renderSettled(
       <SessionDetailModal session={brokenSession} onClose={() => {}} />
     );
 
