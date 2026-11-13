@@ -135,9 +135,12 @@ export default function useCommerceData({
 
     const cats = Array.isArray(cat?.catalogs) ? cat.catalogs : [];
     const chs = Array.isArray(ch?.channels) ? ch.channels : [];
-    const warehouseTotal = Array.isArray(wh?.warehouses)
-      ? wh.warehouses.length
-      : null;
+    // A truncated list is a lower bound, not a count, and the form would
+    // describe a run built on the wrong number (#1420).
+    const warehouseTotal =
+      Array.isArray(wh?.warehouses) && wh.truncated !== true
+        ? wh.warehouses.length
+        : null;
     const currs = asCurrencies(curr);
     const siteList = Array.isArray(site?.sites) ? site.sites : [];
 

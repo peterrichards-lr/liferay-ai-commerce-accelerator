@@ -25,6 +25,23 @@ export const handlers = [
     });
   }),
 
+  // Root Lists - Warehouses. An array under `warehouses`, which is what
+  // useCommerceData reads to learn how many already exist.
+  http.post('http://localhost:3001/api/v1/get-warehouses', () => {
+    return HttpResponse.json({
+      success: true,
+      warehouses: [{ id: 321, name: 'Default Warehouse' }],
+    });
+  }),
+
+  // Root Lists - Sites
+  http.post('http://localhost:3001/api/v1/get-sites', () => {
+    return HttpResponse.json({
+      success: true,
+      sites: [{ id: 789, name: 'Default Site', friendlyUrlPath: '/default' }],
+    });
+  }),
+
   // Root Lists - Languages
   http.post('http://localhost:3001/api/v1/get-languages', () => {
     return HttpResponse.json({
