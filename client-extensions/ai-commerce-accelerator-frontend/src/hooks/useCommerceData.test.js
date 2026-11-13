@@ -569,6 +569,93 @@ describe('useCommerceData: the catalog owns the currency (#746)', () => {
 });
 
 /**
+ * The warehouse count the generator form describes a run with (#730, #732).
+ * It used to be null on every instance, because the route sent an object where
+ * this reads an array (#1420). Null means "not known", so the failure looked
+ * like a request that had failed rather than like a wrong answer.
+ */
+describe('useCommerceData: the existing warehouse count (#1420)', () => {
+  const countFrom = async (warehousesResponse) => {
+    useApp.mockReturnValue({
+      config: { liferayUrl: 'http://localhost:8080' },
+      setConfig: vi.fn(),
+      getLanguages: vi.fn().mockResolvedValue({ languages: [] }),
+      getCurrencies: vi.fn().mockResolvedValue({ currencies: [] }),
+    });
+    useApi.mockReturnValue({
+      post: vi.fn(async (path) => {
+        if (path.endsWith('/get-warehouses')) {
+          if (warehousesResponse instanceof Error) throw warehousesResponse;
+          return warehousesResponse;
+        }
+        return { catalogs: [], channels: [], sites: [] };
+      }),
+      get: vi.fn().mockResolvedValue({}),
+    });
+
+    const { result } = renderHook(() =>
+      useCommerceData({
+        addLog: vi.fn(),
+        setConnectionEstablished: vi.fn(),
+        setAiKeyAvailable: vi.fn(),
+        setAiMediaKeyAvailable: vi.fn(),
+        setConnectionErrors: vi.fn(),
+        setProgress: vi.fn(),
+      })
+    );
+
+    let loaded;
+    await act(async () => {
+      loaded = await result.current.loadRootLists();
+    });
+    return loaded.warehouseCount;
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('counts the warehouses the route sends', async () => {
+    expect(
+      await countFrom({
+        success: true,
+        warehouses: [{ id: 1 }, { id: 2 }, { id: 3 }],
+        truncated: false,
+      })
+    ).toBe(3);
+  });
+
+  it('reads an instance with none as zero, which rules out using existing ones', async () => {
+    expect(
+      await countFrom({ success: true, warehouses: [], truncated: false })
+    ).toBe(0);
+  });
+
+  it('does not count a truncated list, which is only a lower bound', async () => {
+    expect(
+      await countFrom({
+        success: true,
+        warehouses: [{ id: 1 }],
+        truncated: true,
+      })
+    ).toBeNull();
+  });
+
+  it('does not count the SDK envelope the route used to send', async () => {
+    expect(
+      await countFrom({
+        success: true,
+        warehouses: { items: [{ id: 1 }], totalCount: 1, truncated: false },
+      })
+    ).toBeNull();
+  });
+
+  it('settles to unknown when the request fails', async () => {
+    expect(await countFrom(new Error('boom'))).toBeNull();
+  });
+});
+
+/**
  * Clearing a channel must not clear a currency nobody asked to clear (#745).
  *
  * An imported configuration states a currency of its own. When the channel it
