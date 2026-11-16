@@ -29,7 +29,10 @@
  */
 
 const axios = require('axios');
-const { lxcConfig } = require('@rotty3000/config-node');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { clearCache } = require('@rotty3000/config-node');
 const {
   requireAdmin,
   administratorRoleCache,
@@ -347,16 +350,36 @@ describe('requireAdmin', () => {
     describe('named by external reference code', () => {
       const ERC = 'ai-commerce-accelerator-cli-automation';
 
-      afterEach(() => {
-        vi.restoreAllMocks();
+      const savedTrees = process.env.CONFIG_NODE_CONFIG_TREES;
+      let tree;
+
+      // A real tree, laid out as LDM writes it: one file per key and no
+      // `liferay.oauth.application.external.reference.codes` list, whose
+      // absence is what defeated lxcConfig.oauthApplication on a node.
+      const routesTreeResolves = (clientId) => {
+        // eslint-disable-next-line security/detect-non-literal-fs-filename
+        fs.writeFileSync(
+          path.join(tree, `${ERC}.oauth2.headless.server.client.id`),
+          clientId
+        );
+        clearCache();
+      };
+
+      beforeEach(() => {
+        tree = fs.mkdtempSync(path.join(os.tmpdir(), 'routes-tree-'));
+        process.env.CONFIG_NODE_CONFIG_TREES = tree;
+        clearCache();
       });
 
-      const routesTreeResolves = (clientId) =>
-        vi
-          .spyOn(lxcConfig, 'oauthApplication')
-          .mockImplementation((erc) =>
-            erc === ERC ? { clientId: () => clientId } : undefined
-          );
+      afterEach(() => {
+        if (savedTrees === undefined) {
+          delete process.env.CONFIG_NODE_CONFIG_TREES;
+        } else {
+          process.env.CONFIG_NODE_CONFIG_TREES = savedTrees;
+        }
+        clearCache();
+        fs.rmSync(tree, { recursive: true, force: true });
+      });
 
       it('admits the application the code resolves to', () => {
         routesTreeResolves(machineClaims('20132').client_id);
@@ -385,12 +408,7 @@ describe('requireAdmin', () => {
       });
 
       // An unresolved code must not match a client id that happens to equal it.
-      it('rejects when the routes tree is absent', () => {
-        vi.spyOn(lxcConfig, 'oauthApplication').mockImplementation(() => {
-          throw new TypeError(
-            "Cannot read properties of undefined (reading 'includes')"
-          );
-        });
+      it('rejects when the tree has no such application', () => {
         process.env.AICA_ADMIN_CLIENTS = ERC;
         const req = mockReq({ user: { claims: machineClaims('20132') } });
         const res = mockRes();
