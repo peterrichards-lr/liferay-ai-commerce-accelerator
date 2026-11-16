@@ -12,6 +12,13 @@ import { expect } from '@playwright/test';
 // the path here. See #1150.
 export const AICA_SITE_PATHS = ['/web/ai-commerce-accelerator', '/web/aica'];
 
+// The activity log the dashboard writes to. Both consoles render ConsolePanel
+// with the same class, so this one is told apart by its title. The
+// `.console-body` the specs used to read went in #595 (#1438).
+export function activityLog(page) {
+  return page.locator('.aica-console').filter({ hasText: 'Live Console' });
+}
+
 export async function injectAndConnectApp(page) {
   console.log(
     '>>> Navigating to standard Guest page to inject React application...'
