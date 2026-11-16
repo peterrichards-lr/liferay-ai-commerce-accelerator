@@ -54,6 +54,10 @@ ai-commerce-accelerator-microservice:
     # with "GraphQL Errors in taxonomyVocabularies ... HTTP 403 Forbidden" and
     # the session dies before any product is generated. See #646.
     - Liferay.Headless.Admin.Taxonomy.everything
+    # The site picker and the ensure-categories fallback list sites through
+    # headless-admin-site. Without this scope Liferay answers an empty 403
+    # and a channel with no site of its own cannot generate. See #1444.
+    - Liferay.Headless.Admin.Site.everything.read
     - Liferay.Headless.Batch.Engine.everything.read
     - Liferay.Headless.Admin.Address.everything
     - Liferay.Headless.Commerce.Admin.Catalog.everything
@@ -165,6 +169,10 @@ ai-commerce-accelerator-microservice-user-agent:
     # with "GraphQL Errors in taxonomyVocabularies ... HTTP 403 Forbidden" and
     # the session dies before any product is generated. See #646.
     - Liferay.Headless.Admin.Taxonomy.everything
+    # The site picker and the ensure-categories fallback list sites through
+    # headless-admin-site. Without this scope Liferay answers an empty 403
+    # and a channel with no site of its own cannot generate. See #1444.
+    - Liferay.Headless.Admin.Site.everything.read
     - Liferay.Headless.Batch.Engine.everything.read
     - Liferay.Headless.Admin.Address.everything
     - Liferay.Headless.Commerce.Admin.Catalog.everything
