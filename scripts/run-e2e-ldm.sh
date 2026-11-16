@@ -3162,14 +3162,17 @@ export_cli_automation_credentials() {
         return 1
     fi
 
-    # config-node rather than the tree's file names: it is what the service
-    # itself reads, so the two cannot disagree about where the pair lives.
+    # The two keys directly. config-node's oauthApplication() first looks the
+    # code up in an external-reference-codes list that LDM's routes tree does
+    # not have, so it found nothing on the node (run 43845199889).
     creds=$(docker exec -w /opt/liferay "$container" node -e '
-        const { lxcConfig } = require("@rotty3000/config-node");
-        const app = lxcConfig.oauthApplication(process.argv[1]);
-        if (app && app.clientId() && app.clientSecret()) {
-            console.log(app.clientId());
-            console.log(app.clientSecret());
+        const { lookupConfig } = require("@rotty3000/config-node");
+        const key = (name) => lookupConfig(`${process.argv[1]}.oauth2.headless.server.${name}`);
+        const id = key("client.id");
+        const secret = key("client.secret");
+        if (id && secret) {
+            console.log(id);
+            console.log(secret);
         }' "$erc" 2>/dev/null)
 
     if [ "$(printf '%s\n' "$creds" | grep -c .)" -ne 2 ]; then
