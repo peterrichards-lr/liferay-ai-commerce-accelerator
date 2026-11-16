@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { lxcConfig } = require('@rotty3000/config-node');
+const { lookupConfig } = require('@rotty3000/config-node');
 const { logger } = require('../utils/logger.cjs');
 const { liferayBaseUrl } = require('./loggingMiddleware.cjs');
 
@@ -47,12 +47,14 @@ function machineAllowlist() {
     .map((entry) => (clientIdFor(entry) || entry).toLowerCase());
 }
 
+// The key itself, not lxcConfig.oauthApplication(erc). That consults a
+// `liferay.oauth.application.external.reference.codes` list first, and the
+// routes tree LDM writes has no such file, so it resolved nothing on a node
+// and threw a TypeError locally (#1405).
 function clientIdFor(erc) {
   try {
-    return lxcConfig.oauthApplication(erc)?.clientId();
+    return lookupConfig(`${erc}.oauth2.headless.server.client.id`);
   } catch (_error) {
-    // config-node throws a TypeError rather than returning nothing when the
-    // routes tree is absent - a local run, or a test. Nothing resolves there.
     return undefined;
   }
 }
