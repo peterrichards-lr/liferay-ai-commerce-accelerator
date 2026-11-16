@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { lxcConfig } = require('@rotty3000/config-node');
 const { logger } = require('../utils/logger.cjs');
 const { liferayBaseUrl } = require('./loggingMiddleware.cjs');
 
@@ -25,6 +26,35 @@ function allowlistFrom(...values) {
     .split(',')
     .map((entry) => entry.trim().toLowerCase())
     .filter(Boolean);
+}
+
+// AICA_ADMIN_CLIENTS may name an application by its external reference code as
+// well as by its client id. Liferay generates the id when it registers the
+// application, which is after this service has started, so an id cannot be
+// written into a freshly built stack's configuration in advance (#1405). The
+// routes tree this service already reads maps the code to the id.
+//
+// config-node caches what it reads, so a code is resolved once per process in
+// practice. That suffices for the application this exists for: it is declared
+// in this service's own client extension, so its routes arrive with the
+// service's own. An entry that names no application is kept as written and
+// compared as a client id, so ids keep working unchanged.
+function machineAllowlist() {
+  return (process.env.AICA_ADMIN_CLIENTS || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => (clientIdFor(entry) || entry).toLowerCase());
+}
+
+function clientIdFor(erc) {
+  try {
+    return lxcConfig.oauthApplication(erc)?.clientId();
+  } catch (_error) {
+    // config-node throws a TypeError rather than returning nothing when the
+    // routes tree is absent - a local run, or a test. Nothing resolves there.
+    return undefined;
+  }
 }
 
 // Interim authorization check for destructive/config-changing routes
@@ -67,7 +97,7 @@ function requireAdmin(req, res, next) {
   // a machine is then a deliberate act in its own variable, not a side effect
   // of whichever user an application happens to be bound to (#988).
   if (req.user.claims.grant_type === MACHINE_GRANT_TYPE) {
-    const clients = allowlistFrom(process.env.AICA_ADMIN_CLIENTS);
+    const clients = machineAllowlist();
     const clientId = String(req.user.claims.client_id || '')
       .trim()
       .toLowerCase();
