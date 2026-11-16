@@ -24,7 +24,11 @@ export const DEFAULTS = {
   selectedLanguages: [],
 
   // AI / runtime
-  aiModel: 'gpt-4o-mini',
+  // None, so the microservice uses the model its AI configuration names. A
+  // fixed id here goes stale whenever the model list is refreshed: this was
+  // gpt-4o-mini, which #969 dropped, and every generation started from the
+  // dashboard was then refused with 400 "aiModel must be one of" (#1390).
+  aiModel: null,
   batchSize: 10,
   pollingDelay: 10000,
   pollingRetries: 12,
