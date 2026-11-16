@@ -1,5 +1,5 @@
 import { test, expect } from '../../fixtures/diagnostics.js';
-import { injectAndConnectApp } from './test-helper.js';
+import { activityLog, injectAndConnectApp } from './test-helper.js';
 
 test.describe('AICA End-to-End Verification', () => {
   test.use({ storageState: '.auth/user.json' });
@@ -35,9 +35,10 @@ test.describe('AICA End-to-End Verification', () => {
     const progressGauge = page.locator('.overall-gauge-container');
     await expect(progressGauge).toContainText('100%', { timeout: 60000 });
 
-    // 4. Verify Success log
-    const console = page.locator('.console-body');
-    await expect(console).toContainText(/Deletion session completed/i, {
+    // 4. Verify the session reports completion. "Deletion session completed"
+    // is a microservice log line that reaches the browser only over the
+    // WebSocket, which the E2E browser does not have (#1438).
+    await expect(page.getByText('COMPLETED', { exact: true })).toBeVisible({
       timeout: 10000,
     });
 
@@ -87,9 +88,11 @@ test.describe('AICA End-to-End Verification', () => {
     await expect(progressGauge).toContainText('100%', { timeout: 600000 });
 
     // 5. Verify Console logs
-    const console = page.locator('.console-body');
+    // `[ERROR]`, not /ERROR/i: the level filter's "Errors" option is in the
+    // same panel and would always match.
+    const console = activityLog(page);
     await expect(console).toContainText(/Workflow submitted successfully/i);
-    await expect(console).not.toContainText(/ERROR/i);
+    await expect(console).not.toContainText('[ERROR]');
   });
 
   test('should perform data generation flow in Live (AI) Mode', async ({
@@ -147,9 +150,11 @@ test.describe('AICA End-to-End Verification', () => {
     await expect(progressGauge).toContainText('100%', { timeout: 600000 });
 
     // 5. Verify Console logs
-    const console = page.locator('.console-body');
+    // `[ERROR]`, not /ERROR/i: the level filter's "Errors" option is in the
+    // same panel and would always match.
+    const console = activityLog(page);
     await expect(console).toContainText(/Workflow submitted successfully/i);
-    await expect(console).not.toContainText(/ERROR/i);
+    await expect(console).not.toContainText('[ERROR]');
   });
 
   test('should persist and resume active session on page reload', async ({
@@ -192,7 +197,7 @@ test.describe('AICA End-to-End Verification', () => {
     await generateBtn.click();
 
     // 4. Wait for the workflow session ID to appear in the console (active session established)
-    const console = page.locator('.console-body');
+    const console = activityLog(page);
     await expect(console).toContainText(/Workflow submitted successfully/i, {
       timeout: 20000,
     });
@@ -248,9 +253,10 @@ test.describe('AICA End-to-End Verification', () => {
     const progressGauge = page.locator('.overall-gauge-container');
     await expect(progressGauge).toContainText('100%', { timeout: 60000 });
 
-    // 4. Verify Success log
-    const console = page.locator('.console-body');
-    await expect(console).toContainText(/Deletion session completed/i, {
+    // 4. Verify the session reports completion. "Deletion session completed"
+    // is a microservice log line that reaches the browser only over the
+    // WebSocket, which the E2E browser does not have (#1438).
+    await expect(page.getByText('COMPLETED', { exact: true })).toBeVisible({
       timeout: 10000,
     });
   });
@@ -284,9 +290,10 @@ test.describe('AICA End-to-End Verification', () => {
     const progressGauge = page.locator('.overall-gauge-container');
     await expect(progressGauge).toContainText('100%', { timeout: 60000 });
 
-    // 4. Verify Success log
-    const console = page.locator('.console-body');
-    await expect(console).toContainText(/Deletion session completed/i, {
+    // 4. Verify the session reports completion. "Deletion session completed"
+    // is a microservice log line that reaches the browser only over the
+    // WebSocket, which the E2E browser does not have (#1438).
+    await expect(page.getByText('COMPLETED', { exact: true })).toBeVisible({
       timeout: 10000,
     });
   });
