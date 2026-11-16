@@ -29,6 +29,7 @@
  */
 
 const axios = require('axios');
+const { lxcConfig } = require('@rotty3000/config-node');
 const {
   requireAdmin,
   administratorRoleCache,
@@ -339,6 +340,79 @@ describe('requireAdmin', () => {
 
       expect(res.status).toHaveBeenCalledWith(403);
       expect(next).not.toHaveBeenCalled();
+    });
+
+    // Liferay generates the client id at deploy time, after the service starts,
+    // so a freshly built stack can only name the application by its code (#1405).
+    describe('named by external reference code', () => {
+      const ERC = 'ai-commerce-accelerator-cli-automation';
+
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      const routesTreeResolves = (clientId) =>
+        vi
+          .spyOn(lxcConfig, 'oauthApplication')
+          .mockImplementation((erc) =>
+            erc === ERC ? { clientId: () => clientId } : undefined
+          );
+
+      it('admits the application the code resolves to', () => {
+        routesTreeResolves(machineClaims('20132').client_id);
+        process.env.AICA_ADMIN_CLIENTS = ERC;
+        const req = mockReq({ user: { claims: machineClaims('20132') } });
+        const res = mockRes();
+        const next = vi.fn();
+
+        requireAdmin(req, res, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(res.status).not.toHaveBeenCalled();
+      });
+
+      it('rejects a machine the code does not resolve to', () => {
+        routesTreeResolves('id-some-other-application');
+        process.env.AICA_ADMIN_CLIENTS = ERC;
+        const req = mockReq({ user: { claims: machineClaims('20132') } });
+        const res = mockRes();
+        const next = vi.fn();
+
+        requireAdmin(req, res, next);
+
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(next).not.toHaveBeenCalled();
+      });
+
+      // An unresolved code must not match a client id that happens to equal it.
+      it('rejects when the routes tree is absent', () => {
+        vi.spyOn(lxcConfig, 'oauthApplication').mockImplementation(() => {
+          throw new TypeError(
+            "Cannot read properties of undefined (reading 'includes')"
+          );
+        });
+        process.env.AICA_ADMIN_CLIENTS = ERC;
+        const req = mockReq({ user: { claims: machineClaims('20132') } });
+        const res = mockRes();
+        const next = vi.fn();
+
+        requireAdmin(req, res, next);
+
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(next).not.toHaveBeenCalled();
+      });
+
+      it('still matches a client id listed beside a code', () => {
+        routesTreeResolves('id-some-other-application');
+        process.env.AICA_ADMIN_CLIENTS = `${ERC}, ${machineClaims('20132').client_id.toUpperCase()}`;
+        const req = mockReq({ user: { claims: machineClaims('20132') } });
+        const res = mockRes();
+        const next = vi.fn();
+
+        requireAdmin(req, res, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+      });
     });
 
     // The boundary in the other direction: naming an application must not let a

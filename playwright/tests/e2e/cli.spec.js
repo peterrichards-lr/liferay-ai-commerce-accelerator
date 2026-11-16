@@ -1,15 +1,9 @@
 import { test, expect } from '../../fixtures/diagnostics.js';
-import {
-  CLI_NEEDS_LOCAL_STACK,
-  remoteTargetNode,
-} from '../../fixtures/target.js';
 import { exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
 test.describe.serial('AICA Headless CLI Client E2E Verification', () => {
-  test.skip(Boolean(remoteTargetNode()), CLI_NEEDS_LOCAL_STACK);
-
   // Leverage the same authenticated context or credentials
   test.use({ storageState: '.auth/user.json' });
 
@@ -47,22 +41,10 @@ test.describe.serial('AICA Headless CLI Client E2E Verification', () => {
   });
 
   test('should successfully export the latest dataset to JSON', async () => {
-    // 1. Get the sessionId from the logs/database or extracted variable
-    let sessionId = latestSessionId;
-    if (!sessionId) {
-      const dbPath = path.resolve(
-        __dirname,
-        '../../../client-extensions/ai-commerce-accelerator-microservice/data/aica.db'
-      );
-      if (fs.existsSync(dbPath)) {
-        try {
-          const query = `sqlite3 ${dbPath} "SELECT session_id FROM workflow_sessions WHERE flow_type='generate' AND status='COMPLETED' ORDER BY updated_at DESC LIMIT 1;"`;
-          sessionId = (await runCliCommand(query)).trim();
-        } catch (e) {
-          // ignore
-        }
-      }
-    }
+    // 1. The session id the generate step printed. Not read from the
+    // microservice's SQLite file: that is on the stack's filesystem, which is
+    // a remote node's whenever the nightly runs there (#1405).
+    const sessionId = latestSessionId;
     expect(sessionId).toBeDefined();
     expect(sessionId.startsWith('AICA-SESSION')).toBe(true);
 
@@ -187,7 +169,11 @@ test.describe.serial('AICA Headless CLI Client E2E Verification', () => {
 // Async exec helper
 function runCliCommand(cmd) {
   return new Promise((resolve, reject) => {
-    exec(cmd, (error, stdout, stderr) => {
+    // Unverified TLS, as the browser specs have it (ignoreHTTPSErrors). A
+    // node's proxy need not serve a certificate this machine's CA signed, and
+    // the routed URL is not loopback, so the CLI must go through it (#1405).
+    const env = { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: '0' };
+    exec(cmd, { env }, (error, stdout, stderr) => {
       if (error) {
         reject(
           new Error(

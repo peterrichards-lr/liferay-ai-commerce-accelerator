@@ -2626,6 +2626,13 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     if [ -n "$LDM_SSL_FLAG" ]; then
         RUN_ARGS+=("$LDM_SSL_FLAG")
     fi
+    # Admits the CLI's automation application to the microservice's admin
+    # routes, so the CLI specs can delete and reconfigure (#1405). A
+    # service-targeted variable (LDM-#1903): LDM strips the prefix and gives
+    # the rest to that extension's container alone. It is read from this
+    # process each time the compose is rendered and never persisted, so it must
+    # be in the environment of the `ldm run` that renders it.
+    export AI_COMMERCE_ACCELERATOR_MICROSERVICE_AICA_ADMIN_CLIENTS="ai-commerce-accelerator-cli-automation"
     docker rm -f liferay-docker-proxy 2>/dev/null || true
     # Teed so the build reaches the artifact, not only the step log, which is
     # 70k lines and expires with the run.
@@ -3137,6 +3144,47 @@ export AICA_MICROSERVICE_URL="$MICROSERVICE_URL"
 export LIFERAY_BATCH_CALLBACK_URL="${MICROSERVICE_URL}/api/v1/batch/callback"
 
 echo "ℹ  Microservice reachable at $AICA_MICROSERVICE_URL"
+
+# The CLI specs run here and reach the microservice through the proxy, which is
+# not loopback, so the CLI must present a token (#1405). It authenticates as the
+# automation application its own client extension declares. Liferay generates
+# that application's credentials at deploy time and publishes them only in the
+# routes tree, which is mounted into the microservice's container - on the node,
+# when there is one - so they are read from there. The service admits the
+# application through AICA_ADMIN_CLIENTS, which names it by this code.
+export_cli_automation_credentials() {
+    local erc="ai-commerce-accelerator-cli-automation"
+    local container creds
+    container=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -i "^${PROJECT_NAME}-.*microservice" | head -1)
+
+    if [ -z "$container" ]; then
+        echo "⚠️  No microservice container found; the CLI specs will have no credential."
+        return 1
+    fi
+
+    # config-node rather than the tree's file names: it is what the service
+    # itself reads, so the two cannot disagree about where the pair lives.
+    creds=$(docker exec -w /opt/liferay "$container" node -e '
+        const { lxcConfig } = require("@rotty3000/config-node");
+        const app = lxcConfig.oauthApplication(process.argv[1]);
+        if (app && app.clientId() && app.clientSecret()) {
+            console.log(app.clientId());
+            console.log(app.clientSecret());
+        }' "$erc" 2>/dev/null)
+
+    if [ "$(printf '%s\n' "$creds" | grep -c .)" -ne 2 ]; then
+        echo "⚠️  '$erc' is not in the routes tree of $container; the CLI specs will have no credential."
+        return 1
+    fi
+
+    AICA_ADMIN_CLIENT_ID=$(printf '%s\n' "$creds" | sed -n 1p)
+    AICA_ADMIN_CLIENT_SECRET=$(printf '%s\n' "$creds" | sed -n 2p)
+    [ -n "${GITHUB_ACTIONS:-}" ] && echo "::add-mask::$AICA_ADMIN_CLIENT_SECRET"
+    export AICA_ADMIN_CLIENT_ID AICA_ADMIN_CLIENT_SECRET
+    echo "✅ CLI specs will authenticate as '$erc' ($AICA_ADMIN_CLIENT_ID)."
+}
+
+export_cli_automation_credentials || true
 
 
 # Attempt to fetch dynamic credentials from LDM
