@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/diagnostics.js';
 import path from 'path';
-import { injectAndConnectApp } from './test-helper.js';
+import { activityLog, injectAndConnectApp } from './test-helper.js';
 
 test.describe.serial('AICA Import & Export Verification', () => {
   test.use({ storageState: '.auth/user.json' });
@@ -23,11 +23,14 @@ test.describe.serial('AICA Import & Export Verification', () => {
     );
     await fileInput.setInputFiles(samplePath);
 
-    // 3. Verify the activity log shows that the dataset import was selected
-    const progressOutput = page.locator('.console-body');
-    await expect(progressOutput).toContainText(/Dataset import selected/i, {
-      timeout: 15000,
-    });
+    // 3. Verify the activity log shows that the import started
+    const progressOutput = activityLog(page);
+    await expect(progressOutput).toContainText(
+      /Import started for sample-import\.json/,
+      {
+        timeout: 15000,
+      }
+    );
   });
 
   test('should export current configuration parameters successfully', async ({
