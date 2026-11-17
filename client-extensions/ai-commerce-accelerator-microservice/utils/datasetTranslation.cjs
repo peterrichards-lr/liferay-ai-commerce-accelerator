@@ -84,7 +84,7 @@ const PRODUCT_FIELDS = Object.freeze({
   },
   metaDescription: {
     from: FROM.DTO,
-    note: 'Product.metaDescription. Read by nothing on the import path; carried so the round trip can compare it.',
+    note: 'Product.metaDescription. Posted on import as on generation (#1466).',
   },
   metaKeyword: {
     from: FROM.DTO,
