@@ -17,6 +17,11 @@ const BATCH_DIR = path.join(
   '../../ai-commerce-accelerator-batch/batch'
 );
 
+const AI_MODELS = path.join(
+  __dirname,
+  '../../ai-commerce-accelerator-frontend/src/config/ai-models.json'
+);
+
 const AI_CONFIG_PANEL = path.join(
   __dirname,
   '../../ai-commerce-accelerator-configuration/src/components/panels/AiConfigPanel.jsx'
@@ -80,10 +85,11 @@ function seededConfigKeys(infix) {
     .sort();
 }
 
-function seededPromptValues() {
+/** configKey -> configValue for every seeded entry whose file names `infix`. */
+function seededConfigValues(infix) {
   return fs
     .readdirSync(BATCH_DIR)
-    .filter((fileName) => fileName.includes('-object-entry-ai-prompt-'))
+    .filter((fileName) => fileName.includes(`-object-entry-${infix}`))
     .flatMap((fileName) =>
       JSON.parse(
         fs.readFileSync(path.join(BATCH_DIR, fileName), 'utf8')
@@ -172,7 +178,7 @@ describe('Microservice Configuration Integrity', () => {
   // the prompt the microservice reads - and the assertion above stayed green
   // throughout, because the entry it looks for was there all along (#840).
   it('should seed each ai-prompt config entry with its prompt file verbatim', () => {
-    const seeded = seededPromptValues();
+    const seeded = seededConfigValues('ai-prompt-');
 
     for (const name of listPromptNames()) {
       const prompt = fs.readFileSync(
@@ -185,6 +191,19 @@ describe('Microservice Configuration Integrity', () => {
         `The batch payload for ${name} has drifted from prompts/${name}.md`
       ).toBe(prompt);
     }
+  });
+
+  // The model list is seeded from ai-models.json by generateBatchFiles, and
+  // nothing re-ran it when #1037 gave every model a tier and its modalities.
+  // A fresh install therefore seeded models with neither, and the panel and
+  // the microservice fell back to guessing what each one produces (#1469).
+  it('should seed the AI model options exactly as ai-models.json declares them', () => {
+    const seeded = seededConfigValues('ai-model-options')['ai-model-options'];
+
+    expect(
+      JSON.parse(seeded),
+      'The ai-model-options seed has drifted from ai-models.json; run ./gradlew generateBatchFiles'
+    ).toEqual(JSON.parse(fs.readFileSync(AI_MODELS, 'utf8')));
   });
 
   it('should seed the same default token cap the microservice resolves', () => {
