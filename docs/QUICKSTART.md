@@ -24,10 +24,14 @@ _(For Windows, Linux, or Intel Macs, refer to the [Official LDM Repository](http
 > **What has actually been exercised.** AICA's automated verification runs on
 > Linux (`ubuntu-latest`), and the release package is built there. Interactive
 > verification is done on macOS (Apple Silicon). **No part of this path has been
-> exercised on Windows or on an Intel Mac**, and `ldm quickstart` itself is not
-> yet covered by our CI on any platform — our suite exercises `ldm import` and
-> `ldm run` against a checked-out tree, which is a different entry point from
-> the one above.
+> exercised on Windows or on an Intel Mac**. After every release, CI runs
+> `ldm quickstart aica` against the published package on Linux and checks what a
+> user would notice first: Liferay and the microservice answer over HTTPS, the
+> DXP domain is the project's own host, and the site initializer has run
+> (`quickstart-check.yml`). It runs after publication, so it reports a broken
+> release rather than preventing one. The rest of our suite exercises
+> `ldm import` and `ldm run` against a checked-out tree, which is a different
+> entry point from the one above.
 >
 > Nothing here is known to be broken. If you are on Windows or an Intel Mac you
 > are the first to walk it, so please
@@ -35,7 +39,29 @@ _(For Windows, Linux, or Intel Macs, refer to the [Official LDM Repository](http
 > with what you hit rather than assuming it is your setup. See
 > [#1292](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1292).
 
-### 2. Import & Launch AICA
+### 2. Provide your own DXP licence
+
+AICA runs on Liferay DXP, which needs an activation key. **The release package
+does not include one and never will**: a licence is yours to provide, and is not
+something we can distribute in a `.ldmp`. Without one, Liferay boots to its
+activation page instead of the demo.
+
+Put your activation key (the `.xml` file) in LDM's shared common directory
+**before** you run quickstart. LDM copies every `*.xml` there into the project's
+`deploy/` folder on each run:
+
+```bash
+mkdir -p ~/.ldm/common
+cp /path/to/activation-key.xml ~/.ldm/common/
+```
+
+To keep it somewhere else, point `LDM_COMMON_DIR` at that directory instead.
+`ldm system doctor` reports which licence LDM found.
+
+Our CI does the same with its own key when it checks a release; it never goes
+into the package.
+
+### 3. Import & Launch AICA
 
 Run the following command to automatically download the latest release package and launch the DXP container stack:
 
@@ -70,7 +96,7 @@ aica generate --demo --products 10 --accounts 10 --orders 50
 
 Or use the **AI Data Generator** screen in Liferay, described in [Features & Capabilities](./FEATURES.md).
 
-### 3. Give Docker enough memory
+### 4. Give Docker enough memory
 
 A database-free package means the first boot _creates_ the environment rather than restoring one: schema creation, client-extension deployment, the whole site initializer run and indexing, concurrently and at peak. LDM sizes the Liferay heap from the memory Docker reports — `-Xms2048m -Xmx3072m` with a 512 MB metaspace at or below 8 GB, half the reported memory above it — so a smaller allocation does not buy a proportionally smaller stack.
 
