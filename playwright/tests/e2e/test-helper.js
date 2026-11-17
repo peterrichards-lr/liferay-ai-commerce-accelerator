@@ -46,6 +46,17 @@ export async function injectAndConnectApp(page) {
       `[Playwright Proxy] Intercepted: ${originalUrl} -> Forwarding to: ${proxyUrl}`
     );
 
+    // Re-sent by the browser when it can be. `route.fetch` replays the body
+    // Chromium hands Playwright, and for a multipart upload that body has
+    // every field but an empty file part, so each import reached the
+    // microservice as an empty dataset (#1446). `continue` cannot change the
+    // protocol, so an https page aimed at a plain http microservice still
+    // goes through `fetch`, and still cannot upload a file.
+    if (new URL(proxyUrl).protocol === new URL(originalUrl).protocol) {
+      await route.continue({ url: proxyUrl });
+      return;
+    }
+
     try {
       const response = await route.fetch({ url: proxyUrl });
       await route.fulfill({ response });
