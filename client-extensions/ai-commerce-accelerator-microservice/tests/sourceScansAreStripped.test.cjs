@@ -61,6 +61,10 @@ const MATCHES_BEHAVIOUR_NOT_TEXT = new Map([
   ['e2eTargetAgreement.test.cjs', 'extracts the agreement step and runs it'],
   ['ldmNodeTarget.test.cjs', 'extracts `ldm_cmd` and runs it against a stub'],
   [
+    'dxpConfigTreeIsCurrent.test.cjs',
+    'extracts the domain check and runs it against a stub',
+  ],
+  [
     'greenRunKeepsItsLogs.test.cjs',
     'parses the workflow and asserts on the parsed upload paths',
   ],
