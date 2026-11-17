@@ -306,30 +306,13 @@ classify_bringup_failure() {
     return 0
 }
 
-# `ldm rm --delete` does not remove the project directory on the NODE.
-#
-# Its help says it will "permanently delete its directory from disk", and for a
-# local project it does. For a node-targeted one it drops the containers, the
-# schema and the registry entry, then safe_rmtree's the LOCAL path. Nothing
-# deletes the remote copy - liferay-docker-manager confirmed it, and a grep of
-# their tree for any remote removal finds none.
-#
-# So ~/.liferay-docker/projects/<project>/routes/default/dxp survives every run.
-# Liferay writes the four com.liferay.lxc.dxp.* values into it on first
-# provision and - on the evidence - does not rewrite them once present. Ours was
-# dated 23 SEPTEMBER while the client-extension tree beside it in the same
-# listing was current, and it said:
-#
-#     com.liferay.lxc.dxp.main.domain = localhost
-#
-# Every OAuth user-agent application then gets redirect.uris of
-# http://localhost/o/oauth2/redirect, so a browser on the real host can never
-# complete a handshake, and twelve specs fail on elements that never render.
-# The container's own LIFERAY_LXC_DXP_MAIN_DOMAIN is correct throughout, and
-# config-node resolves individual env vars BEFORE config trees - an env var
-# beats a tree, not the reverse. An earlier version of this comment had that
-# backwards and used it to explain the symptom; it never explained anything,
-# because the tree shadows nothing.
+# The node's DXP config tree used to outlive every run: `ldm rm --delete`
+# removed the LOCAL project directory and never the node's copy, so
+# routes/default/dxp kept a September `localhost` and every OAuth redirect URI
+# was registered against it (#1252). A helper container cleared it before each
+# build until LDM-#2077 made `--delete` remove the node's copy as well. That is
+# in v2.26.10, and the workaround went with #1254. The check below stays: it
+# names a wrong domain whatever produced it.
 #
 # The tree is where Liferay RECORDS its own notion of its domain, and that
 # notion comes from the default company's virtual host - which run 38410417089
@@ -345,10 +328,6 @@ classify_bringup_failure() {
 # value now - nothing here should set it, and anything that did would be
 # overwritten on the next boot.
 #
-# Narrow on purpose: the dxp subtree only, not the whole remote project. The
-# proven defect is these four files, and removing more would be a larger change
-# justified by less evidence. LDM rescaffolds the empty directory and Liferay
-# writes it fresh. See #1252.
 # Does the portal's own notion of its domain match the host the suite uses?
 #
 # A precondition for every browser-side OAuth path in the suite, and when it is
@@ -361,19 +340,19 @@ classify_bringup_failure() {
 # a wrong domain still lets most of the suite run, and a check that halts the
 # run on its own reading would be worse than the twelve timeouts it replaces.
 #
-# Reads the tree rather than the environment on purpose. The environment has
-# been correct throughout this defect's life; config-node consults config TREES
-# first, so the tree is what consumers actually get. See #1252.
+# Reads the tree rather than the environment on purpose. The container's
+# LIFERAY_LXC_DXP_MAIN_DOMAIN has been correct throughout, and config-node
+# resolves it before any tree, so the environment says nothing about this. The
+# tree is where Liferay records its own notion of its domain, and that notion
+# is what OAuth redirect URIs are registered against. See #1252.
 assert_dxp_domain_matches_host() {
     local container domain
     container="${MICROSERVICE_CONTAINER:-${PROJECT_NAME}-ai-commerce-accelerator-microservice}"
 
-    # `|| domain=""` for the same reason as the removal above: under `set -e`
-    # a bare assignment whose command substitution fails aborts the script. A
-    # container that is gone, or a docker that cannot reach the node, would
-    # have killed the run from inside a check whose entire purpose is to be
-    # non-fatal. Found by running the tests under `set -e` after the removal
-    # was bitten by it - the same defect, in the function beside it. See #1252.
+    # `|| domain=""`: under `set -e` a bare assignment whose command
+    # substitution fails aborts the script. A container that is gone, or a
+    # docker that cannot reach the node, would have killed the run from inside
+    # a check whose entire purpose is to be non-fatal (#1238). See #1252.
     domain="$(docker exec "$container" sh -c '
         dxp="${LIFERAY_ROUTES_DXP:-/etc/liferay/lxc/routes/dxp}"
         cat "$dxp/com.liferay.lxc.dxp.main.domain" 2>/dev/null' 2>/dev/null)" \
@@ -389,106 +368,7 @@ assert_dxp_domain_matches_host() {
         return 0
     fi
 
-    echo "::warning::DXP config tree says '${domain}' but the suite uses '${TARGET_HOST}'. Every OAuth redirect URI is registered against the wrong host, so browser-side specs will fail on elements that never render. This is #1252 - the node's stale routes/default/dxp."
-    return 0
-}
-
-remove_stale_node_dxp_tree() {
-    [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
-
-    # Never build an rm -rf path from an empty name. It would still be scoped
-    # to .../projects//routes/default/dxp and harmless, but a destructive
-    # command should not rely on that being true of the next edit too.
-    [ -n "${PROJECT_NAME:-}" ] || return 0
-
-    local endpoint
-    endpoint="$(node_ssh_endpoint)"
-    [ -n "$endpoint" ] || return 0
-
-    # THIS CANNOT BE DONE OVER SSH. Do not "simplify" it back.
-    #
-    # The previous version was `ssh … rm -rf …`, and it failed on every single
-    # run between merging and being replaced - seven for seven, with not one
-    # success in the history. Not flakiness. `routes/default` is drwxr-x----
-    # owned by uid 1000; the SSH user is uid 1001. A different uid cannot
-    # traverse a 750 directory, so nothing running as that account can touch
-    # it: not `rm`, not `chmod`, not `sudo chmod` (it has no sudo rights), and
-    # not rsync's own `-p`/`-g`/`-o`, which ATTEMPTED exactly this repair and
-    # was refused:
-    #
-    #     rsync: [generator] chgrp ".../routes/default" failed: Operation not permitted (1)
-    #     rsync: [generator] opendir ".../routes/default" failed: Permission denied (13)
-    #
-    # The repair has to run as root. The node's docker daemon does, and this
-    # script already holds a transport to it by now (route_docker_to_node).
-    # So the helper container is not a preference - it is the only class of
-    # fix that can work here, and an SSH version of it would reintroduce the
-    # same silent no-op looking like a fresh defect. See #1252 and LDM-#2144.
-    #
-    # Mounted at the PROJECT directory, never at routes/default/dxp. `docker
-    # run -v` creates a missing host path as root, so mounting the target
-    # directly would manufacture a root-owned directory exactly where
-    # ldm-automation needs to write - a worse version of the bug being fixed.
-    # The `mkdir -p` below is what guarantees the mount point exists, and it
-    # runs as the SSH user in its own $HOME, which is the one thing that
-    # account can reliably do.
-    # stderr to a FILE, not merged into stdout and not discarded.
-    #
-    # Merging would put the reason inside $remote_home and send it to `docker
-    # -v` as part of a mount path. Discarding is what the first version of
-    # this did, so when the removal failed on run 37624820282 the warning said
-    # only that it had - a diagnostic reporting a failure without reporting
-    # the failure. The reason is the whole value here.
-    #
-    # `|| status=$?`, NOT a bare assignment followed by `status=$?`. `set -e`
-    # is on from line 4, and a plain `x="$(cmd)"` whose command fails ABORTS
-    # THE SCRIPT at the assignment - `status=$?` never runs. That is what run
-    # 37632331741 did: the script died here and went straight to cleanup, so a
-    # diagnostic became a second way for the run to die (#1238). `if ! x=...`
-    # survives but reports $? as the negation's status, always 0.
-    local remote_home err stderr_file status=0
-    stderr_file="$(mktemp)"
-    remote_home="$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$endpoint" \
-        "mkdir -p \"\$HOME/.liferay-docker/projects/${PROJECT_NAME}\" && printf %s \"\$HOME\"" \
-        2>"$stderr_file")" || status=$?
-    err="$(cat "$stderr_file" 2>/dev/null)" || err=""
-    rm -f "$stderr_file"
-
-    if [ $status -ne 0 ] || [ -z "$remote_home" ]; then
-        echo "::warning::Could not resolve the project directory on '${LDM_NODE_TARGET}' (ssh exit ${status} to ${endpoint}): ${err:-no output on stderr}. The stale DXP config tree was not cleared; if OAuth redirect URIs say localhost, that is why. See #1252."
-        return 0
-    fi
-
-    # One container does the removal and reports whether it worked, because a
-    # removal that says nothing about its result is what #1253 shipped.
-    local verdict
-    verdict="$(docker run --rm --label com.liferay.ldm.managed=true \
-        -v "${remote_home}/.liferay-docker/projects/${PROJECT_NAME}:/project" \
-        alpine sh -c '
-            rm -rf /project/routes/default/dxp 2>/dev/null
-            if [ -e /project/routes/default/dxp ]; then echo SURVIVED; else echo GONE; fi
-        ' 2>&1)" || verdict=""
-
-    case "$verdict" in
-    *GONE*)
-        echo "🧹 Removed any stale DXP config tree on '${LDM_NODE_TARGET}' so Liferay rewrites it for ${TARGET_HOST}."
-        return 0
-        ;;
-    *SURVIVED*)
-        # Proof the suite cannot pass. Liferay will publish the stale domain,
-        # every OAuth redirect URI will be registered against the wrong host,
-        # and twelve browser specs will fail ninety minutes from now on
-        # elements that never render. Ending it here costs a node cycle and
-        # names the reason; carrying on costs the cycle anyway and buries it.
-        echo "::error::The stale DXP config tree survived removal on '${LDM_NODE_TARGET}'. Liferay will publish its old domain, so no OAuth redirect URI will match ${TARGET_HOST} and the browser specs cannot pass. See #1252."
-        return 1
-        ;;
-    esac
-
-    # Neither token: the container did not run. That is not proof the tree is
-    # still there, so it must not end the run - and not proof it is gone, so
-    # it must not read as success either.
-    echo "::warning::Could not confirm the stale DXP config tree was cleared on '${LDM_NODE_TARGET}': ${verdict:-the helper container produced no output}. If OAuth redirect URIs say localhost, that is why. See #1252."
+    echo "::warning::DXP config tree says '${domain}' but the suite uses '${TARGET_HOST}'. Every OAuth redirect URI is registered against the wrong host, so browser-side specs will fail on elements that never render. Before LDM-#2077 this was the node's stale routes/default/dxp (#1252); behind a proxy it can also be a published port (#1407)."
     return 0
 }
 
@@ -500,7 +380,7 @@ remove_stale_node_dxp_tree() {
 # Two views, because they disagree by design. The SSH user's is what rsync and
 # rm actually meet - routes/default is 750 and uid 1000, so it is mostly
 # "Permission denied", and that is the finding. The root view, through the
-# node's daemon as in remove_stale_node_dxp_tree, is what is really there.
+# node's daemon through a root helper container, is what is really there.
 #
 # The helper mounts projects/ READ-ONLY, never the project itself: after a
 # teardown that worked the project is gone, and `docker run -v` would recreate
@@ -2566,14 +2446,6 @@ if [ $EXISTING_PROJECT -eq 0 ]; then
     # version before writing any of this again.
 
     chmod -R 777 "$PROJECT_NAME" 2>/dev/null || true
-
-    # Here, not before `ldm import`. Import syncs the project to the node, so a
-    # removal before it is undone by whatever import restores. This is the only
-    # window that is both after the node's directory reaches its final state
-    # and before Liferay starts and reads it. See #1252.
-    if ! remove_stale_node_dxp_tree; then
-        exit 1
-    fi
 
     write_signal "STARTING"
     # Make BuildKit emit the build line by line instead of redrawing a frame.
