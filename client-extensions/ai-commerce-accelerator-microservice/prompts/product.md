@@ -5,8 +5,8 @@ Generate realistic product data for {{count}} {{category}} products with multili
 You must return a JSON object that conforms to the provided JSON schema: a single "products" property whose value is an array. Each element of that array must be one product object with exactly the following properties:
 
 - name: object of multilingual product names keyed by language code ({{languageCodesCSV}}). Example structure: {{languageCodesNamePairs}}. Values are human-friendly product names.
-- description: object of multilingual, detailed marketing descriptions keyed by language code.
-- shortDescription: object of multilingual short summaries keyed by language code.
+- description: object of multilingual, detailed marketing descriptions keyed by language code. Each value is HTML for a product landing page: an opening <p> paragraph, then a <ul> of 3–5 <li> key features or benefits, optionally introduced by an <h3> heading. Use <strong> or <em> to emphasise a phrase. Use ONLY these tags: p, strong, em, ul, ol, li, h3, br. No attributes, no other tags, no Markdown.
+- shortDescription: object of multilingual short summaries keyed by language code. Plain text, one or two sentences, with no HTML and no Markdown.
 - urls: object of multilingual URL slugs keyed by language code (lowercase, spaces replaced with hyphens) for each language code in {{languageCodesCSV}}.
 - baseSku: string base SKU without variant codes, used as the root for all SKUs (for example "PRODUCT-001").
 - productType: string, always "simple".
@@ -54,7 +54,7 @@ IMPORTANT rules:
 - Do NOT include any properties on the product objects other than:
   name, description, shortDescription, urls, baseSku, productType, skus, specifications, options, skuVariants, images, attachments, metaDescription, metaKeyword, metaTitle, externalReferenceCode, priceEntries, category, active.
 - Return the array inside the "products" property of a single top-level object, exactly as the provided JSON schema requires. Do not return a bare array, and do not add any other top-level property.
-- Do NOT include explanations, comments, markdown, or backticks. Return raw JSON only.
+- Return raw JSON only: no explanations, no comments, and no Markdown code fences or backticks around the JSON. The HTML inside description values is expected, as described above; escape any double quote inside it as JSON requires.
 - SKU Activation: For a SKU to be "Active" in Liferay, it MUST have an assigned value for EVERY option that is defined on the product. Ensure "skuVariants" objects include all options.
 - Option Values: Predefined values ("productOptionValues" array) are only for "select", "radio", "checkbox" and "checkbox_multiple". Do not provide them for "numeric" or "text".
 - Sizing Options: An option that expresses a size or fit - a helmet shell, a boot or glove size, a jacket chest measurement - MUST use "select" or "radio", even when its values are plain numbers. A size is a choice from a fixed range the product is made in, not a free measurement, and "numeric" cannot carry "productOptionValues", so a numeric size declares no choices, produces no variants, and leaves the product with a single SKU in one unstated size.

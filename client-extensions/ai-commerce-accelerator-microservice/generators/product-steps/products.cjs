@@ -11,6 +11,12 @@ const { PATH, byERC } = require('../../utils/liferayPaths.cjs');
 const { resolveRunChannelIds } = require('../../utils/runChannels.cjs');
 const { readCatalogExpiryFields } = require('../../utils/catalogExpiry.cjs');
 const {
+  mapLocalized,
+  sanitizeRichText,
+  summarise,
+  toPlainText,
+} = require('../../utils/richText.cjs');
+const {
   summariseFailures,
   writeEachEntity,
 } = require('../../utils/entityWrites.cjs');
@@ -77,8 +83,15 @@ async function runProductCreationStep(sessionId) {
       const lp = {
         catalogId: parseInt(config.catalogId, 10),
         name: toI18n(pd.name),
-        shortDescription: toI18n(pd.shortDescription || pd.description),
-        description: toI18n(pd.description),
+        // The description is HTML from a small allowlist and the short one is
+        // plain text (#1205). Both are cleaned here, whatever produced them:
+        // the model's output is untrusted, and so is an imported dataset.
+        shortDescription: toI18n(
+          pd.shortDescription
+            ? mapLocalized(pd.shortDescription, toPlainText)
+            : mapLocalized(pd.description, (html) => summarise(html))
+        ),
+        description: toI18n(mapLocalized(pd.description, sanitizeRichText)),
         ...seoFieldsOf(pd),
         productType,
         productStatus: 0, // WorkflowConstants.STATUS_APPROVED

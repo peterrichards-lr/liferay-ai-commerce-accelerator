@@ -225,8 +225,15 @@ class MockDataGenerator {
         const name = `${adj} ${category} ${i + 1}`;
         productData.name[lang] = `${name}${suffix}`;
         productData.category[lang] = `${category}${suffix}`;
+        // HTML from the same allowlist the model is asked for, so a demo shows
+        // the formatted landing-page copy without an AI provider (#1205).
         productData.description[lang] =
-          `The ${name} is a ${feat.toLowerCase()} solution designed for ${category.toLowerCase()} professionals. It offers reliability and performance in any environment.${suffix}`;
+          `<p>The <strong>${name}</strong> is a ${feat.toLowerCase()} solution designed for ${category.toLowerCase()} professionals.${suffix}</p>` +
+          '<ul>' +
+          `<li><strong>${feat}</strong> for demanding daily use</li>` +
+          '<li>Reliable performance in any environment</li>' +
+          `<li>Backed by our ${adj.toLowerCase()} support programme</li>` +
+          '</ul>';
         productData.shortDescription[lang] =
           `${adj} ${category} with ${feat.toLowerCase()}.${suffix}`;
         productData.urls[lang] =
