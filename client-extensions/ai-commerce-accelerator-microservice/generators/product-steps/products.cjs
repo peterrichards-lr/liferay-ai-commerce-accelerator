@@ -21,6 +21,30 @@ const {
 
 const S = WORKFLOW_STEPS;
 
+/**
+ * The product's SEO fields, as Liferay takes them. Each is generated and
+ * schema-validated, and carried through export and import, but none was ever
+ * posted - so every product a landing page is built from had no meta title,
+ * description or keywords (#1466). Only the ones present are sent: they are
+ * optional in the generation schema, and toI18n throws on an absent value.
+ */
+function seoFieldsOf(pd) {
+  const present = (value) =>
+    typeof value === 'string'
+      ? value.trim() !== ''
+      : Boolean(value) &&
+        typeof value === 'object' &&
+        Object.keys(value).length > 0;
+
+  return {
+    ...(present(pd.metaTitle) ? { metaTitle: toI18n(pd.metaTitle) } : {}),
+    ...(present(pd.metaDescription)
+      ? { metaDescription: toI18n(pd.metaDescription) }
+      : {}),
+    ...(present(pd.metaKeyword) ? { metaKeyword: toI18n(pd.metaKeyword) } : {}),
+  };
+}
+
 const CHANNEL_PAGE_SIZE = 200;
 const PRODUCT_PAGE_SIZE = 200;
 
@@ -55,6 +79,7 @@ async function runProductCreationStep(sessionId) {
         name: toI18n(pd.name),
         shortDescription: toI18n(pd.shortDescription || pd.description),
         description: toI18n(pd.description),
+        ...seoFieldsOf(pd),
         productType,
         productStatus: 0, // WorkflowConstants.STATUS_APPROVED
         active: true,

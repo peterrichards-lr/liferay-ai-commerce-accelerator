@@ -233,9 +233,16 @@ class MockDataGenerator {
           `${name.toLowerCase().replace(/\s+/g, '-')}-${i + 1}`;
       }
 
-      // Metadata (Optional in schema but good for realism)
+      // Metadata (Optional in schema but good for realism). All three, since
+      // all three are posted (#1466).
       productData.metaTitle = { ...productData.name };
       productData.metaDescription = { ...productData.shortDescription };
+      productData.metaKeyword = Object.fromEntries(
+        Object.entries(productData.category).map(([lang, category]) => [
+          lang,
+          [category, adj, feat].join(', ').toLowerCase(),
+        ])
+      );
 
       if (options.imageMode && options.imageMode !== 'none') {
         productData.images = [

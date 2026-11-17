@@ -453,4 +453,60 @@ describe('the payload create-products sends', () => {
       validator.validate(CATALOG_SPEC, 'Product', submitted[0])
     ).not.toThrow();
   });
+
+  // Generated, validated and carried through export, and never posted, so a
+  // landing page built from the product had no meta title, description or
+  // keywords (#1466).
+  it('sends the SEO fields the product was generated with', async () => {
+    const { submitted } = await prepareProducts({
+      generated: [
+        aProduct({
+          metaTitle: { en_US: 'Trail Runner 500 | Wet-ground trail shoe' },
+          metaDescription: { en_US: 'Grip and drainage for wet trails.' },
+          metaKeyword: { en_US: 'trail shoe, running, waterproof' },
+        }),
+      ],
+      options: { productCount: 1 },
+    });
+
+    expect(submitted[0]).toMatchObject({
+      metaTitle: { en_US: 'Trail Runner 500 | Wet-ground trail shoe' },
+      metaDescription: { en_US: 'Grip and drainage for wet trails.' },
+      metaKeyword: { en_US: 'trail shoe, running, waterproof' },
+    });
+    expect(() =>
+      validator.validate(CATALOG_SPEC, 'Product', submitted[0])
+    ).not.toThrow();
+  });
+
+  it('sends no SEO field the product was generated without', async () => {
+    // Optional in the generation schema, and toI18n throws on an absent
+    // value, so a product without them must still post as it always has.
+    const { submitted } = await prepareProducts({
+      generated: [aProduct({ metaTitle: { en_US: 'Trail Runner 500' } })],
+      options: { productCount: 1 },
+    });
+
+    expect(submitted[0].metaTitle).toEqual({ en_US: 'Trail Runner 500' });
+    expect(submitted[0]).not.toHaveProperty('metaDescription');
+    expect(submitted[0]).not.toHaveProperty('metaKeyword');
+  });
+
+  it('sends all three SEO fields for a demo-mode product', async () => {
+    const mock = new MockDataGenerator({
+      DEBUG: false,
+      logger: silentLogger(),
+    });
+    const { submitted } = await prepareProducts({
+      generated: mock.generateProductData('Electronics', 1, {}, null, [
+        'en-US',
+      ]),
+      options: { productCount: 1 },
+    });
+
+    const { metaTitle, metaDescription, metaKeyword } = submitted[0];
+    for (const field of [metaTitle, metaDescription, metaKeyword]) {
+      expect(Object.values(field || {})[0]).toEqual(expect.any(String));
+    }
+  });
 });
