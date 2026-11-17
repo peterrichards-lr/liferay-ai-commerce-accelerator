@@ -1,0 +1,146 @@
+name: Quickstart Check (published release)
+
+# Installs the published release exactly as docs/QUICKSTART.md tells a user
+# to - `ldm quickstart aica` - and runs the smoke check against it. Nothing
+# else tests that path: the E2E and the packaging job both build their own
+# project with `ldm import .`, which is a different entry point, and v3.3.56
+# shipped three defects one quickstart would have shown (#1365, #1283). This
+# is step 3 of #1367.
+#
+# Report-only: nothing waits on it, and a red run is the report.
+
+on:
+  # Not `release: published`. The packaging job creates the release with
+  # GITHUB_TOKEN, and events caused by that token start no other workflows, so
+  # that trigger would never fire. `workflow_run` is the documented exception,
+  # and a successful packaging run is also what guarantees the .ldmp is
+  # attached before this tries to install it.
+  workflow_run:
+    workflows: ['LDM Package Release (.ldmp)']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  quickstart:
+    name: ldm quickstart aica
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      # The template's default name; quickstart creates it in the cwd.
+      PROJECT_NAME: liferay-ai-commerce-accelerator
+      QUICKSTART_DIR: ${{ github.workspace }}/../quickstart
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      # The same LDM the E2E and the packaging job use (#1148).
+      - name: Install Liferay Docker Manager (LDM)
+        run: |
+          LDM_VER="${{ vars.LDM_VERSION || 'latest' }}"
+          if [ "$LDM_VER" = "latest" ]; then
+            DOWNLOAD_URL="https://github.com/peterrichards-lr/liferay-docker-manager/releases/latest/download/ldm-linux"
+          else
+            DOWNLOAD_URL="https://github.com/peterrichards-lr/liferay-docker-manager/releases/download/${LDM_VER}/ldm-linux"
+          fi
+          echo "📥 Quickstart with LDM '${LDM_VER}' from ${DOWNLOAD_URL}"
+          wget "$DOWNLOAD_URL" -O ldm
+          sudo install -o root -g root -m 755 ldm /usr/local/bin/ldm
+          rm -f ldm
+          echo "✅ Quickstart LDM: $(ldm --version 2>&1 | head -1)"
+
+      # LDM lists mkcert as a requirement ("LDM Requirement Missing: mkcert").
+      # Without it LDM falls back to a self-signed certificate, and the smoke
+      # check would have to skip TLS verification - which is the check a broken
+      # certificate fails.
+      - name: Install mkcert
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q mkcert libnss3-tools
+          mkcert -install
+
+      # The host check prompts for sudo unless every host already resolves:
+      # the package's host_name and one subdomain per client extension with a
+      # load balancer. The same set package-ldmp.yml writes for aica-e2e.demo.
+      - name: Configure local hosts file
+        run: |
+          echo "127.0.0.1 aica.demo aicommerceacceleratorconfiguration.aica.demo aicommerceacceleratorfrontend.aica.demo ai-commerce-accelerator-microservice.aica.demo" | sudo tee -a /etc/hosts
+
+      - name: Free ports 80 and 443
+        run: sudo fuser -k 80/tcp 443/tcp || true
+
+      # The licence is the user's to provide, never the package's, and this
+      # job stands in for a user. LDM copies every *.xml in its common
+      # directory into the project's deploy/ before boot, which is the
+      # documented place for a user's activation key. The key therefore ends up
+      # inside the project directory, so no step below uploads that directory.
+      - name: Provide the activation key
+        env:
+          LIFERAY_LICENSE: ${{ secrets.LIFERAY_LICENSE }}
+        run: |
+          common_dir="$RUNNER_TEMP/ldm-common"
+          mkdir -p "$common_dir"
+          printf '%s' "$LIFERAY_LICENSE" > "$common_dir/activation-key.xml"
+          if ! grep -q "<license" "$common_dir/activation-key.xml"; then
+            echo "❌ LIFERAY_LICENSE does not contain a Liferay licence."
+            exit 1
+          fi
+          echo "LDM_COMMON_DIR=$common_dir" >> "$GITHUB_ENV"
+
+      # As documented, from an empty directory. Quickstart ends in `ldm run`,
+      # which waits for Liferay and exits non-zero when the boot fails.
+      - name: ldm quickstart aica
+        run: |
+          mkdir -p "$QUICKSTART_DIR"
+          cd "$QUICKSTART_DIR"
+          ldm -y quickstart aica
+
+      # Client extensions register after Liferay is ready, so the microservice
+      # can still be on its way up when quickstart returns. Retried rather than
+      # failed on the first answer.
+      - name: Smoke check
+        run: |
+          export NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem"
+          for attempt in $(seq 1 20); do
+            if node scripts/smoke-check-quickstart.cjs "$QUICKSTART_DIR/$PROJECT_NAME"; then
+              exit 0
+            fi
+            echo "⏳ Attempt ${attempt}/20 not healthy yet; retrying in 30s."
+            sleep 30
+          done
+          exit 1
+
+      # Logs only. The project directory holds the activation key in deploy/,
+      # and must not leave the runner.
+      - name: Collect diagnostics
+        if: failure()
+        run: |
+          mkdir -p quickstart-diagnostics
+          ldm ls > quickstart-diagnostics/ldm-ls.txt 2>&1 || true
+          ldm status "$PROJECT_NAME" > quickstart-diagnostics/ldm-status.txt 2>&1 || true
+          docker ps -a > quickstart-diagnostics/docker-ps.txt 2>&1 || true
+          for container in $(docker ps -a --format '{{.Names}}'); do
+            docker logs "$container" > "quickstart-diagnostics/${container}.log" 2>&1 || true
+          done
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quickstart-diagnostics
+          path: quickstart-diagnostics/
+          retention-days: 14

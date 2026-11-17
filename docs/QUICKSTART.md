@@ -24,10 +24,14 @@ _(For Windows, Linux, or Intel Macs, refer to the [Official LDM Repository](http
 > **What has actually been exercised.** AICA's automated verification runs on
 > Linux (`ubuntu-latest`), and the release package is built there. Interactive
 > verification is done on macOS (Apple Silicon). **No part of this path has been
-> exercised on Windows or on an Intel Mac**, and `ldm quickstart` itself is not
-> yet covered by our CI on any platform — our suite exercises `ldm import` and
-> `ldm run` against a checked-out tree, which is a different entry point from
-> the one above.
+> exercised on Windows or on an Intel Mac**. After every release, CI runs
+> `ldm quickstart aica` against the published package on Linux and checks what a
+> user would notice first: Liferay and the microservice answer over HTTPS, the
+> DXP domain is the project's own host, and the site initializer has run
+> (`quickstart-check.yml`). It runs after publication, so it reports a broken
+> release rather than preventing one. The rest of our suite exercises
+> `ldm import` and `ldm run` against a checked-out tree, which is a different
+> entry point from the one above.
 >
 > Nothing here is known to be broken. If you are on Windows or an Intel Mac you
 > are the first to walk it, so please
