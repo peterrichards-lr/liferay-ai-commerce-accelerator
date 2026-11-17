@@ -9,13 +9,23 @@
 | docs               | Documentation & System Map       | COMPLETED |
 | verification       | End-to-End Verification          | COMPLETED |
 | imports            | Dataset Imports                  | COMPLETED |
-| ldk-extraction     | Agentic-Friendly LDK Refactoring | ACTIVE    |
+| ldk-extraction     | Agentic-Friendly LDK Refactoring | MOVED     |
 | persona-orders     | AI Persona Order Seeding         | PLANNED   |
 | multimodal-seeding | Multimodal Product Enrichment    | PLANNED   |
 | multi-catalog      | Multi-Catalog & Multi-Brand      | PLANNED   |
+
+**MOVED** means the work, if it is done, belongs to another repository. The
+SDK left this one in #198 (2026-06-30) and is now
+`peterrichards-lr/liferay-accelerator-sdk`, consumed as a git dependency. The
+LDK refactor was planned against its old in-repo path and was never carried
+out there: as of v0.12.8 there is no `src/core/`, no `LiferayLDK` facade, and
+`src/liferay/rest.cjs` is still one 3,199-line service. Whether to do it is the
+SDK's decision, not an AICA track.
+
+The three PLANNED tracks have no spec or plan under `tracks/` yet.
 
 <!-- markdownlint-disable MD049 -->
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-11-17_ | _Last Reviewed: 2026-11-17_

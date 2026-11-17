@@ -2,7 +2,10 @@
 
 - **ID**: `ldk-extraction`
 - **Title**: Agentic-Friendly Liferay Development Kit (LDK) Refactoring
-- **Status**: PLANNED
+- **Status**: MOVED - the SDK is now its own repository
+  (`peterrichards-lr/liferay-accelerator-sdk`, since #198), and this refactor
+  was never done here. If it is picked up, it is the SDK's work. See
+  [the registry](../../tracks.md).
 
 ## Documents
 
@@ -13,4 +16,4 @@
 
 ---
 
-_Last Updated: 2026-07-08_ | _Last Reviewed: 2026-08-14_
+_Last Updated: 2026-11-17_ | _Last Reviewed: 2026-11-17_
