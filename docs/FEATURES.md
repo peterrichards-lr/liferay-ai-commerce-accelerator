@@ -29,9 +29,9 @@ Promotions are deliberately **not** chunked: they generate user segments alongsi
 
 ### Visual Assets & Media
 
-- **AI Images**: Generates product visuals using DALL-E or Nano Banana.
-- **AI PDFs**: Creates detailed documentation like User Guides, Technical Specs, or Compliance sheets.
-- **Placeholder Mode**: Use lightweight mock assets for rapid prototyping without AI costs.
+- **AI Images**: Generates a product image with OpenAI's `gpt-image-2`, from an editable image prompt. OpenAI is the only provider that can produce images here; with Claude or Gemini as the text provider, choose OpenAI as the dedicated media provider.
+- **AI PDFs**: Creates one document per product, such as a user guide, technical specification or compliance sheet. The text provider writes it, and it is rendered to PDF.
+- **Image modes**: `none`; `placeholder` or `default` (Liferay's default product image); `picsum` (a stock photo, which needs network access); `custom` (an image you upload); `ai`; and `bundle`, for the media a packaged dataset carries. Demo mode calls no provider, so `ai` falls back to the placeholder there.
 
 ### Prompt and Schema Portability
 
@@ -55,9 +55,9 @@ The **Dashboard** provides granular feedback on every generation session.
 
 Everything is manageable via the **AI Commerce Accelerator Configuration** UI.
 
-- **Provider Agnosticism**: Switch between OpenAI, Google Gemini, and Anthropic Claude for text generation. Claude has no image capability, so a dedicated media provider is required alongside it when generating images.
+- **Provider Agnosticism**: Switch between OpenAI, Google Gemini, and Anthropic Claude for text generation. Only OpenAI can generate images, so with Claude or Gemini a dedicated media provider is required when generating images.
 - **Provider-Aware Models**: The default model list shows only the models the selected provider can actually run, so an OpenAI model can never be left selected against Anthropic Claude. A model added by hand that the build does not recognise stays selectable, and a mismatched pairing is rejected before a run starts rather than partway through it.
-- **Dedicated Media Keys**: Configure separate credentials for image generation (e.g., Nano Banana).
+- **Dedicated Media Keys**: Configure separate credentials for image generation, which is OpenAI's.
 - **Custom Prompts & Schemas**: Tailor the AI's output by editing the templates directly in the browser with a built-in CodeMirror editor. Prompts are Jinja2-compatible templates, so a condition or a loop can be written in the prompt itself rather than requiring a code change - see [Prompt Templates](./PROMPT_TEMPLATES.md).
 - **Exclude Lists**: Protect system data by specifying items that should never be modified or deleted.
 
@@ -93,4 +93,4 @@ A dedicated **Admin Dashboard** provides high-level oversight and diagnostic too
 
 ---
 
-_Last Reviewed: 2026-09-18_
+_Last Reviewed: 2026-11-17_
