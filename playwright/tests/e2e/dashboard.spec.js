@@ -95,6 +95,67 @@ test.describe('AICA End-to-End Verification', () => {
     await expect(console).not.toContainText('[ERROR]');
   });
 
+  // What the Demo run above stored, read back from Liferay rather than from the
+  // dashboard. A green run said nothing about the landing-page copy (#1205) or
+  // the SEO fields (#1466): nothing else reads a product's description back.
+  test('stores the demo products with formatted copy and SEO fields', async ({
+    request,
+  }) => {
+    const baseUrl = process.env.BASE_URL || 'http://localhost:8080';
+    const username = process.env.LIFERAY_API_USERNAME || 'test@liferay.com';
+    const password = process.env.LIFERAY_API_PASSWORD || 'test';
+    const headers = {
+      Authorization:
+        'Basic ' + Buffer.from(`${username}:${password}`).toString('base64'),
+    };
+    const catalogApi = `${baseUrl}/o/headless-commerce-admin-catalog/v1.0`;
+
+    // The list is served from the search index, which can trail the run, and
+    // it never carries descriptions. So: find the newest demo product there,
+    // then read the whole record by id, which comes from the database.
+    let newest;
+    await expect
+      .poll(
+        async () => {
+          const res = await request.get(`${catalogApi}/products?pageSize=100`, {
+            headers,
+          });
+          if (!res.ok()) return 0;
+          const generated = ((await res.json()).items || [])
+            .filter((p) =>
+              (p.externalReferenceCode || '').startsWith('AICA-PRD')
+            )
+            .sort((a, b) => String(b.createDate).localeCompare(a.createDate));
+          newest = generated[0];
+          return generated.length;
+        },
+        { timeout: 120000, intervals: [5000] }
+      )
+      .toBeGreaterThan(0);
+
+    const res = await request.get(
+      `${catalogApi}/products/${newest.productId ?? newest.id}`,
+      { headers }
+    );
+    expect(res.ok()).toBe(true);
+    const product = await res.json();
+    console.log(
+      `>>> Read back ${product.externalReferenceCode}: ${JSON.stringify({
+        description: product.description,
+        shortDescription: product.shortDescription,
+        metaTitle: product.metaTitle,
+        metaKeyword: product.metaKeyword,
+      })}`
+    );
+
+    const text = (value) => Object.values(value || {})[0] || '';
+    expect(text(product.description)).toMatch(/<ul>.*<li>/s);
+    expect(text(product.shortDescription)).not.toMatch(/[<>]/);
+    expect(text(product.metaTitle)).not.toBe('');
+    expect(text(product.metaDescription)).not.toBe('');
+    expect(text(product.metaKeyword)).not.toBe('');
+  });
+
   test('should perform data generation flow in Live (AI) Mode', async ({
     page,
   }) => {
