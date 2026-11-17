@@ -230,23 +230,36 @@ export async function injectAndConnectApp(page) {
     }
 
     console.log(`>>> [Attempt ${i + 1}/10] Clicking Test Connection button...`);
-    await connectBtn.click({ force: true });
+    try {
+      // Short, because the button can turn into "Connected" under the click -
+      // an earlier attempt completing - and a locator waiting for its old
+      // label would then wait out the whole action timeout (#1452).
+      await connectBtn.click({ timeout: 10000 });
+    } catch (e) {
+      console.log(`>>> [Attempt ${i + 1}/10] Click did not land: ${e.message}`);
+    }
 
-    // Wait for the state to settle to either success (Connected) or failure (Retry Connection or Test Connection & Load Data)
+    // Settle on an outcome, not on a label. The button keeps "Test Connection &
+    // Load Data" while it is disabled and loading, so waiting for that label
+    // returned at once and read a connection still in progress as a failure
+    // (#1452). Only an enabled one means the attempt is over.
     try {
       await Promise.race([
         page.waitForSelector('button:has-text("Connected")', {
           state: 'visible',
-          timeout: 15000,
+          timeout: 60000,
         }),
         page.waitForSelector('button:has-text("Retry Connection")', {
           state: 'visible',
-          timeout: 15000,
+          timeout: 60000,
         }),
-        page.waitForSelector('button:has-text("Test Connection & Load Data")', {
-          state: 'visible',
-          timeout: 15000,
-        }),
+        page.waitForSelector(
+          'button:has-text("Test Connection & Load Data"):not([disabled])',
+          {
+            state: 'visible',
+            timeout: 60000,
+          }
+        ),
       ]);
     } catch (e) {
       console.log(
