@@ -22,7 +22,9 @@ out there: as of v0.12.8 there is no `src/core/`, no `LiferayLDK` facade, and
 `src/liferay/rest.cjs` is still one 3,199-line service. Whether to do it is the
 SDK's decision, not an AICA track.
 
-The three PLANNED tracks have no spec or plan under `tracks/` yet.
+The three PLANNED tracks have a spec and a plan under `tracks/<id>/`, drafted
+2026-11-17 for the maintainer's review. Each ends with open questions that need
+answers before any code.
 
 <!-- markdownlint-disable MD049 -->
 
