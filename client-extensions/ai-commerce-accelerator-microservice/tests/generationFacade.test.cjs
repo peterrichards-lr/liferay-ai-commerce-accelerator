@@ -240,6 +240,26 @@ describe('GenerationFacade', () => {
       );
     });
   });
+
+  // The description is HTML now, and the fallback used to be a raw
+  // substring(0, 200): on markup that cuts inside a tag and puts broken HTML in
+  // the short field (#1205).
+  it('derives a missing short description as plain text, cut at a word', () => {
+    const item = {
+      ...MINIMAL_VALID_PRODUCT,
+      shortDescription: undefined,
+      description: {
+        en_US: `<p>${'Grippy '.repeat(40)}</p><ul><li><strong>Drains</strong> fast</li></ul>`,
+      },
+    };
+
+    facade._standardizeItem(item, 'product');
+
+    const short = item.shortDescription.en_US;
+    expect(short.length).toBeLessThanOrEqual(200);
+    expect(short).not.toMatch(/[<>]/);
+    expect(short).toMatch(/^Grippy Grippy/);
+  });
 });
 
 describe('GenerationFacade null-optional repair', () => {

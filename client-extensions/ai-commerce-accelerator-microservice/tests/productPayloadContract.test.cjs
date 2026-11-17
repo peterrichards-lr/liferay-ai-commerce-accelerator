@@ -492,6 +492,61 @@ describe('the payload create-products sends', () => {
     expect(submitted[0]).not.toHaveProperty('metaKeyword');
   });
 
+  // The description is HTML from an allowlist, and the model that wrote it is
+  // untrusted - as is a dataset someone imports (#1205).
+  it('sends the description through the allowlist, not as the model wrote it', async () => {
+    const { submitted } = await prepareProducts({
+      generated: [
+        aProduct({
+          description: {
+            en_US:
+              '<p class="lead">Light <strong>and</strong> fast.</p><ul><li>Grip</li></ul><script>alert(1)</script>',
+          },
+        }),
+      ],
+      options: { productCount: 1 },
+    });
+
+    expect(submitted[0].description).toEqual({
+      en_US:
+        '<p>Light <strong>and</strong> fast.</p><ul><li>Grip</li></ul>&lt;script&gt;alert(1)&lt;/script&gt;',
+    });
+  });
+
+  it('keeps the short description plain text', async () => {
+    const { submitted } = await prepareProducts({
+      generated: [
+        aProduct({
+          shortDescription: { en_US: 'A <strong>grippy</strong> shoe' },
+        }),
+      ],
+      options: { productCount: 1 },
+    });
+
+    expect(submitted[0].shortDescription).toEqual({
+      en_US: 'A grippy shoe',
+    });
+  });
+
+  it('derives a missing short description from the text, not the markup', async () => {
+    const { submitted } = await prepareProducts({
+      generated: [
+        aProduct({
+          shortDescription: undefined,
+          description: {
+            en_US:
+              '<p>Built for <em>wet</em> ground.</p><ul><li>Grip</li></ul>',
+          },
+        }),
+      ],
+      options: { productCount: 1 },
+    });
+
+    expect(submitted[0].shortDescription).toEqual({
+      en_US: 'Built for wet ground. Grip',
+    });
+  });
+
   it('sends all three SEO fields for a demo-mode product', async () => {
     const mock = new MockDataGenerator({
       DEBUG: false,

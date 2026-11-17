@@ -37,7 +37,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Multilingual long descriptions keyed by language code.",
+            "description": "Multilingual long descriptions keyed by language code. HTML using only p, strong, em, ul, ol, li, h3 and br, with no attributes.",
             "type": "object"
           },
           "externalReferenceCode": {
@@ -219,7 +219,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Multilingual short descriptions keyed by language code.",
+            "description": "Multilingual short descriptions keyed by language code. Plain text, no HTML.",
             "type": "object"
           },
           "skuVariants": {

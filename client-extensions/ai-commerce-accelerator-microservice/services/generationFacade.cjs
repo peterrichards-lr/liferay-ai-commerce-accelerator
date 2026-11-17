@@ -5,6 +5,7 @@ const addFormats = require('ajv-formats');
 const { createERC } = require('../utils/misc.cjs');
 const { ERC_PREFIX } = require('../utils/constants.cjs');
 const { validationFeedback } = require('../utils/validationFeedback.cjs');
+const { summarise } = require('../utils/richText.cjs');
 const {
   dropNullTypeViolations,
   optionPairsToMap,
@@ -507,7 +508,10 @@ class GenerationFacade {
         if (item.description && typeof item.description === 'object') {
           item.shortDescription = {};
           for (const [lang, desc] of Object.entries(item.description)) {
-            item.shortDescription[lang] = String(desc).substring(0, 200);
+            // Plain text cut at a word, never mid-tag: the description is
+            // HTML, and a raw cut put broken markup in the short field
+            // (#1205).
+            item.shortDescription[lang] = summarise(String(desc));
           }
         } else {
           item.shortDescription =
