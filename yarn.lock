@@ -1491,9 +1491,9 @@
   integrity sha512-ee+c14ggUiM7lg4PtCjSBYU9O9dHp4FFespRnd5yj7SilUBJCL3x3aHlB+sIqbGjcPo3pEyODASnfKJuZ26YBw==
 
 "@rotty3000/config-node@^0.4.1":
-  version "0.4.1"
-  resolved "https://registry.yarnpkg.com/@rotty3000/config-node/-/config-node-0.4.1.tgz#cc574334460ecc1130888b5b996c3a4a3070b8d2"
-  integrity sha512-++4w6esftfXW/d2gikKJ2URbelleiBcQoGgsUampqmH03yFGRf9Fb0iI3E15IveYb8Z50nXEY/YLyG7FsIsA2g==
+  version "0.4.2"
+  resolved "https://registry.yarnpkg.com/@rotty3000/config-node/-/config-node-0.4.2.tgz#f48bacfc23242ae230dbdcc9a74b1a0229f77c57"
+  integrity sha512-TvOv8/7tUB9s74J9Po7a96fVk+koJdEdV6TiR+GdW3bayWZJSl+qJC+w7iiylGA3L+gGiOoVnetsY6lj5a06yA==
 
 "@simple-libs/child-process-utils@^2.0.0":
   version "2.0.0"
