@@ -24,7 +24,8 @@
   },
   "env": {
     "PORT": "3001",
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "LIFERAY_OAUTH_APPLICATION_EXTERNAL_REFERENCE_CODES": "ai-commerce-accelerator-microservice,ai-commerce-accelerator-cli-automation"
   },
   "loadBalancer": {
     "targetPort": 3001

@@ -3189,6 +3189,28 @@ export_cli_automation_credentials() {
 
 export_cli_automation_credentials || true
 
+# Reported, never enforced: whether config-node's own lookup now resolves the
+# microservice's application, which needs the ERC list LCP.json supplies
+# (#1450). A miss is not fatal - the SDK reads the keys directly - but it means
+# the variable did not reach the container.
+report_oauth_application_lookup() {
+    local container verdict
+    container=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -i "^${PROJECT_NAME}-.*microservice" | head -1)
+    [ -n "$container" ] || return 0
+
+    verdict=$(docker exec -w /opt/liferay "$container" node -e '
+        const { lxcConfig } = require("@rotty3000/config-node");
+        try {
+            console.log(lxcConfig.oauthApplication(process.argv[1])?.clientId?.() ? "resolves" : "resolves nothing");
+        } catch (error) {
+            console.log(`throws: ${error.message}`);
+        }' "ai-commerce-accelerator-microservice" 2>/dev/null)
+
+    echo "ℹ  oauthApplication('ai-commerce-accelerator-microservice') ${verdict:-could not be checked} (#1450)."
+}
+
+report_oauth_application_lookup || true
+
 
 # Attempt to fetch dynamic credentials from LDM
 echo "🔑 Attempting to extract dynamic LDM credentials..."
