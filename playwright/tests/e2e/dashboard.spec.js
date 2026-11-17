@@ -96,9 +96,10 @@ test.describe('AICA End-to-End Verification', () => {
   });
 
   // What the Demo run above stored, read back from Liferay rather than from the
-  // dashboard. A green run said nothing about the landing-page copy (#1205) or
-  // the SEO fields (#1466): nothing else reads a product's description back.
-  test('stores the demo products with formatted copy and SEO fields', async ({
+  // dashboard. A green run said nothing about the landing-page copy (#1205),
+  // the SEO fields (#1466) or the images (#1477): a media failure is non-fatal
+  // by design, and nothing else reads a product back.
+  test('stores the demo products with formatted copy, SEO fields and an image', async ({
     request,
   }) => {
     const baseUrl = process.env.BASE_URL || 'http://localhost:8080';
@@ -154,6 +155,33 @@ test.describe('AICA End-to-End Verification', () => {
     expect(text(product.metaTitle)).not.toBe('');
     expect(text(product.metaDescription)).not.toBe('');
     expect(text(product.metaKeyword)).not.toBe('');
+
+    const imagesRes = await request.get(
+      `${catalogApi}/products/by-externalReferenceCode/${encodeURIComponent(
+        product.externalReferenceCode
+      )}/images`,
+      { headers }
+    );
+    expect(imagesRes.ok()).toBe(true);
+    const images = (await imagesRes.json()).items || [];
+    console.log(
+      `>>> Images on ${product.externalReferenceCode}: ${JSON.stringify(
+        images.map(({ contentType, priority, src, title }) => ({
+          contentType,
+          priority,
+          src,
+          title,
+        }))
+      )}`
+    );
+
+    expect(images.length).toBeGreaterThan(0);
+    expect(images[0].src).toBeTruthy();
+    // Whether this endpoint fills contentType is unverified, so it is checked
+    // only when present.
+    for (const image of images) {
+      if (image.contentType) expect(image.contentType).toMatch(/^image\//);
+    }
   });
 
   test('should perform data generation flow in Live (AI) Mode', async ({
