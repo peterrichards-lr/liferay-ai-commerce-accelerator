@@ -151,6 +151,57 @@ describe('PromoGenerator', () => {
     );
   });
 
+  // A second run with no delete in between finds the promotion's price list
+  // and segment from the first, and the link between them already exists.
+  // That 409 ended the whole session (#1455).
+  it('carries on when the promotion is already linked to its segment', async () => {
+    const sessionId = 'session-relinked';
+    mockCtx.liferay.getPriceListByERC.mockResolvedValue({ id: 500 });
+    mockCtx.liferay.createPriceListAccountGroup.mockRejectedValue(
+      Object.assign(new Error('Failed to link account group to price list'), {
+        status: 409,
+      })
+    );
+
+    await runPromoFlow(sessionId, [
+      {
+        name: 'Hammer',
+        sku: 'SKU-HAMMER',
+        id: 100,
+        skus: [{ id: 700, sku: 'SKU-HAMMER' }],
+      },
+    ]);
+
+    expect(mockCtx.liferay.createPriceList).not.toHaveBeenCalled();
+    expect(mockCtx.liferay.createPriceListAccountGroup).toHaveBeenCalledTimes(
+      1
+    );
+    expect(mockCtx.liferay.createPriceEntriesBatch).toHaveBeenCalled();
+    expect(mockCtx.progress.stepFailed).not.toHaveBeenCalled();
+  });
+
+  it('still fails when linking the promotion to its segment is refused', async () => {
+    const sessionId = 'session-link-refused';
+    mockCtx.liferay.createPriceListAccountGroup.mockRejectedValue(
+      Object.assign(new Error('Failed to link account group to price list'), {
+        status: 403,
+      })
+    );
+
+    await expect(
+      runPromoFlow(sessionId, [
+        {
+          name: 'Hammer',
+          sku: 'SKU-HAMMER',
+          id: 100,
+          skus: [{ id: 700, sku: 'SKU-HAMMER' }],
+        },
+      ])
+    ).rejects.toThrow('Failed to link account group to price list');
+
+    expect(mockCtx.liferay.createPriceEntriesBatch).not.toHaveBeenCalled();
+  });
+
   // Pricing v2.0 declares skuId required and int64, and the pricing step's own
   // comment records the cost of getting it wrong: "Pricing V2.0 will crash the
   // entire batch if one ID is invalid." This used to send product.id - a
