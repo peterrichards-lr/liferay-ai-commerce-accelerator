@@ -86,9 +86,10 @@ LDM will boot the database, Liferay, and the Microservice. Once booted, the Site
 > once, not on every start. It is tracked in
 > [#1379](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1379),
 > and goes away when Liferay re-resolves the scope by itself
-> ([#1387](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1387)).
+> ([#1387](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1387), filed with Liferay as
+> [LPD-116037](https://liferay.atlassian.net/browse/LPD-116037)).
 
-The release package ships the client extensions, OSGi modules, and site initializer — **not** a database dump. AICA installs against vanilla DXP and every component creates what it needs on setup, so the package stays around 12 MB rather than 1 GB and never carries stale pre-seeded data. Populate the catalog yourself once the stack is up, which takes about two minutes:
+The release package ships the client extensions, OSGi modules, and site initializer — **not** a database dump. AICA installs against vanilla DXP and every component creates what it needs on setup, so the package stays around 4.5 MB rather than 1 GB and never carries stale pre-seeded data. Populate the catalog yourself once the stack is up, which takes about two minutes:
 
 ```bash
 aica generate --demo --products 10 --accounts 10 --orders 50
@@ -197,7 +198,7 @@ ldm snapshot -p aica-e2e -y
 ldm package aica-e2e --use-latest --repo <your-github-repository> -y
 ```
 
-This outputs a `.ldmp` bundle and a SHA-256 checksum file, around 2.3 MB. See `.github/workflows/package-ldmp.yml` for the exact release invocation.
+This outputs a `.ldmp` bundle and a SHA-256 checksum file, around 4.5 MB. See `.github/workflows/package-ldmp.yml` for the exact release invocation.
 
 Several things about this sequence are not obvious, and each cost a failed release to learn:
 
@@ -266,4 +267,4 @@ During initial boot, you may see `OptimisticLockException` for `UserImpl`. This 
 
 ---
 
-_Last Reviewed: 2026-11-11_
+_Last Reviewed: 2026-11-17_
