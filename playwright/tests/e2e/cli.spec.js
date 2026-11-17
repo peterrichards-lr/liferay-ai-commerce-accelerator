@@ -103,8 +103,10 @@ test.describe.serial('AICA Headless CLI Client E2E Verification', () => {
 
     const stdout = await runCliCommand(`${aicaBin} import ${tempExportPath}`);
 
-    expect(stdout).toContain('Reading dataset from');
-    expect(stdout).toContain('Uploading dataset payload to target DXP');
+    // The CLI's own wording since #905, which validates the file and sends it
+    // in one step. This step never ran on a node until #1445, so the old
+    // "Reading dataset from" went unnoticed (#1456).
+    expect(stdout).toContain('Uploading dataset (');
     expect(stdout).toContain('Import Scaffolding Started');
     expect(stdout).toContain('Progress:');
     expect(stdout).toContain('Success! Session successfully completed');
