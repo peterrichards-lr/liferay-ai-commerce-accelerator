@@ -340,19 +340,34 @@ class PromoGenerator extends BaseGenerator {
             );
           }
 
-          await this._runWithRetry(
-            () =>
-              this.liferay.createPriceListAccountGroup(
-                config,
-                promo.externalReferenceCode,
-                {
-                  priceListId: liferayPriceList.id,
-                  accountGroupId: accountGroup.id,
-                  accountGroupExternalReferenceCode: promo.targetSegmentERC,
-                }
-              ),
-            `link-promo-to-segment:${promo.name}`
-          );
+          try {
+            await this._runWithRetry(
+              () =>
+                this.liferay.createPriceListAccountGroup(
+                  config,
+                  promo.externalReferenceCode,
+                  {
+                    priceListId: liferayPriceList.id,
+                    accountGroupId: accountGroup.id,
+                    accountGroupExternalReferenceCode: promo.targetSegmentERC,
+                  }
+                ),
+              `link-promo-to-segment:${promo.name}`
+            );
+          } catch (error) {
+            // A price list found above, rather than created, may already be
+            // linked: a second run with no delete in between reuses both the
+            // list and the segment. Liferay answers 409 "The account group
+            // relation already exists", which is the outcome this step wants,
+            // and failing on it ended the whole session (#1455).
+            if (error.status !== 409 && error.response?.status !== 409) {
+              throw error;
+            }
+            this.logger.debug(
+              `Promotion ${promo.name} is already linked to ${promo.targetSegmentERC}`,
+              { sessionId }
+            );
+          }
         }
 
         // 3. Create Promotional Price Entries for products
