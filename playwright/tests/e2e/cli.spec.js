@@ -24,8 +24,13 @@ test.describe.serial('AICA Headless CLI Client E2E Verification', () => {
   }) => {
     test.setTimeout(600000); // Allow up to 10 minutes for full generation and polling
 
+    // Person accounts, because nothing in the stack sets the channel's
+    // commerce site type. Liferay then treats it as B2C, which refuses business
+    // accounts - the default - and the run is rejected before it starts. That
+    // refusal is correct and covered by its own tests; this spec is about the
+    // CLI driving a run to completion (#1445).
     const stdout = await runCliCommand(
-      `${aicaBin} generate --demo --products 1 --accounts 1 --orders 3`
+      `${aicaBin} generate --demo --products 1 --accounts 1 --account-type person --orders 3`
     );
 
     expect(stdout).toContain('Initializing Data Generation');
