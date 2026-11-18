@@ -37,7 +37,6 @@ jobs:
     env:
       # The template's default name; quickstart creates it in the cwd.
       PROJECT_NAME: liferay-ai-commerce-accelerator
-      QUICKSTART_DIR: ${{ github.workspace }}/../quickstart
 
     steps:
       - name: Checkout code
@@ -103,8 +102,16 @@ jobs:
 
       # As documented, from an empty directory. Quickstart ends in `ldm run`,
       # which waits for Liferay and exits non-zero when the boot fails.
+      #
+      # Not beside the checkout: LDM looks for `<name>/meta` in the cwd's
+      # parent too, and the checkout is named after the project and carries
+      # the repo's meta, so quickstart took it for an existing project and
+      # refused to replace it (#1491). Set here because the runner context
+      # isn't available to job-level env.
       - name: ldm quickstart aica
         run: |
+          QUICKSTART_DIR="$RUNNER_TEMP/quickstart"
+          echo "QUICKSTART_DIR=$QUICKSTART_DIR" >> "$GITHUB_ENV"
           mkdir -p "$QUICKSTART_DIR"
           cd "$QUICKSTART_DIR"
           ldm -y quickstart aica
