@@ -579,6 +579,94 @@ describe('resolveRunCommerceSelection', () => {
     expect(result.rejection).toContain('Catalog id 34205 does not exist');
     expect(config.channelIds).toEqual([90909]);
   });
+
+  describe('an empty catalog list while the search index is rebuilt (#1490)', () => {
+    it('reads the list again and defaults once the catalogs are back', async () => {
+      const getCatalogs = vi
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValue(CATALOGS);
+      const config = { channelId: 301 };
+
+      const result = await resolveRunCommerceSelection({
+        config,
+        emptyCatalogRetryDelaysMs: [0, 0, 0],
+        liferayService: liferayService({ getCatalogs }),
+        logger: makeLogger(),
+        writes: true,
+      });
+
+      expect(getCatalogs).toHaveBeenCalledTimes(3);
+      expect(result.rejection).toBeNull();
+      expect(result.catalog.outcome).toBe(DEFAULTED);
+      expect(config.catalogId).toBe(102);
+    });
+
+    it('refuses a write that still finds no catalog, rather than queue products', async () => {
+      const getCatalogs = vi.fn().mockResolvedValue([]);
+      const config = { channelId: 301 };
+
+      const result = await resolveRunCommerceSelection({
+        config,
+        emptyCatalogRetryDelaysMs: [0, 0],
+        liferayService: liferayService({ getCatalogs }),
+        logger: makeLogger(),
+        writes: true,
+      });
+
+      expect(getCatalogs).toHaveBeenCalledTimes(3);
+      expect(result.catalog.outcome).toBe(UNAVAILABLE);
+      expect(result.rejections).toHaveLength(1);
+      expect(result.rejection).toContain('the catalog list is empty');
+      expect(result.rejection).toContain('search index is being rebuilt');
+      expect(config.catalogId).toBeUndefined();
+    });
+
+    it('lets a read carry on with a warning, as before', async () => {
+      const result = await resolveRunCommerceSelection({
+        config: { channelId: 301 },
+        emptyCatalogRetryDelaysMs: [0],
+        liferayService: liferayService({
+          getCatalogs: vi.fn().mockResolvedValue([]),
+        }),
+        logger: makeLogger(),
+      });
+
+      expect(result.rejection).toBeNull();
+      expect(result.catalog.level).toBe('warn');
+    });
+
+    it('does not retry or refuse over an empty channel list', async () => {
+      const getChannels = vi.fn().mockResolvedValue([]);
+
+      const result = await resolveRunCommerceSelection({
+        config: { catalogId: 205 },
+        emptyCatalogRetryDelaysMs: [0, 0],
+        liferayService: liferayService({ getChannels }),
+        logger: makeLogger(),
+        writes: true,
+      });
+
+      expect(getChannels).toHaveBeenCalledTimes(1);
+      expect(result.channel.outcome).toBe(UNAVAILABLE);
+      expect(result.rejection).toBeNull();
+    });
+
+    it('does not retry a list that could not be read', async () => {
+      const getCatalogs = vi.fn().mockRejectedValue(unreadable(503));
+
+      await resolveRunCommerceSelection({
+        config: { channelId: 301 },
+        emptyCatalogRetryDelaysMs: [0, 0],
+        liferayService: liferayService({ getCatalogs }),
+        logger: makeLogger(),
+        writes: true,
+      });
+
+      expect(getCatalogs).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 describe('Generation route commerce guard', () => {
