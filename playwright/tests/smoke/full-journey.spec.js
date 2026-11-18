@@ -29,8 +29,12 @@ test.describe('AI Commerce Accelerator Foundations', () => {
     // category, so it has never appeared in the Instance Settings body. From
     // its own definition:
     //
-    //     panelCategoryKey: control_panel.configuration
+    //     panelCategoryKey: control_panel.instance
     //     panelAppOrder: 700
+    //
+    // DXP 2026.Q4.0 renamed that category from control_panel.configuration,
+    // which nothing renders any more, so on Q4.0 the old key registered the
+    // app and showed it nowhere (#1488).
     //
     // This asserted `getByRole('link')` against Instance Settings until #1285.
     // Run 38410417089's page snapshot has 67 link roles there - Commerce,

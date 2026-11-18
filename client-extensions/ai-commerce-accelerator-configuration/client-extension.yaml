@@ -7,7 +7,7 @@ liferay-ai-commerce-accelerator-configuration:
   instanceable: false
   name: Liferay AI Commerce Accelerator Configuration
   panelAppOrder: 700
-  panelCategoryKey: control_panel.configuration
+  panelCategoryKey: control_panel.instance
   type: customElement
   urls:
     - liferay-ai-commerce-accelerator-configuration.min.*.js
