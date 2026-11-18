@@ -71,23 +71,26 @@ ldm quickstart aica
 
 LDM will boot the database, Liferay, and the Microservice. Once booted, the Site Initializer automatically builds your demo storefront.
 
-> [!IMPORTANT]
-> **Restart Liferay once after the first boot.** On a fresh install, Liferay
-> registers AICA's OAuth application before the AICA Configuration object
-> exists, and does not grant the object's scope afterwards. Until it is
-> restarted, AICA cannot read its configuration, and the microservice logs
-> `Liferay refused the AICA configuration read (403)`.
+> [!NOTE]
+> **Before DXP 2026.Q4.0 (U155), restart Liferay once after the first boot.**
+> On those versions Liferay registers AICA's OAuth application before the AICA
+> Configuration object exists, and does not grant the object's scope
+> afterwards. Until it is restarted, AICA cannot read its configuration, and
+> the microservice logs `Liferay refused the AICA configuration read (403)`.
 >
 > ```bash
 > docker restart liferay-ai-commerce-accelerator
 > ```
 >
-> AICA recovers within about a minute of Liferay coming back. This is needed
-> once, not on every start. It is tracked in
-> [#1379](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1379),
-> and goes away when Liferay re-resolves the scope by itself
-> ([#1387](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1387), filed with Liferay as
-> [LPD-116037](https://liferay.atlassian.net/browse/LPD-116037)).
+> AICA recovers within about a minute of Liferay coming back, and the restart
+> is needed once, not on every start. From 2026.Q4.0 Liferay grants the scope
+> by itself once the object is created
+> ([LPD-116037](https://liferay.atlassian.net/browse/LPD-116037), fixed by
+> LPD-111409), so no restart is needed
+> ([#1387](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1387)).
+>
+> The release package currently boots **2026.Q3.0**, so `ldm quickstart aica`
+> still needs the restart until a package is built on 2026.Q4.0.
 
 The release package ships the client extensions, OSGi modules, and site initializer — **not** a database dump. AICA installs against vanilla DXP and every component creates what it needs on setup, so the package stays around 4.5 MB rather than 1 GB and never carries stale pre-seeded data. Populate the catalog yourself once the stack is up, which takes about two minutes:
 
@@ -267,4 +270,4 @@ During initial boot, you may see `OptimisticLockException` for `UserImpl`. This 
 
 ---
 
-_Last Reviewed: 2026-11-17_
+_Last Reviewed: 2026-11-18_
