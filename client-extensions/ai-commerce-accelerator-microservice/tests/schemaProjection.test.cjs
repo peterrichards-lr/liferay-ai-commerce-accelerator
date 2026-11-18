@@ -414,6 +414,35 @@ describe('schemaProjection', () => {
     });
   });
 
+  describe('dataset-only properties', () => {
+    // product.json keeps a product's images and attachments as the dataset's
+    // record of the source instance, but nothing reads generated ones, so the
+    // model is no longer asked for them (#1479).
+    it('leaves product images and attachments out of the provider schema', () => {
+      const result = projectGenerationSchema(sourceSchema('product'), {
+        provider: 'openai',
+      });
+      const product = result.schema.properties.products.items;
+
+      expect(product.properties.images).toBeUndefined();
+      expect(product.properties.attachments).toBeUndefined();
+      expect(product.required).not.toContain('images');
+      expect(result.omitted).toEqual(
+        expect.arrayContaining([
+          '/products/items/images',
+          '/products/items/attachments',
+        ])
+      );
+    });
+
+    it('keeps them in the dataset schema itself', () => {
+      const products = sourceSchema('product').properties.products.items;
+
+      expect(products.properties.images).toBeDefined();
+      expect(products.properties.attachments).toBeDefined();
+    });
+  });
+
   describe('advisory mode', () => {
     it('never blocks, and keeps the source required lists', () => {
       const { blockers, schema } = projectGenerationSchema(
@@ -436,7 +465,9 @@ describe('schemaProjection', () => {
         'skus',
         'urls',
       ]);
-      expect(items.properties.images.type).toBe('array');
+      // An optional property still projects; a dataset-only one does not.
+      expect(items.properties.specifications.type).toBe('array');
+      expect(items.properties.images).toBeUndefined();
     });
 
     it('still expands the locale maps, and pairs the option map', () => {

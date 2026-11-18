@@ -47,6 +47,21 @@ const LOCALE_KEYED_PROPERTIES = new Set([
 ]);
 
 /**
+ * Properties a generation schema declares as part of the dataset format but
+ * the model is never asked to produce, so the provider schema leaves them out.
+ *
+ * A product's `images` and `attachments` record the source instance's media in
+ * an export, which is why product.json keeps them. Generated, they were never
+ * read: media comes from the image and PDF modes, not from filenames the model
+ * invented, and asking for them cost tokens on every product (#1479).
+ * Matched by exact pointer, so a property of the same name elsewhere is kept.
+ */
+const DATASET_ONLY_POINTERS = new Set([
+  '/products/items/images',
+  '/products/items/attachments',
+]);
+
+/**
  * Open string maps whose keys the model invents in the same response, and which
  * are therefore asked for as an array of name/value pairs instead.
  *
@@ -429,7 +444,10 @@ function projectObject(node, name, pointer, context) {
     const childRequired = sourceRequired.includes(key);
     const childPointer = `${pointer}/${key}`;
 
-    if (!childRequired && isUnspecified(child)) {
+    if (
+      !childRequired &&
+      (isUnspecified(child) || DATASET_ONLY_POINTERS.has(childPointer))
+    ) {
       context.omitted.push(childPointer);
       continue;
     }
