@@ -69,6 +69,28 @@ Run the following command to automatically download the latest release package a
 ldm quickstart aica
 ```
 
+> [!WARNING]
+> **On a machine that has never run an LDM project with shared search, create
+> it before quickstart.** LDM v2.26.11 and later stop quickstart with exit code
+> 3 when the shared search container has never existed:
+>
+> ```text
+> ❌  This project uses shared search, but the 'liferay-search-global' container does not exist.
+> ```
+>
+> Create it, then run quickstart again:
+>
+> ```bash
+> ldm infra setup --search
+> ldm quickstart aica
+> ```
+>
+> Running it on a machine that already has the container does no harm. This is
+> an LDM regression
+> ([LDM-#2434](https://github.com/peterrichards-lr/liferay-docker-manager/issues/2434)),
+> and this note goes once a fixed LDM is released
+> ([#1494](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1494)).
+
 LDM will boot the database, Liferay, and the Microservice. Once booted, the Site Initializer automatically builds your demo storefront.
 
 > [!NOTE]
