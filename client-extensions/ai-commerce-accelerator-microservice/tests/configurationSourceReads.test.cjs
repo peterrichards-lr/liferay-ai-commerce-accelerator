@@ -177,7 +177,8 @@ describe('ConfigService reads over the configuration source (#824)', () => {
   });
 
   // On a fresh install Liferay answers 403 until the configuration object's
-  // scope alias is resolved, which takes a restart on a quickstart. #1379.
+  // scope alias is resolved, which before DXP 2026.Q4.0 takes a restart on a
+  // quickstart (#1379); from 2026.Q4.0 it resolves by itself (#1387).
   describe('a configuration object Liferay refuses (403)', () => {
     const forbidden = () => {
       const e = new Error('Forbidden');
@@ -201,6 +202,8 @@ describe('ConfigService reads over the configuration source (#824)', () => {
       expect(error.problem.status).toBe('CONFIGURATION_SCOPE_NOT_RESOLVED');
       // The remedy a quickstart needs, not a wait that never ends (#1379).
       expect(error.userMessage).toMatch(/restart Liferay once/);
+      // Only for the versions that need it: Q4.0 heals itself (#1387).
+      expect(error.userMessage).toMatch(/before 2026\.Q4\.0/);
       expect(error.userMessage).not.toMatch(/ten minutes/);
       // Both causes named: a 403 is also the user's permissions.
       expect(error.userMessage).toMatch(/c_aicaconfiguration scope/);
