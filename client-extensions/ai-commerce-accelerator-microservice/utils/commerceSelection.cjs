@@ -39,6 +39,14 @@
  * cannot misdirect the dataset the way a stale `channelId` or `catalogId`
  * can. It is dropped and reported rather than refusing the whole run - see
  * resolveChannelIdList below, and #704.
+ *
+ * An empty catalog list is the one empty list not taken at its word. Every
+ * commerce instance has a Master catalog, and the list endpoint is served from
+ * the search index, which a full reindex empties and rebuilds. A delete starts
+ * one and returns before it ends, so an import straight after it read no
+ * catalogs, carried on, and every product batch failed in Liferay with
+ * NoSuchCatalogException (#1490). The catalog list is read again for a while
+ * before it is believed, and a write that still finds none is refused.
  */
 
 const {
@@ -54,6 +62,12 @@ const UNCHECKED = 'unchecked';
 
 const CATALOG_LABEL = 'Catalog';
 const CHANNEL_LABEL = 'Channel';
+
+// About 15s in all, which covers the 9s company reindexes seen after a delete
+// in the node E2E (#1490).
+const EMPTY_CATALOG_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function isUsableId(value) {
   const id = Number(value);
@@ -146,6 +160,15 @@ function describeCommerceSelection({
       };
 
     case UNAVAILABLE:
+      // A product cannot be written without a catalog, so a write refuses
+      // here rather than queueing batches that can only fail (#1490).
+      if (writes && label === CATALOG_LABEL) {
+        return {
+          level: 'error',
+          message: `No ${subject} was requested and the ${subject} list is empty. Refusing the run rather than writing products with no ${subject}. Every commerce instance has a Master ${subject}, so an empty list usually means the search index is being rebuilt, for example after a delete - wait a moment and try again.`,
+        };
+      }
+
       return {
         level: 'warn',
         message: `No ${subject} was requested and this instance has no ${subject} to fall back to.`,
@@ -229,6 +252,35 @@ async function confirmById({ id, load }) {
   }
 }
 
+/**
+ * Reads the list again while it comes back empty, for lists that cannot
+ * really be empty. Only an empty list is retried: an unreadable one already
+ * has its own handling, and a non-empty one is an answer.
+ */
+async function loadListRetryingEmpty({
+  label,
+  load,
+  logContext,
+  logger,
+  retryDelaysMs = [],
+}) {
+  let read = await loadListOrFailure({ label, load, logger, logContext });
+
+  for (const delayMs of retryDelaysMs) {
+    if (!Array.isArray(read.items) || read.items.length > 0) break;
+
+    logger?.info?.(
+      `The ${label.toLowerCase()} list came back empty. Reading it again in ${delayMs}ms in case the search index is being rebuilt.`,
+      logContext
+    );
+
+    await sleep(delayMs);
+    read = await loadListOrFailure({ label, load, logger, logContext });
+  }
+
+  return read;
+}
+
 async function resolveSelection({
   label,
   loadById,
@@ -236,13 +288,15 @@ async function resolveSelection({
   logContext,
   logger,
   requestedId,
+  retryEmptyDelaysMs = [],
   writes = false,
 }) {
-  const { failure, items } = await loadListOrFailure({
+  const { failure, items } = await loadListRetryingEmpty({
     label,
     load: loadList,
     logger,
     logContext,
+    retryDelaysMs: retryEmptyDelaysMs,
   });
   let result = classifyCommerceSelection({ items, requestedId });
 
@@ -381,6 +435,7 @@ function applyCommerceSelection({ catalog, channel, config, logs }) {
 async function resolveRunCommerceSelection({
   config,
   correlationId,
+  emptyCatalogRetryDelaysMs = EMPTY_CATALOG_RETRY_DELAYS_MS,
   liferayService,
   logger,
   operation,
@@ -409,6 +464,7 @@ async function resolveRunCommerceSelection({
       logContext,
       logger,
       requestedId: config?.catalogId,
+      retryEmptyDelaysMs: emptyCatalogRetryDelaysMs,
       writes,
     }),
   ]);
@@ -425,8 +481,14 @@ async function resolveRunCommerceSelection({
   // had landed (#889).
   const blocking = writes ? [STALE, UNCHECKED] : [STALE];
 
+  // An empty catalog list blocks a write as well - see describeCommerceSelection
+  // and #1490. A channel list can really be empty, so it does not.
+  const blocks = ({ label, outcome }) =>
+    blocking.includes(outcome) ||
+    (writes && label === CATALOG_LABEL && outcome === UNAVAILABLE);
+
   const rejections = [channel, catalog]
-    .filter(({ outcome }) => blocking.includes(outcome))
+    .filter(blocks)
     .map(({ message }) => message);
 
   if (rejections.length === 0) {
@@ -482,6 +544,7 @@ module.exports = {
   CATALOG_LABEL,
   CHANNEL_LABEL,
   DEFAULTED,
+  EMPTY_CATALOG_RETRY_DELAYS_MS,
   STALE,
   UNAVAILABLE,
   UNCHECKED,
