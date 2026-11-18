@@ -84,7 +84,7 @@ feature.flag.LPD-35443=true
     -e LIFERAY_DEFAULT_PERIOD_ADMIN_PERIOD_PASSWORD=test \
     -e LIFERAY_FEATURE_PERIOD_FLAG_PERIOD__UPPERCASEL__UPPERCASEP__UPPERCASED__MINUS__35443=true \
     -v "$(pwd)/bundles/osgi/client-extensions:/opt/liferay/osgi/client-extensions" \
-    liferay/dxp:2026.q1.12-lts
+    liferay/dxp:2026.q4.0
   ```
 
 ---
@@ -133,7 +133,22 @@ survived `q1.7-lts` to `q1.12-lts` by luck and then failed outright: between
 | `com.liferay.portal.kernel.service` | `[52.0,53.0)`  | `54.1.0`     |
 | `com.liferay.portal.kernel.util`    | `[96.0,97.0)`  | `100.0.0`    |
 
-and every consumed bundle failed to resolve on a Q3.0 portal. Two lessons are
+and every consumed bundle failed to resolve on a Q3.0 portal. It happened
+again between `2026.Q3.0` and `2026.Q4.0` (#1484):
+
+| package                                         | declared range  | Q4.0 exports |
+| ----------------------------------------------- | --------------- | ------------ |
+| `com.liferay.portal.kernel.model`               | `[51.0,52.0)`   | `52.2.0`     |
+| `com.liferay.portal.kernel.security.permission` | `[13.0,14.0)`   | `15.0.0`     |
+| `com.liferay.portal.kernel.service`             | `[54.1,55.0)`   | `56.0.0`     |
+| `com.liferay.portal.kernel.settings`            | `[6.1,7.0)`     | `7.0.0`      |
+| `com.liferay.portal.kernel.util`                | `[100.0,101.0)` | `106.0.0`    |
+
+`v3.7.0` of the shared modules is built for Q4.0 and floors every range at
+Q4.0's exports, so it does not resolve on Q3.0. A workspace still on Q3.0 stays
+on `v3.6.1` or earlier. Moving lines means moving `liferay.workspace.product`,
+`aica.shared.osgi.release` and `aica.shared.osgi.dxp.line` together, along with
+`RELEASE` and `EXPECTED_DXP_LINE` in `lcp-scripts/deploy.sh`. Two lessons are
 worth carrying:
 
 - **The ranges are hardcoded** in each module's `bnd.bnd` upstream. Retargeting
@@ -486,4 +501,4 @@ _(Or in DXP: **Control Panel -> Search -> Index Actions -> Reindex All**)._
 
 ---
 
-_Last Reviewed: 2026-09-18_
+_Last Reviewed: 2026-11-18_
