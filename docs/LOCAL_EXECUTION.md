@@ -148,8 +148,11 @@ again between `2026.Q3.0` and `2026.Q4.0` (#1484):
 Q4.0's exports, so it does not resolve on Q3.0. A workspace still on Q3.0 stays
 on `v3.6.1` or earlier. Moving lines means moving `liferay.workspace.product`,
 `aica.shared.osgi.release` and `aica.shared.osgi.dxp.line` together, along with
-`RELEASE` and `EXPECTED_DXP_LINE` in `lcp-scripts/deploy.sh`. Two lessons are
-worth carrying:
+`RELEASE` and `EXPECTED_DXP_LINE` in `lcp-scripts/deploy.sh`. On Liferay Cloud,
+move the environment's Liferay image first: `deploy.sh` reads the line the
+image runs from `portal-impl.jar` and stages no modules on a mismatch, logging
+an `ERROR` in `lcp log -s liferay` while the boot carries on (#1486). Two
+lessons are worth carrying:
 
 - **The ranges are hardcoded** in each module's `bnd.bnd` upstream. Retargeting
   a build does not recompute them; they have to be edited, so "rebuild against

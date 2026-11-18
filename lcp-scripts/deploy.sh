@@ -38,8 +38,46 @@
 
 	echo "[deploy.sh] Release $RELEASE from $REPO (expecting $EXPECTED_DXP_LINE)"
 
+	# The manifest check further down proves a bundle was built for
+	# EXPECTED_DXP_LINE. It says nothing about the line this image runs: both
+	# values live in this repo and move together, so a deploy.sh bumped ahead of
+	# the environment's Liferay image passes it and stages bundles that cannot
+	# resolve. portal-impl.jar's manifest is the same ground truth build.gradle
+	# reads for a local bundle. See #1486.
+	PORTAL_IMPL_JAR=${PORTAL_IMPL_JAR:-/opt/liferay/tomcat/webapps/ROOT/WEB-INF/shielded-container-lib/portal-impl.jar}
+
+	# "dxp-2026.q4.0" and "2026.Q4.0" describe one line in two spellings; compare
+	# them as build.gradle does, with the prefix, punctuation and case removed.
+	normalise_line() {
+		printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/^dxp-//' | tr -cd 'a-z0-9.'
+	}
+
+	portal_line=
+	if [ -f "$PORTAL_IMPL_JAR" ] && command -v unzip >/dev/null 2>&1; then
+		portal_line=$(unzip -p "$PORTAL_IMPL_JAR" META-INF/MANIFEST.MF 2>/dev/null |
+			sed -n 's/^Liferay-Portal-Version-Display-Name: *//p' | tr -d '\r')
+	fi
+
+	# Unreadable means unknown, not wrong: carry on as before rather than take
+	# the modules away from an environment that may well be on the right line.
+	portal_mismatch=
+	if [ -z "$portal_line" ]; then
+		echo "[deploy.sh] WARNING: cannot read the portal's DXP line from $PORTAL_IMPL_JAR"
+		echo "[deploy.sh]          - staging without checking it against $EXPECTED_DXP_LINE"
+	elif [ "$(normalise_line "$portal_line")" != "$(normalise_line "$EXPECTED_DXP_LINE")" ]; then
+		portal_mismatch=1
+	else
+		echo "[deploy.sh] Portal runs $portal_line"
+	fi
+
 	manifest=$TMPDIR/modules.json
-	if ! curl --fail --location --silent --show-error --output "$manifest" "$BASE/modules.json"; then
+	if [ -n "$portal_mismatch" ]; then
+		# Refused for the same reason as a bundle built for another line below:
+		# staged, it would 404 with only the boot log to say why.
+		echo "[deploy.sh] ERROR: this portal runs $portal_line, but $RELEASE is pinned for"
+		echo "[deploy.sh]        $EXPECTED_DXP_LINE. No modules deployed. Move the Liferay image"
+		echo "[deploy.sh]        to $EXPECTED_DXP_LINE, or pin RELEASE and EXPECTED_DXP_LINE back."
+	elif ! curl --fail --location --silent --show-error --output "$manifest" "$BASE/modules.json"; then
 		echo "[deploy.sh] ERROR: cannot fetch modules.json for $RELEASE - no modules deployed"
 	else
 		# One line per bundle object, so a single record can be grepped out.
