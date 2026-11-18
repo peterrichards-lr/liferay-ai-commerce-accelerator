@@ -149,7 +149,7 @@ means the package is thinner than its source; per-product detail is in
 To provide maximum flexibility and cost optimization, the microservice supports independent AI drivers for different content types.
 
 1.  **Independent Keys**: Text generation (Products, Accounts, Orders) and Media generation (Images, PDFs) can be configured with separate API keys and providers.
-2.  **Nano Banana Support**: Dedicated provider for specialized image generation.
+2.  **Image capability is per adapter**: only OpenAI's adapter returns an image (`gpt-image-2`). Gemini's throws and Nano Banana's returned a placeholder string, so neither is offered as a media provider (#642, #1481).
 3.  **Intelligent Fallback**: Media tasks will automatically fall back to the Core AI provider if no dedicated media key is provided, ensuring seamless operation for single-provider setups.
 4.  **Provider Factory**: All AI interactions must go through `providerFactory.cjs` to ensure consistent error handling and model normalization.
 
@@ -157,12 +157,12 @@ To provide maximum flexibility and cost optimization, the microservice supports 
 
 | Provider         | Core data (products, accounts, orders) | Media (images)       |
 | :--------------- | :------------------------------------- | :------------------- |
-| OpenAI           | ✅                                     | ✅ DALL·E            |
-| Google Gemini    | ✅                                     | ✅                   |
+| OpenAI           | ✅                                     | ✅ `gpt-image-2`     |
+| Google Gemini    | ✅                                     | ❌ **not supported** |
 | Anthropic Claude | ✅                                     | ❌ **not supported** |
-| Nano Banana      | —                                      | ✅                   |
+| Nano Banana      | —                                      | ❌ **not supported** |
 
-Claude generates data only. The "intelligent fallback" above — media inheriting the core provider when no dedicated media key is set — therefore cannot work when the core provider is Claude, because there is nothing to fall back to.
+Claude and Gemini generate data only. The "intelligent fallback" above — media inheriting the core provider when no dedicated media key is set — therefore cannot work when the core provider is Claude or Gemini, because there is nothing to fall back to.
 
 That combination is checked in three places, all sharing one message so the fix reads identically wherever it is met:
 
@@ -174,7 +174,9 @@ The other image modes — `placeholder`, `picsum`, `default`, `custom`, and `ai`
 
 The logic lives in `utils/providerCapabilities.cjs` and its counterpart in the configuration client extension, deliberately parallel so the wording cannot drift between the UI and a failed run.
 
----## Demo mode and the generation contract
+---
+
+## Demo mode and the generation contract
 
 Demo mode exists so a run costs nothing, on the understanding that it proves the same pipeline live mode uses. That only holds if the mock stands in for the same thing the model does, so the contract is fixed rather than a matter of taste.
 
@@ -240,4 +242,4 @@ Identifier for correlating user-visible errors and server logs.
 
 ---
 
-_Last Reviewed: 2026-09-11_
+_Last Reviewed: 2026-11-17_
