@@ -111,8 +111,9 @@ LDM will boot the database, Liferay, and the Microservice. Once booted, the Site
 > LPD-111409), so no restart is needed
 > ([#1387](https://github.com/peterrichards-lr/liferay-ai-commerce-accelerator/issues/1387)).
 >
-> The release package currently boots **2026.Q3.0**, so `ldm quickstart aica`
-> still needs the restart until a package is built on 2026.Q4.0.
+> The release package boots **2026.Q4.0** from v3.3.61, so `ldm quickstart aica`
+> needs no restart. The restart applies to an earlier package, or to AICA
+> deployed on an older DXP.
 
 The release package ships the client extensions, OSGi modules, and site initializer — **not** a database dump. AICA installs against vanilla DXP and every component creates what it needs on setup, so the package stays around 4.5 MB rather than 1 GB and never carries stale pre-seeded data. Populate the catalog yourself once the stack is up, which takes about two minutes:
 
