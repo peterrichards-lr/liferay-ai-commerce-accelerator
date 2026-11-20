@@ -61,6 +61,35 @@ const TOPUP_ATTEMPTS_MAX = 10;
 function topUpBudget(chunkCount) {
   return Math.min(TOPUP_ATTEMPTS_MAX, Math.max(TOPUP_ATTEMPTS, chunkCount));
 }
+
+// How many products and how many accounts one order prompt lists. The bound
+// keeps the prompt small; it is not a limit on who can be a customer.
+const ORDER_PROMPT_LIST_SIZE = 10;
+
+/**
+ * The products or accounts one order chunk offers the model.
+ *
+ * Every chunk used to be handed the full lists and take the first 10 of each,
+ * so in a run with 50 accounts and 100 products the model could only ever
+ * choose 10 customers and order 10 products (#1474). Each chunk now takes the
+ * next ORDER_PROMPT_LIST_SIZE, wrapping round, so successive chunks cover the
+ * run while each prompt stays the same size. Deterministic, so a retried chunk
+ * is offered what it was offered the first time.
+ */
+function orderPromptWindow(items, chunkIndex, size = ORDER_PROMPT_LIST_SIZE) {
+  const list = Array.isArray(items) ? items : [];
+
+  if (list.length <= size) {
+    return list;
+  }
+
+  const start = (chunkIndex * size) % list.length;
+
+  return Array.from(
+    { length: size },
+    (_, offset) => list[(start + offset) % list.length]
+  );
+}
 const { resolveMediaProvider } = require('../utils/providerCapabilities.cjs');
 const { ENV, ERC_PREFIX } = require('../utils/constants.cjs');
 const { estimateTokens } = require('../utils/tokenEstimator.cjs');
@@ -1503,8 +1532,8 @@ class AIService {
               () =>
                 this._withChunkRetry(runtime, chunkMeta, () =>
                   this.generateOrderData(
-                    products,
-                    accounts,
+                    orderPromptWindow(products, i),
+                    orderPromptWindow(accounts, i),
                     chunkCount,
                     requestConfig,
                     model,
@@ -1543,14 +1572,14 @@ class AIService {
           name: p.name?.en_US || p.name,
           sku: p.sku,
         }))
-        .slice(0, 10);
+        .slice(0, ORDER_PROMPT_LIST_SIZE);
 
       const accountList = accounts
         .map((a) => ({
           name: a.name,
           id: a.id,
         }))
-        .slice(0, 10);
+        .slice(0, ORDER_PROMPT_LIST_SIZE);
 
       const vars = {
         brandName: options.brandName || '',
@@ -2044,4 +2073,4 @@ class AIService {
   }
 }
 
-module.exports = { AIService, topUpBudget };
+module.exports = { AIService, orderPromptWindow, topUpBudget };
