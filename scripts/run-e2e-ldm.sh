@@ -485,6 +485,16 @@ node_build_headroom_kb() {
         df -P / 2>/dev/null | awk "$NODE_DF_AVAILABLE_AWK"
 }
 
+# Unused images and build cache only, straight through the docker routed to the
+# node. Not `ldm system prune --images`: on LDM v2.26.14 its orphan sweep runs
+# whatever the flags, and under -y removes every container and search snapshot
+# whose project is not in THIS runner's registry - on a shared node, everyone
+# else's. `image prune -a` keeps any image a container uses, running or
+# stopped. See #1500, LDM-#2459.
+prune_node_images() {
+    docker image prune -af && docker builder prune -af
+}
+
 assert_node_build_headroom() {
     [ -n "${LDM_NODE_TARGET:-}" ] && [ "$LDM_NODE_TARGET" != "local" ] || return 0
 
@@ -507,13 +517,13 @@ assert_node_build_headroom() {
     # Nothing else frees space on the node, so every run's image build moves
     # it one way until the floor stops the nightly: 5GB on 22 October, 4GB on
     # the next run. Inside the warning zone, prune once - unused images and
-    # build cache through LDM, which never removes database volumes
-    # unattended - then decide on what is measured afterwards. Once per run:
-    # a prune that frees nothing must not loop. See #1376.
+    # build cache, nothing that holds data - then decide on what is measured
+    # afterwards. Once per run: a prune that frees nothing must not loop. See
+    # #1376, #1500.
     if [ "$free_kb" -lt $((min_kb * 2)) ] && [ -z "${NODE_HEADROOM_PRUNED:-}" ]; then
         NODE_HEADROOM_PRUNED=1
         echo "🧹 Node '${LDM_NODE_TARGET}' has ${free_gb}GB free, under twice the ${NODE_MIN_BUILD_HEADROOM_GB}GB floor. Pruning unused images and build cache before the build. See #1376."
-        if ! ldm_cmd system prune -y --images; then
+        if ! prune_node_images; then
             echo "::warning::Pruning '${LDM_NODE_TARGET}' failed. Deciding on the space measured next, not on the prune's exit status. See #1376."
         fi
         assert_node_build_headroom
@@ -524,7 +534,8 @@ assert_node_build_headroom() {
         echo "::error::The target node '${LDM_NODE_TARGET}' has ${free_gb}GB free where the image build needs ${NODE_MIN_BUILD_HEADROOM_GB}GB. The build would fail inside BuildKit at 'RUN yarn install' with its output swallowed, which is what every nightly from 4 October did. Failing here instead, because the reason is legible here and is not legible there. See #1278."
         echo "    What is holding the space:"
         docker system df 2>&1 | sed 's/^/      /' || true
-        echo "    Pruning did not free enough. To look further:  ldm system prune --node ${LDM_NODE_TARGET} --all"
+        echo "    Pruning did not free enough. To look further, with docker pointed at the node:  docker system df -v"
+        echo "    Not 'ldm system prune --node ${LDM_NODE_TARGET}': it removes other projects' containers there (#1500, LDM-#2459)."
         return 1
     fi
 
