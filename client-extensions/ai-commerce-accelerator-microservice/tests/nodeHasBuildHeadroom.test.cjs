@@ -105,8 +105,15 @@ function runGate({
       '    exit 0',
       '  fi',
       'done',
-      // After `ldm_cmd system prune`, the disk reads as `dfAfterPrune` - the
-      // prune having freed what it frees - or unchanged if none is given.
+      // `docker image prune` / `docker builder prune`: recording the
+      // arguments is what lets a test count prunes and see the flags.
+      'if [ "$2" = "prune" ]; then',
+      '  echo "DOCKER-PRUNE: $*"',
+      `  touch '${pruned}'`,
+      `  exit ${pruneFails ? 1 : 0}`,
+      'fi',
+      // After a prune, the disk reads as `dfAfterPrune` - the prune having
+      // freed what it frees - or unchanged if none is given.
       `if [ -f '${pruned}' ]; then`,
       reading(dfAfterPrune === undefined ? dfOutput : dfAfterPrune),
       'fi',
@@ -132,11 +139,8 @@ function runGate({
       [
         '-c',
         [
-          // The real ldm_cmd appends --node; recording the arguments it was
-          // given is what lets a test count prunes and see the flags.
-          `ldm_cmd() { echo "LDM-CMD: $*"; touch '${pruned}'; ${
-            pruneFails ? 'return 1' : 'return 0'
-          }; }`,
+          // Only recorded: the gate must not reach LDM at all (#1500).
+          'ldm_cmd() { echo "LDM-CMD: $*"; }',
           headroomSource(),
           'assert_node_build_headroom',
         ].join('\n'),
@@ -208,13 +212,14 @@ describe('the node is measured before it is asked to build (#1278)', () => {
   // a nightly that stopped at this gate. See #1376.
   describe('pruning before it refuses (#1376)', () => {
     const prunes = (out) =>
-      (out.stdout.match(/LDM-CMD: system prune/g) || []).length;
+      (out.stdout.match(/DOCKER-PRUNE: image prune/g) || []).length;
 
     it('prunes a node under the floor, and continues once there is room', () => {
       const out = runGate({ dfOutput: FULL_DISK, dfAfterPrune: HEALTHY_DISK });
 
       expect(prunes(out)).toBe(1);
-      expect(out.stdout).toMatch(/LDM-CMD: system prune -y --images/);
+      expect(out.stdout).toMatch(/DOCKER-PRUNE: image prune -af/);
+      expect(out.stdout).toMatch(/DOCKER-PRUNE: builder prune -af/);
       expect(out.status).toBe(0);
       expect(out.stdout).toMatch(/23GB free for the build/);
       expect(out.stdout).not.toMatch(/::error::/);
@@ -251,6 +256,19 @@ describe('the node is measured before it is asked to build (#1278)', () => {
 
       const stuck = runGate({ dfOutput: FULL_DISK, pruneFails: true });
       expect(stuck.status).not.toBe(0);
+    });
+
+    // LDM v2.26.14's `system prune` sweeps every container and search
+    // snapshot whose project is not in this runner's registry, whatever the
+    // flags - on a shared node, everyone else's. See #1500, LDM-#2459.
+    it('never asks LDM to prune', () => {
+      const out = runGate({ dfOutput: FULL_DISK, dfAfterPrune: HEALTHY_DISK });
+
+      expect(prunes(out)).toBe(1);
+      expect(out.stdout).not.toMatch(/LDM-CMD/);
+      expect(withoutHashComments(headroomSource())).not.toMatch(
+        /ldm_cmd[^\n]*prune/
+      );
     });
 
     it('does not prune an unmeasurable node, or a local one', () => {
