@@ -528,6 +528,100 @@ describe('AIService (Multi-Provider)', () => {
   });
 });
 
+// Every order chunk was handed the full lists and took the first 10 of each,
+// so the model could only ever choose 10 customers and order 10 products,
+// however large the run. See #1474.
+describe('AIService order chunk windows (#1474)', () => {
+  const { AIService, orderPromptWindow } = require('../services/aiService.cjs');
+
+  const makeAccounts = (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: 101 + i,
+      name: `Account ${i}`,
+    }));
+  const makeProducts = (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: i + 1,
+      name: `Product ${i}`,
+      sku: `SKU-${i}`,
+    }));
+  const ids = (list) => list.map((item) => item.id);
+
+  it('gives successive chunks successive windows', () => {
+    const accounts = makeAccounts(30);
+
+    expect(ids(orderPromptWindow(accounts, 0))).toEqual(
+      ids(accounts.slice(0, 10))
+    );
+    expect(ids(orderPromptWindow(accounts, 1))).toEqual(
+      ids(accounts.slice(10, 20))
+    );
+    expect(ids(orderPromptWindow(accounts, 2))).toEqual(
+      ids(accounts.slice(20, 30))
+    );
+  });
+
+  it('wraps round when the list does not divide evenly', () => {
+    const accounts = makeAccounts(25);
+
+    expect(ids(orderPromptWindow(accounts, 2))).toEqual([
+      ...ids(accounts.slice(20, 25)),
+      ...ids(accounts.slice(0, 5)),
+    ]);
+  });
+
+  it('offers a short list whole, to every chunk', () => {
+    const accounts = makeAccounts(4);
+
+    expect(orderPromptWindow(accounts, 0)).toEqual(accounts);
+    expect(orderPromptWindow(accounts, 3)).toEqual(accounts);
+    expect(orderPromptWindow(undefined, 0)).toEqual([]);
+  });
+
+  it('gives the same window for the same chunk', () => {
+    const accounts = makeAccounts(30);
+
+    expect(orderPromptWindow(accounts, 1)).toEqual(
+      orderPromptWindow(accounts, 1)
+    );
+  });
+
+  it('offers every account and product across a chunked run, ten per prompt', async () => {
+    const render = vi.fn().mockResolvedValue('rendered prompt');
+    const service = new AIService({
+      logger: { info: vi.fn(), debug: vi.fn(), error: vi.fn(), trace: vi.fn() },
+      prompt: { render },
+    });
+    service.getRuntimeAIConfig = vi
+      .fn()
+      .mockResolvedValue({ chunkSizes: { order: 10 } });
+    service._chatJson = vi.fn().mockResolvedValue([]);
+
+    await service.generateOrderData(
+      makeProducts(30),
+      makeAccounts(30),
+      30,
+      {},
+      'gpt-test',
+      ['en-US']
+    );
+
+    const offered = render.mock.calls.map(([, vars]) => vars);
+    expect(offered).toHaveLength(3);
+    offered.forEach((vars) => {
+      expect(vars.accountListJSON.length).toBeLessThanOrEqual(10);
+      expect(vars.productListJSON.length).toBeLessThanOrEqual(10);
+    });
+    expect(
+      new Set(offered.flatMap((vars) => ids(vars.accountListJSON))).size
+    ).toBe(30);
+    expect(
+      new Set(offered.flatMap((vars) => vars.productListJSON.map((p) => p.sku)))
+        .size
+    ).toBe(30);
+  });
+});
+
 describe('AIService pricing chunking', () => {
   const { AIService } = require('../services/aiService.cjs');
 
