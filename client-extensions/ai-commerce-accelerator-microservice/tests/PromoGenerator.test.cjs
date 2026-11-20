@@ -1,4 +1,7 @@
-const { PromoGenerator } = require('../generators/PromoGenerator.cjs');
+const {
+  PromoGenerator,
+  assignSegmentMembers,
+} = require('../generators/PromoGenerator.cjs');
 const MockDataGenerator = require('../generators/mockDataGenerator.cjs');
 const PersistenceService = require('../services/persistenceService.cjs');
 const { GenerationFacade } = require('../services/generationFacade.cjs');
@@ -598,6 +601,137 @@ describe('PromoGenerator', () => {
         'first',
         'second',
       ]);
+    });
+  });
+
+  // Every segment took accounts.slice(0, 2), so every segment held the same
+  // two customers and every promotion priced for the same pair. See #1473.
+  describe('segment membership (#1473)', () => {
+    const accounts = ['A', 'B', 'C', 'D', 'E', 'F'].map((letter) => ({
+      name: `Account ${letter}`,
+      externalReferenceCode: `ACC-${letter}`,
+    }));
+    const segments = ['Frequent', 'Volume', 'New'].map((name) => ({
+      name,
+      externalReferenceCode: `SEG-${name.toUpperCase()}`,
+    }));
+    const ercs = (membership) =>
+      membership.map(({ members }) =>
+        members.map((acc) => acc.externalReferenceCode)
+      );
+
+    it('gives each segment different, non-empty members', () => {
+      const membership = ercs(assignSegmentMembers(segments, accounts));
+
+      expect(membership).toEqual([
+        ['ACC-A', 'ACC-B'],
+        ['ACC-C', 'ACC-D'],
+        ['ACC-E', 'ACC-F'],
+      ]);
+    });
+
+    it('keeps each segment with its own members', () => {
+      expect(
+        assignSegmentMembers(segments, accounts).map(({ segment }) => segment)
+      ).toEqual(segments);
+    });
+
+    it('gives the same membership for the same inputs', () => {
+      expect(ercs(assignSegmentMembers(segments, accounts))).toEqual(
+        ercs(assignSegmentMembers(segments, accounts))
+      );
+    });
+
+    it('wraps round rather than leaving a segment empty', () => {
+      const membership = ercs(
+        assignSegmentMembers(segments, accounts.slice(0, 3))
+      );
+
+      expect(membership).toEqual([
+        ['ACC-A', 'ACC-B'],
+        ['ACC-C', 'ACC-A'],
+        ['ACC-B', 'ACC-C'],
+      ]);
+    });
+
+    it('puts a single account in every segment', () => {
+      expect(
+        ercs(assignSegmentMembers(segments, accounts.slice(0, 1)))
+      ).toEqual([['ACC-A'], ['ACC-A'], ['ACC-A']]);
+    });
+
+    it('skips accounts with no ERC, and assigns nobody when none have one', () => {
+      const withoutErc = [{ name: 'No ERC' }, ...accounts.slice(0, 2)];
+
+      expect(
+        ercs(assignSegmentMembers(segments.slice(0, 1), withoutErc))
+      ).toEqual([['ACC-A', 'ACC-B']]);
+      expect(
+        ercs(assignSegmentMembers(segments, [{ name: 'No ERC' }]))
+      ).toEqual([[], [], []]);
+      expect(ercs(assignSegmentMembers(segments, undefined))).toEqual([
+        [],
+        [],
+        [],
+      ]);
+    });
+
+    async function seedSegments(sessionId) {
+      await persistence.createSession({
+        sessionId,
+        flowType: 'generate',
+        status: 'STARTED',
+        currentSteps: [],
+        context: {
+          config: { siteGroupId: 123 },
+          accountDataList: accounts,
+          userSegmentsDataList: segments,
+        },
+      });
+    }
+
+    it('assigns each segment its own accounts in Liferay', async () => {
+      const sessionId = 'session-segment-members';
+      await seedSegments(sessionId);
+
+      await generator._runCreateUserSegmentsStep(sessionId);
+
+      const calls = mockCtx.liferay.assignAccountToGroup.mock.calls.map(
+        ([, group, account]) => `${group}<-${account}`
+      );
+      expect(calls).toEqual([
+        'SEG-FREQUENT<-ACC-A',
+        'SEG-FREQUENT<-ACC-B',
+        'SEG-VOLUME<-ACC-C',
+        'SEG-VOLUME<-ACC-D',
+        'SEG-NEW<-ACC-E',
+        'SEG-NEW<-ACC-F',
+      ]);
+    });
+
+    it('treats an account already in the group as assigned on a re-run', async () => {
+      const sessionId = 'session-segment-rerun';
+      await seedSegments(sessionId);
+      mockCtx.liferay.assignAccountToGroup.mockRejectedValue(
+        Object.assign(new Error('conflict'), { status: 409 })
+      );
+
+      await expect(
+        generator._runCreateUserSegmentsStep(sessionId)
+      ).resolves.not.toThrow();
+      expect(mockCtx.liferay.assignAccountToGroup).toHaveBeenCalledTimes(6);
+    });
+
+    it('still fails on any other assignment error', async () => {
+      const sessionId = 'session-segment-forbidden';
+      await seedSegments(sessionId);
+      mockCtx.liferay.assignAccountToGroup.mockRejectedValue(
+        Object.assign(new Error('forbidden'), { status: 403 })
+      );
+
+      await expect(
+        generator._runCreateUserSegmentsStep(sessionId)
+      ).rejects.toThrow('forbidden');
     });
   });
 });

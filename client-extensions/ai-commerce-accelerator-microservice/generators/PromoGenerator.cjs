@@ -4,6 +4,39 @@ const { ERC_PREFIX, WORKFLOW_STEPS } = require('../utils/constants.cjs');
 
 const S = WORKFLOW_STEPS;
 
+// Enough to make a segment visibly populated in a demo without one segment
+// claiming the whole run.
+const MEMBERS_PER_SEGMENT = 2;
+
+/**
+ * Which of the run's accounts join each segment, as `{ segment, members }`.
+ *
+ * Each segment takes the next MEMBERS_PER_SEGMENT accounts, wrapping round the
+ * list, so with enough accounts no two segments share members, and with fewer
+ * they overlap rather than go empty. Every segment used to take
+ * `accounts.slice(0, 2)`, so they all held the same two customers and every
+ * promotion priced for the same pair (#1473).
+ *
+ * Deterministic: the same segments and accounts give the same membership, so a
+ * re-run assigns what the first run did. The accounts are the run's own, which
+ * the account step already generated for the channel's account types.
+ */
+function assignSegmentMembers(segments, accounts) {
+  const members = (accounts || []).filter((acc) => acc?.externalReferenceCode);
+  const perSegment = Math.min(MEMBERS_PER_SEGMENT, members.length);
+
+  return (segments || []).map((segment, index) => ({
+    segment,
+    members: Array.from(
+      { length: perSegment },
+      (_, offset) => members[(index * perSegment + offset) % members.length]
+    ),
+  }));
+}
+
+const isConflict = (error) =>
+  error?.status === 409 || error?.response?.status === 409;
+
 class PromoGenerator extends BaseGenerator {
   constructor(ctx) {
     super(ctx);
@@ -194,7 +227,10 @@ class PromoGenerator extends BaseGenerator {
         { sessionId }
       );
 
-      for (const seg of userSegmentsDataList) {
+      for (const { segment: seg, members } of assignSegmentMembers(
+        userSegmentsDataList,
+        accountDataList
+      )) {
         this.logger.debug(
           `Creating Account Group: ${seg.name} (${seg.externalReferenceCode})`,
           { sessionId }
@@ -217,26 +253,33 @@ class PromoGenerator extends BaseGenerator {
           );
         }
 
-        // 2. Associate accounts with this group to qualify them
-        if (accountDataList && accountDataList.length > 0) {
-          // Assign 1-2 accounts to this group to make the segment populated
-          const targetAccounts = accountDataList.slice(0, 2);
-          for (const acc of targetAccounts) {
-            if (acc.externalReferenceCode) {
-              this.logger.debug(
-                `Assigning Account ${acc.name} to Group ${seg.name}`,
-                { sessionId }
-              );
-              await this._runWithRetry(
-                () =>
-                  this.liferay.assignAccountToGroup(
-                    config,
-                    seg.externalReferenceCode,
-                    acc.externalReferenceCode
-                  ),
-                `assign-account-to-group:${acc.name}`
-              );
+        // 2. Associate this segment's accounts with the group to qualify them
+        for (const acc of members) {
+          this.logger.debug(
+            `Assigning Account ${acc.name} to Group ${seg.name}`,
+            { sessionId }
+          );
+          try {
+            await this._runWithRetry(
+              () =>
+                this.liferay.assignAccountToGroup(
+                  config,
+                  seg.externalReferenceCode,
+                  acc.externalReferenceCode
+                ),
+              `assign-account-to-group:${acc.name}`
+            );
+          } catch (error) {
+            // A re-run with no delete in between finds the group and assigns
+            // the same members again. Already a member is the outcome this
+            // step wants, as with the price-list link in #1455.
+            if (!isConflict(error)) {
+              throw error;
             }
+            this.logger.debug(
+              `Account ${acc.name} is already in Group ${seg.name}`,
+              { sessionId }
+            );
           }
         }
       }
@@ -360,7 +403,7 @@ class PromoGenerator extends BaseGenerator {
             // list and the segment. Liferay answers 409 "The account group
             // relation already exists", which is the outcome this step wants,
             // and failing on it ended the whole session (#1455).
-            if (error.status !== 409 && error.response?.status !== 409) {
+            if (!isConflict(error)) {
               throw error;
             }
             this.logger.debug(
@@ -480,4 +523,4 @@ class PromoGenerator extends BaseGenerator {
   }
 }
 
-module.exports = { PromoGenerator };
+module.exports = { PromoGenerator, assignSegmentMembers };
