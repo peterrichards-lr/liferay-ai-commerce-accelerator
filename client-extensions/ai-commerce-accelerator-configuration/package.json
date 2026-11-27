@@ -18,15 +18,15 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/jest-dom": "^8.0.0",
     "@testing-library/react": "^16.3.3",
-    "@testing-library/user-event": "^14.6.12",
+    "@testing-library/user-event": "^14.6.13",
     "@testing-library/dom": "^10.4.2",
     "@types/codemirror": "^5.60.15",
     "@types/prop-types": "^15.7.15",
     "@vitejs/plugin-react": "6.3.0",
     "@clayui/css": "^3.167.0",
-    "baseline-browser-mapping": "^2.11.38",
+    "baseline-browser-mapping": "^2.11.39",
     "esbuild": "^0.28.2",
     "eslint": "10.15.0",
     "eslint-plugin-react": "^7.37.5",
@@ -35,7 +35,7 @@
     "jsdom": "^31.0.1",
     "prettier": "^3.10.1",
     "vite": "8.3.8",
-    "vitest": "5.1.0"
+    "vitest": "5.1.1"
   },
   "name": "@liferay/liferay-ai-commerce-accelerator-configuration",
   "private": true,
